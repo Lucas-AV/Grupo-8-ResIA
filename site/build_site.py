@@ -23,6 +23,45 @@ ANALYSES = [
         "description": "Popularidade e caracteristicas de audio por genero musical.",
         "href": "genero.html",
     },
+    {
+        "id": "modo",
+        "title": "Escala por Genero",
+        "description": "Proporcao de faixas em escala maior vs. menor, por genero.",
+        "href": "modo.html",
+    },
+    {
+        "id": "popularidade",
+        "title": "Popularidade x Catalogo do Artista",
+        "description": "Popularidade media da faixa conforme o numero de faixas do artista na base.",
+        "href": "popularidade.html",
+    },
+]
+
+STATIC_ANALYSES = [
+    {
+        "href": "modo.html",
+        "eyebrow": "Dataset Spotify · agrupado por track_genre e mode",
+        "heading": "Escala (mode) por genero",
+        "description": (
+            "Proporcao de faixas em escala maior (mode 1) e menor (mode 0) para "
+            "cada genero, calculada por groupby(\"track_genre\")[\"mode\"].mean() "
+            "a partir de dataset.csv."
+        ),
+        "png": ROOT / "genre_mode.png",
+        "image_alt": "Grafico de barras empilhadas: proporcao de escala maior e menor por genero",
+    },
+    {
+        "href": "popularidade.html",
+        "eyebrow": "Dataset Spotify · agrupado por artists",
+        "heading": "Popularidade media x ocorrencias do artista",
+        "description": (
+            "Artistas agrupados por quantidade de faixas na base (1, 2, 3, 4-5, "
+            "..., 21+) e a popularidade media das faixas em cada faixa de "
+            "ocorrencia."
+        ),
+        "png": ROOT / "popularity_occurrences.png",
+        "image_alt": "Grafico de barras: popularidade media por faixa de quantidade de ocorrencias do artista",
+    },
 ]
 
 
@@ -68,8 +107,21 @@ def build() -> None:
     )
     (DIST_DIR / "genero.html").write_text(genero_html, encoding="utf-8")
 
+    for analysis in STATIC_ANALYSES:
+        html = env.get_template("analise.html").render(
+            title=analysis["heading"],
+            eyebrow=analysis["eyebrow"],
+            heading=analysis["heading"],
+            description=analysis["description"],
+            image=analysis["png"].name,
+            image_alt=analysis["image_alt"],
+            caption=analysis["png"].name,
+        )
+        (DIST_DIR / analysis["href"]).write_text(html, encoding="utf-8")
+
     shutil.copytree(STATIC_DIR, DIST_DIR / "static")
-    for png in GENRE_PNGS:
+    all_pngs = GENRE_PNGS + [analysis["png"] for analysis in STATIC_ANALYSES]
+    for png in all_pngs:
         shutil.copy(png, DIST_DIR / png.name)
 
     print(f"Site gerado em {DIST_DIR}")

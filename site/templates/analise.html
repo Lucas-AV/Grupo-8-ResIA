@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page">
+  <header>
+    <p class="eyebrow">{{ eyebrow }}</p>
+    <h1>{{ heading }}</h1>
+    <p>{{ description }}</p>
+  </header>
+  <section>
+    <figure class="analysis-figure">
+      <img src="{{ image }}" alt="{{ image_alt }}" loading="lazy">
+      <figcaption>{{ caption }}</figcaption>
+    </figure>
+  </section>
+</div>
+{% endblock %}

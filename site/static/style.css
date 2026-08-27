@@ -279,6 +279,18 @@ svg text { font-family: "Source Sans 3", sans-serif; }
 
 .export-grid figcaption { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
 
+.analysis-figure { margin: 0; }
+
+.analysis-figure img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.analysis-figure figcaption { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
+
 table {
   width: 100%;
   border-collapse: collapse;

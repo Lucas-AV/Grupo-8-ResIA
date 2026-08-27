@@ -4,6 +4,10 @@ Agrupa artistas por quantidade de ocorrencias (faixas) na tabela e mostra
 a popularidade media de cada faixa de ocorrencia.
 """
 
+import matplotlib
+
+matplotlib.use("Agg")  # headless: no display in CI, and no window needed locally
+
 import matplotlib.pyplot as plt
 import pandas as pd
 

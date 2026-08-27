@@ -3,6 +3,10 @@
 mode 1 = escala maior (alta); mode 0 = escala menor (baixa).
 """
 
+import matplotlib
+
+matplotlib.use("Agg")  # headless: no display in CI, and no window needed locally
+
 import matplotlib.pyplot as plt
 import pandas as pd
 

@@ -25,6 +25,8 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python group_occurrences.py
       - run: python plot_genre_charts.py
+      - run: python plot_genre_mode.py
+      - run: python plot_popularity_occurrences.py
       - run: python site/build_site.py
       - uses: actions/upload-pages-artifact@v3
         with:
