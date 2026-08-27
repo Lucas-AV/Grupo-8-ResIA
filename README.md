@@ -102,6 +102,8 @@ chart_style.py                 # estilo/cores compartilhados entre os scripts de
 plot_genre_charts.py           # gera genre_popularity.png e genre_energy_dance.png
 plot_genre_mode.py             # gera genre_mode.png (proporção de escala maior/menor)
 plot_popularity_occurrences.py # gera popularity_occurrences.png (popularidade x nº de faixas do artista)
+profile_dataset.py             # gera dataset_profile.json e distribuições de faixas por artista/álbum
+plot_correlations.py           # gera correlation_heatmap.png e correlations_top_pairs.csv
 site/                          # build do dashboard (build_site.py, templates/, static/)
 tests/                         # testes automatizados (pytest)
 conftest.py                    # config do pytest (path do projeto)
@@ -121,6 +123,12 @@ requirements.txt               # dependências Python
   (89%); maior predominância de escala menor: *deep-house* (54%).
 - **`popularity_occurrences.png`** — relação entre popularidade média e
   quantidade de faixas do artista na base (proxy de volume de catálogo).
+- **`dataset_profile.json` / `artist_track_distribution.png` /
+  `album_track_distribution.png`** — visão geral do dataset: contagem de
+  faixas, artistas, álbuns e gêneros, faixas duplicadas entre gêneros, e
+  distribuição de faixas por artista/álbum.
+- **`correlation_heatmap.png`** — correlação de Pearson entre popularidade,
+  duração e as 9 features de áudio contínuas.
 
 ## Bibliotecas
 
@@ -140,6 +148,8 @@ python group_occurrences.py           # gera os CSVs agregados
 python plot_genre_charts.py           # gera genre_popularity.png e genre_energy_dance.png
 python plot_genre_mode.py             # gera genre_mode.png
 python plot_popularity_occurrences.py # gera popularity_occurrences.png
+python profile_dataset.py             # gera dataset_profile.json e distribuicoes por artista/album
+python plot_correlations.py           # gera correlation_heatmap.png e correlations_top_pairs.csv
 python site/build_site.py             # gera o site em site/dist/ (abrir site/dist/index.html)
 ```
 
@@ -148,7 +158,7 @@ Testes: `pytest`
 ## Roadmap
 
 - [x] Análise exploratória por gênero (popularidade, energia, dançabilidade, escala)
-- [ ] Site GitHub Pages com dashboard interativo das análises (build pronto em `site/`, deploy publicado ainda com link quebrado)
+- [x] Site GitHub Pages com dashboard interativo das análises publicado em https://lucas-av.github.io/Grupo-8-ResIA/
 - [ ] Modelagem do agente de recomendação (conteúdo/colaborativo/híbrido)
 - [ ] Avaliação com dataset complementar de interação/avaliação de usuários
 
