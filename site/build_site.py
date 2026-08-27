@@ -16,6 +16,14 @@ DIST_DIR = SITE_DIR / "dist"
 GENRE_CSV = ROOT / "occurrences_by_genre.csv"
 GENRE_PNGS = [ROOT / "genre_popularity.png", ROOT / "genre_energy_dance.png"]
 
+PROFILE_JSON = ROOT / "dataset_profile.json"
+MULTI_GENRE_CSV = ROOT / "dataset_multi_genre_tracks.csv"
+ARTIST_DIST_PNG = ROOT / "artist_track_distribution.png"
+ALBUM_DIST_PNG = ROOT / "album_track_distribution.png"
+
+CORRELATIONS_CSV = ROOT / "correlations_top_pairs.csv"
+CORRELATION_HEATMAP_PNG = ROOT / "correlation_heatmap.png"
+
 ANALYSES = [
     {
         "id": "genero",
@@ -34,6 +42,18 @@ ANALYSES = [
         "title": "Popularidade x Catalogo do Artista",
         "description": "Popularidade media da faixa conforme o numero de faixas do artista na base.",
         "href": "popularidade.html",
+    },
+    {
+        "id": "visao-geral",
+        "title": "Visao Geral do Dataset",
+        "description": "Estatisticas gerais, duplicatas e distribuicao de faixas por artista/album.",
+        "href": "visao-geral.html",
+    },
+    {
+        "id": "correlacoes",
+        "title": "Correlacoes",
+        "description": "Correlacao entre popularidade, duracao e features de audio.",
+        "href": "correlacoes.html",
     },
 ]
 
@@ -98,6 +118,33 @@ def rows_to_embeddable_json(rows: list[dict]) -> str:
     return json.dumps(rows, ensure_ascii=False).replace("</", "<\\/")
 
 
+def load_profile_tiles(profile_path: Path) -> list[dict]:
+    """Turn dataset_profile.json into the tile list visao-geral.html renders."""
+    with open(profile_path, encoding="utf-8") as f:
+        profile = json.load(f)
+    total_nulls = sum(profile["null_counts"].values())
+    return [
+        {"label": "Faixas na base", "value": f"{profile['total_tracks']:,}".replace(",", ".")},
+        {
+            "label": "Faixas unicas",
+            "value": f"{profile['unique_track_ids']:,}".replace(",", "."),
+            "sub": f"{profile['duplicate_rows']} linhas duplicadas (mesma faixa em outro genero)",
+        },
+        {"label": "Artistas", "value": f"{profile['unique_artists']:,}".replace(",", ".")},
+        {"label": "Albuns", "value": f"{profile['unique_albums']:,}".replace(",", ".")},
+        {"label": "Generos", "value": str(profile["unique_genres"])},
+        {"label": "Valores nulos", "value": str(total_nulls)},
+    ]
+
+
+def load_table_rows(csv_path: Path, columns: list[str], round_cols: dict[str, int] | None = None) -> list[list]:
+    """Read a CSV into the row-of-lists shape analise.html's table block needs."""
+    df = pd.read_csv(csv_path)
+    for col, digits in (round_cols or {}).items():
+        df[col] = df[col].round(digits)
+    return df[columns].values.tolist()
+
+
 def build() -> None:
     if DIST_DIR.exists():
         shutil.rmtree(DIST_DIR)
@@ -128,10 +175,68 @@ def build() -> None:
         )
         (DIST_DIR / analysis["href"]).write_text(html, encoding="utf-8")
 
+    visao_geral_html = env.get_template("analise.html").render(
+        title="Visao Geral do Dataset",
+        eyebrow="Dataset Spotify · visao geral",
+        heading="Visao Geral do Dataset",
+        description=(
+            "31819 linhas no dataset bruto, mas nem toda linha e uma faixa "
+            "distinta: a mesma musica pode aparecer sob mais de um genero. "
+            "Numeros calculados diretamente de dataset.csv."
+        ),
+        tiles=load_profile_tiles(PROFILE_JSON),
+        figures=[
+            {
+                "image": ARTIST_DIST_PNG.name,
+                "alt": "Grafico de barras: quantidade de artistas por faixa de numero de musicas na base",
+                "caption": ARTIST_DIST_PNG.name,
+            },
+            {
+                "image": ALBUM_DIST_PNG.name,
+                "alt": "Grafico de barras: quantidade de albuns por faixa de numero de musicas na base",
+                "caption": ALBUM_DIST_PNG.name,
+            },
+        ],
+        table={
+            "title": "Faixas presentes em mais generos",
+            "headers": ["Faixa", "Artista", "Generos distintos"],
+            "rows": load_table_rows(MULTI_GENRE_CSV, ["track_name", "artists", "genre_count"]),
+        },
+    )
+    (DIST_DIR / "visao-geral.html").write_text(visao_geral_html, encoding="utf-8")
+
+    correlacoes_html = env.get_template("analise.html").render(
+        title="Correlacoes",
+        eyebrow="Dataset Spotify · correlacao entre variaveis numericas",
+        heading="Correlacoes entre popularidade, duracao e audio",
+        description=(
+            "Correlacao de Pearson entre popularidade, duracao e as 9 features "
+            "de audio continuas do dataset (key, mode e time_signature ficam "
+            "de fora por nao serem continuas)."
+        ),
+        figures=[
+            {
+                "image": CORRELATION_HEATMAP_PNG.name,
+                "alt": "Heatmap de correlacao entre popularidade, duracao e features de audio",
+                "caption": CORRELATION_HEATMAP_PNG.name,
+            },
+        ],
+        table={
+            "title": "Pares mais correlacionados",
+            "headers": ["Variavel A", "Variavel B", "Correlacao"],
+            "rows": load_table_rows(
+                CORRELATIONS_CSV, ["column_a", "column_b", "correlation"], round_cols={"correlation": 3}
+            ),
+        },
+    )
+    (DIST_DIR / "correlacoes.html").write_text(correlacoes_html, encoding="utf-8")
+
     shutil.copytree(STATIC_DIR, DIST_DIR / "static")
-    all_pngs = GENRE_PNGS + [
-        fig["path"] for analysis in STATIC_ANALYSES for fig in analysis["figures"]
-    ]
+    all_pngs = (
+        GENRE_PNGS
+        + [fig["path"] for analysis in STATIC_ANALYSES for fig in analysis["figures"]]
+        + [ARTIST_DIST_PNG, ALBUM_DIST_PNG, CORRELATION_HEATMAP_PNG]
+    )
     for png in all_pngs:
         shutil.copy(png, DIST_DIR / png.name)
 
