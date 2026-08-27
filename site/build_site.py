@@ -47,8 +47,12 @@ STATIC_ANALYSES = [
             "cada genero, calculada por groupby(\"track_genre\")[\"mode\"].mean() "
             "a partir de dataset.csv."
         ),
-        "png": ROOT / "genre_mode.png",
-        "image_alt": "Grafico de barras empilhadas: proporcao de escala maior e menor por genero",
+        "figures": [
+            {
+                "path": ROOT / "genre_mode.png",
+                "alt": "Grafico de barras empilhadas: proporcao de escala maior e menor por genero",
+            }
+        ],
     },
     {
         "href": "popularidade.html",
@@ -59,8 +63,12 @@ STATIC_ANALYSES = [
             "..., 21+) e a popularidade media das faixas em cada faixa de "
             "ocorrencia."
         ),
-        "png": ROOT / "popularity_occurrences.png",
-        "image_alt": "Grafico de barras: popularidade media por faixa de quantidade de ocorrencias do artista",
+        "figures": [
+            {
+                "path": ROOT / "popularity_occurrences.png",
+                "alt": "Grafico de barras: popularidade media por faixa de quantidade de ocorrencias do artista",
+            }
+        ],
     },
 ]
 
@@ -113,14 +121,17 @@ def build() -> None:
             eyebrow=analysis["eyebrow"],
             heading=analysis["heading"],
             description=analysis["description"],
-            image=analysis["png"].name,
-            image_alt=analysis["image_alt"],
-            caption=analysis["png"].name,
+            figures=[
+                {"image": fig["path"].name, "alt": fig["alt"], "caption": fig["path"].name}
+                for fig in analysis["figures"]
+            ],
         )
         (DIST_DIR / analysis["href"]).write_text(html, encoding="utf-8")
 
     shutil.copytree(STATIC_DIR, DIST_DIR / "static")
-    all_pngs = GENRE_PNGS + [analysis["png"] for analysis in STATIC_ANALYSES]
+    all_pngs = GENRE_PNGS + [
+        fig["path"] for analysis in STATIC_ANALYSES for fig in analysis["figures"]
+    ]
     for png in all_pngs:
         shutil.copy(png, DIST_DIR / png.name)
 
