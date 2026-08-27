@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block content %}
+<header class="hub-header">
+  <p class="eyebrow">Dataset Spotify &middot; groupby</p>
+  <h1>Analises</h1>
+  <p>Exploracoes do dataset de faixas do Spotify, geradas automaticamente pelos
+    scripts deste repositorio a cada atualizacao.</p>
+</header>
+<div class="card-grid">
+  {% for analysis in analyses %}
+  <a class="card" href="{{ analysis.href }}">
+    <h2>{{ analysis.title }}</h2>
+    <p>{{ analysis.description }}</p>
+  </a>
+  {% endfor %}
+</div>
+{% endblock %}

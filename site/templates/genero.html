@@ -1,0 +1,221 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page">
+
+  <header>
+    <p class="eyebrow">Dataset Spotify &middot; agrupado por track_genre</p>
+    <h1>Perfil Sonoro dos Generos</h1>
+    <p>33 generos, cada um com 1.000 faixas na amostra (exceto <em>electro</em>,
+      com 819). Os graficos abaixo cruzam popularidade media e caracteristicas
+      de audio calculadas por <code>groupby(track_genre)</code> a partir de
+      <code>dataset.csv</code>.</p>
+  </header>
+
+  <div class="tiles" id="tiles"></div>
+
+  <section>
+    <h2>Popularidade media por genero</h2>
+    <p class="section-sub">Faixas ordenadas do genero mais popular ao menos popular (escala 0&ndash;100).</p>
+    <div class="chart-wrap" id="barWrap">
+      <svg id="barChart" width="100%"></svg>
+      <div class="tooltip" id="barTooltip"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Energia &times; Dancabilidade</h2>
+    <p class="section-sub">Cada ponto e um genero. Canto superior direito = alta energia e alta dancabilidade.</p>
+    <div class="chart-wrap" id="scatterWrap">
+      <svg id="scatterChart" width="100%" viewBox="0 0 640 460"></svg>
+      <div class="tooltip" id="scatterTooltip"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Exportar</h2>
+    <p class="section-sub">Versoes estaticas (PNG) dos mesmos dados, geradas por <code>plot_genre_charts.py</code>.</p>
+    <div class="export-grid">
+      <figure>
+        <img src="genre_popularity.png" alt="Grafico de barras: popularidade media por genero" loading="lazy">
+        <figcaption>genre_popularity.png</figcaption>
+      </figure>
+      <figure>
+        <img src="genre_energy_dance.png" alt="Grafico de dispersao: energia por dancabilidade, um ponto por genero" loading="lazy">
+        <figcaption>genre_energy_dance.png</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Tabela completa</h2>
+    <p class="section-sub">Clique no cabecalho para ordenar por qualquer coluna.</p>
+    <div class="table-wrap">
+      <table id="dataTable">
+        <thead><tr id="tableHead"></tr></thead>
+        <tbody id="tableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  const data = {{ rows_json | safe }};
+
+  const fmt1 = v => v.toFixed(1);
+  const fmt2 = v => v.toFixed(2);
+
+  const totalTracks = data.reduce((s, d) => s + d.n, 0);
+  const mostPopular = [...data].sort((a, b) => b.pop - a.pop)[0];
+  const mostEnergetic = [...data].sort((a, b) => b.energy - a.energy)[0];
+
+  document.getElementById("tiles").innerHTML = `
+    <div class="tile"><div class="tile-label">Generos analisados</div><div class="tile-value">${data.length}</div></div>
+    <div class="tile"><div class="tile-label">Faixas no dataset</div><div class="tile-value">${totalTracks.toLocaleString("pt-BR")}</div></div>
+    <div class="tile"><div class="tile-label">Mais popular</div><div class="tile-value" style="font-size:20px">${mostPopular.g}</div><div class="tile-sub">popularidade ${fmt1(mostPopular.pop)}</div></div>
+    <div class="tile"><div class="tile-label">Mais energetico</div><div class="tile-value" style="font-size:20px">${mostEnergetic.g}</div><div class="tile-sub">energia ${fmt2(mostEnergetic.energy)}</div></div>
+  `;
+
+  (function renderBars() {
+    const sorted = [...data].sort((a, b) => b.pop - a.pop);
+    const rowH = 20, gap = 4, labelW = 128, valueW = 46, topPad = 8, chartMax = 60;
+    const plotW = 560;
+    const width = labelW + plotW + valueW;
+    const height = topPad + sorted.length * (rowH + gap) + 26;
+
+    const svg = document.getElementById("barChart");
+    svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+    const ticks = [0, 15, 30, 45, 60];
+    let gridSvg = ticks.map(t => {
+      const x = labelW + (t / chartMax) * plotW;
+      return `<line class="grid-line" x1="${x}" x2="${x}" y1="${topPad}" y2="${height - 22}"/>
+              <text class="axis-label" x="${x}" y="${height - 8}" text-anchor="middle">${t}</text>`;
+    }).join("");
+
+    let rows = sorted.map((d, i) => {
+      const y = topPad + i * (rowH + gap);
+      const barLen = (d.pop / chartMax) * plotW;
+      return `
+        <g class="bar-row" data-i="${i}">
+          <rect class="hit" x="0" y="${y - 2}" width="${width}" height="${rowH + gap}"></rect>
+          <text class="genre-label" x="${labelW - 10}" y="${y + rowH / 2 + 4}" text-anchor="end">${d.g}</text>
+          <rect class="bar" x="${labelW}" y="${y}" width="${Math.max(barLen, 3)}" height="${rowH - 4}" rx="4"></rect>
+          <text class="value-label" x="${labelW + barLen + 8}" y="${y + rowH / 2 + 4}">${fmt1(d.pop)}</text>
+        </g>`;
+    }).join("");
+
+    svg.innerHTML = `<line class="axis-line" x1="${labelW}" x2="${labelW}" y1="${topPad}" y2="${height - 22}"/>${gridSvg}${rows}`;
+
+    const tooltip = document.getElementById("barTooltip");
+    const wrap = document.getElementById("barWrap");
+    svg.querySelectorAll(".bar-row").forEach((row, i) => {
+      const d = sorted[i];
+      row.addEventListener("mousemove", (e) => {
+        const r = wrap.getBoundingClientRect();
+        tooltip.style.left = (e.clientX - r.left) + "px";
+        tooltip.style.top = (e.clientY - r.top) + "px";
+        tooltip.innerHTML = `<strong>${d.g}</strong>
+          <div class="row"><span>popularidade</span><span>${fmt1(d.pop)}</span></div>
+          <div class="row"><span>dancabilidade</span><span>${fmt2(d.dance)}</span></div>
+          <div class="row"><span>energia</span><span>${fmt2(d.energy)}</span></div>
+          <div class="row"><span>tempo</span><span>${fmt1(d.tempo)} bpm</span></div>
+          <div class="row"><span>valencia</span><span>${fmt2(d.valence)}</span></div>`;
+        tooltip.classList.add("show");
+      });
+      row.addEventListener("mouseleave", () => tooltip.classList.remove("show"));
+    });
+  })();
+
+  (function renderScatter() {
+    const svg = document.getElementById("scatterChart");
+    const pad = { l: 46, r: 20, t: 16, b: 40 };
+    const w = 640, h = 460;
+    const plotW = w - pad.l - pad.r, plotH = h - pad.t - pad.b;
+    const x = v => pad.l + v * plotW;
+    const y = v => pad.t + (1 - v) * plotH;
+
+    const ticks = [0, 0.25, 0.5, 0.75, 1];
+    let grid = ticks.map(t => `
+      <line class="grid-line" x1="${x(t)}" x2="${x(t)}" y1="${pad.t}" y2="${h - pad.b}"/>
+      <line class="grid-line" x1="${pad.l}" x2="${w - pad.r}" y1="${y(t)}" y2="${y(t)}"/>
+      <text class="axis-label" x="${x(t)}" y="${h - pad.b + 16}" text-anchor="middle">${t}</text>
+      <text class="axis-label" x="${pad.l - 8}" y="${y(t) + 3}" text-anchor="end">${t}</text>
+    `).join("");
+
+    const dots = data.map((d, i) => `
+      <circle class="dot" data-i="${i}" cx="${x(d.dance)}" cy="${y(d.energy)}" r="5"></circle>
+    `).join("");
+
+    svg.innerHTML = `
+      ${grid}
+      <text class="axis-label" x="${pad.l + plotW / 2}" y="${h - 6}" text-anchor="middle">dancabilidade &rarr;</text>
+      <text class="axis-label" x="${-(pad.t + plotH / 2)}" y="12" text-anchor="middle" transform="rotate(-90)">energia &rarr;</text>
+      ${dots}`;
+
+    const tooltip = document.getElementById("scatterTooltip");
+    const wrap = document.getElementById("scatterWrap");
+    svg.querySelectorAll(".dot").forEach((dot, i) => {
+      const d = data[i];
+      dot.addEventListener("mousemove", (e) => {
+        const r = wrap.getBoundingClientRect();
+        tooltip.style.left = (e.clientX - r.left) + "px";
+        tooltip.style.top = (e.clientY - r.top) + "px";
+        tooltip.innerHTML = `<strong>${d.g}</strong>
+          <div class="row"><span>dancabilidade</span><span>${fmt2(d.dance)}</span></div>
+          <div class="row"><span>energia</span><span>${fmt2(d.energy)}</span></div>
+          <div class="row"><span>popularidade</span><span>${fmt1(d.pop)}</span></div>`;
+        tooltip.classList.add("show");
+        dot.classList.add("active");
+      });
+      dot.addEventListener("mouseleave", () => {
+        tooltip.classList.remove("show");
+        dot.classList.remove("active");
+      });
+    });
+  })();
+
+  const columns = [
+    { key: "g", label: "Genero", fmt: v => v, align: "left" },
+    { key: "n", label: "Faixas", fmt: v => v.toLocaleString("pt-BR") },
+    { key: "pop", label: "Popularidade", fmt: fmt1 },
+    { key: "dance", label: "Dancabilidade", fmt: fmt2 },
+    { key: "energy", label: "Energia", fmt: fmt2 },
+    { key: "tempo", label: "Tempo (bpm)", fmt: fmt1 },
+    { key: "valence", label: "Valencia", fmt: fmt2 },
+    { key: "acoustic", label: "Acustica", fmt: fmt2 },
+  ];
+
+  let sortKey = "pop", sortAsc = false;
+
+  function renderTable() {
+    const head = document.getElementById("tableHead");
+    head.innerHTML = columns.map(c => `
+      <th class="${c.key === sortKey ? "sorted" : ""}" style="text-align:${c.align || "right"}">
+        <button data-key="${c.key}">${c.label}<span class="arrow">${sortKey === c.key ? (sortAsc ? "▲" : "▼") : "▼"}</span></button>
+      </th>`).join("");
+
+    head.querySelectorAll("button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const key = btn.dataset.key;
+        if (key === sortKey) { sortAsc = !sortAsc; } else { sortKey = key; sortAsc = key === "g"; }
+        renderTable();
+      });
+    });
+
+    const sorted = [...data].sort((a, b) => {
+      const av = a[sortKey], bv = b[sortKey];
+      const cmp = typeof av === "string" ? av.localeCompare(bv) : av - bv;
+      return sortAsc ? cmp : -cmp;
+    });
+
+    document.getElementById("tableBody").innerHTML = sorted.map(d => `
+      <tr>${columns.map(c => `<td style="text-align:${c.align || "right"}">${c.fmt(d[c.key])}</td>`).join("")}</tr>
+    `).join("");
+  }
+
+  renderTable();
+</script>
+{% endblock %}

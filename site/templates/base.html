@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ title }} &middot; Analises Grupo 8</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@600;700;800&family=Source+Sans+3:wght@400;500;600&family=IBM+Plex+Mono:wght@500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="static/style.css">
+</head>
+<body>
+<div class="site">
+  <nav class="site-nav">
+    <a class="site-nav-brand" href="index.html">Grupo 8 &middot; Analises</a>
+    <a class="site-nav-link" href="index.html">Analises</a>
+  </nav>
+  <main class="site-main">
+    {% block content %}{% endblock %}
+  </main>
+  <footer class="site-footer">
+    Gerado automaticamente a partir de <code>dataset.csv</code> &middot;
+    <a href="https://github.com/Lucas-AV/Grupo-8-ResIA">repositorio</a>
+  </footer>
+</div>
+{% block scripts %}{% endblock %}
+</body>
+</html>
