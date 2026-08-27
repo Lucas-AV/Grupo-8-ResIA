@@ -1,0 +1,9 @@
+{
+  "total_tracks": 31819,
+  "unique_track_ids": 28888,
+  "duplicate_rows": 2931,
+  "unique_artists": 10872,
+  "unique_albums": 15481,
+  "unique_genres": 32,
+  "null_counts": {}
+}

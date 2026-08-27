@@ -53,3 +53,55 @@ def top_multi_genre_tracks(df: pd.DataFrame, n: int = 15) -> pd.DataFrame:
     )
     multi = grouped[grouped["genre_count"] > 1]
     return multi.sort_values("genre_count", ascending=False, kind="stable").head(n).reset_index(drop=True)
+
+
+def plot_distribution(counts: pd.Series, title: str, ylabel: str, output_file: str) -> None:
+    fig, ax = plt.subplots(figsize=(8, 6), dpi=150)
+    ax.bar(counts.index.astype(str), counts.values, color=ACCENT, width=0.6)
+
+    max_value = max(counts.values.max(), 1)
+    for i, value in enumerate(counts.values):
+        ax.text(i, value + max_value * 0.015, str(int(value)), ha="center", fontsize=9, color=INK)
+
+    ax.set_xlabel("Faixas na base", color=INK_SECONDARY, fontsize=LABEL_SIZE)
+    ax.set_ylabel(ylabel, color=INK_SECONDARY, fontsize=LABEL_SIZE)
+    ax.set_title(title, color=INK, fontsize=TITLE_SIZE, fontweight="bold", pad=14)
+    ax.yaxis.grid(True, color=GRID, linewidth=0.8)
+    ax.set_axisbelow(True)
+    apply_style(ax)
+
+    fig.tight_layout()
+    fig.savefig(output_file, facecolor="white")
+    plt.close(fig)
+
+
+def main() -> None:
+    df = pd.read_csv(INPUT_FILE)
+
+    profile = compute_profile(df)
+    with open(PROFILE_FILE, "w", encoding="utf-8") as f:
+        json.dump(profile, f, ensure_ascii=False, indent=2)
+
+    artist_counts = df.groupby("artists").size()
+    plot_distribution(
+        bucket_counts(artist_counts),
+        "Artistas por quantidade de faixas na base",
+        "Quantidade de artistas",
+        ARTIST_OUTPUT_FILE,
+    )
+
+    album_counts = df.groupby("album_name").size()
+    plot_distribution(
+        bucket_counts(album_counts),
+        "Albuns por quantidade de faixas na base",
+        "Quantidade de albuns",
+        ALBUM_OUTPUT_FILE,
+    )
+
+    top_multi_genre_tracks(df).to_csv(MULTI_GENRE_FILE, index=False)
+
+    print(f"Gerado {PROFILE_FILE}, {ARTIST_OUTPUT_FILE}, {ALBUM_OUTPUT_FILE}, {MULTI_GENRE_FILE}.")
+
+
+if __name__ == "__main__":
+    main()
