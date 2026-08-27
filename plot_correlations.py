@@ -1,4 +1,4 @@
-"""Builds correlation_heatmap.png and correlations_top_pairs.csv from
+"""Gera correlation_heatmap.png e correlations_top_pairs.csv a partir de
 dataset.csv."""
 
 import matplotlib
@@ -34,7 +34,7 @@ def compute_correlation_matrix(df: pd.DataFrame, columns: list[str] = CORRELATIO
 
 
 def top_pairs(corr: pd.DataFrame, n: int = 10) -> pd.DataFrame:
-    """Largest-magnitude correlation pairs, self-pairs and symmetric duplicates removed."""
+    """Pares de maior correlacao (em modulo), sem auto-pares nem duplicatas simetricas."""
     columns = list(corr.columns)
     rows = [
         {"column_a": col_a, "column_b": col_b, "correlation": corr.loc[col_a, col_b]}

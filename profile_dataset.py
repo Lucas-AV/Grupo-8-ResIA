@@ -1,5 +1,5 @@
-"""Builds dataset_profile.json, distribution PNGs, and a multi-genre-track
-report from dataset.csv."""
+"""Gera dataset_profile.json, PNGs de distribuicao e um relatorio de faixas
+multi-genero a partir de dataset.csv."""
 
 import json
 
@@ -23,7 +23,7 @@ BUCKET_LABELS = ["1", "2", "3", "4-5", "6-10", "11-20", "21+"]
 
 
 def compute_profile(df: pd.DataFrame) -> dict:
-    """Dataset-wide summary: row/uniqueness counts and null counts per column."""
+    """Resumo geral do dataset: contagens de linhas/unicidade e nulos por coluna."""
     total_tracks = len(df)
     unique_track_ids = int(df["track_id"].nunique())
     null_counts = {col: int(n) for col, n in df.isna().sum().items() if n > 0}
@@ -39,13 +39,13 @@ def compute_profile(df: pd.DataFrame) -> dict:
 
 
 def bucket_counts(group_sizes: pd.Series) -> pd.Series:
-    """Bucket per-entity track counts into BUCKET_LABELS; counts entities per bucket."""
+    """Agrupa contagens de faixas por entidade em BUCKET_LABELS; conta entidades por faixa."""
     buckets = pd.cut(group_sizes, bins=BUCKET_EDGES, labels=BUCKET_LABELS)
     return buckets.value_counts().reindex(BUCKET_LABELS, fill_value=0)
 
 
 def top_multi_genre_tracks(df: pd.DataFrame, n: int = 15) -> pd.DataFrame:
-    """Tracks (by name+artist) that appear under more than one track_genre, most first."""
+    """Faixas (nome+artista) presentes em mais de um track_genre, mais frequentes primeiro."""
     grouped = (
         df.groupby(["track_name", "artists"])["track_genre"]
         .nunique()

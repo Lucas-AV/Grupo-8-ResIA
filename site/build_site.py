@@ -137,11 +137,9 @@ def load_profile_tiles(profile_path: Path) -> list[dict]:
     ]
 
 
-def load_table_rows(csv_path: Path, columns: list[str], round_cols: dict[str, int] | None = None) -> list[list]:
+def load_table_rows(csv_path: Path, columns: list[str]) -> list[list]:
     """Read a CSV into the row-of-lists shape analise.html's table block needs."""
     df = pd.read_csv(csv_path)
-    for col, digits in (round_cols or {}).items():
-        df[col] = df[col].round(digits)
     return df[columns].values.tolist()
 
 
@@ -175,14 +173,17 @@ def build() -> None:
         )
         (DIST_DIR / analysis["href"]).write_text(html, encoding="utf-8")
 
+    with open(PROFILE_JSON, encoding="utf-8") as f:
+        total_tracks_display = f"{json.load(f)['total_tracks']:,}".replace(",", ".")
+
     visao_geral_html = env.get_template("analise.html").render(
         title="Visao Geral do Dataset",
         eyebrow="Dataset Spotify · visao geral",
         heading="Visao Geral do Dataset",
         description=(
-            "31819 linhas no dataset bruto, mas nem toda linha e uma faixa "
-            "distinta: a mesma musica pode aparecer sob mais de um genero. "
-            "Numeros calculados diretamente de dataset.csv."
+            f"{total_tracks_display} linhas no dataset bruto, mas nem toda linha "
+            "e uma faixa distinta: a mesma musica pode aparecer sob mais de um "
+            "genero. Numeros calculados diretamente de dataset.csv."
         ),
         tiles=load_profile_tiles(PROFILE_JSON),
         figures=[
