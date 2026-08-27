@@ -52,4 +52,4 @@ def top_multi_genre_tracks(df: pd.DataFrame, n: int = 15) -> pd.DataFrame:
         .reset_index(name="genre_count")
     )
     multi = grouped[grouped["genre_count"] > 1]
-    return multi.sort_values("genre_count", ascending=False).head(n).reset_index(drop=True)
+    return multi.sort_values("genre_count", ascending=False, kind="stable").head(n).reset_index(drop=True)
