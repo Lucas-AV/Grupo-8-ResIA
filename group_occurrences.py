@@ -16,11 +16,21 @@ GENRE_OUTPUT_FILE = "occurrences_by_genre.csv"
 def build_occurrence_table(df: pd.DataFrame) -> pd.DataFrame:
     rows = []
     for column in df.columns:
-        counts = df[column].value_counts(dropna=False)
+        # Skip the index column from CSV
+        if column == "Unnamed: 0":
+            continue
+        counts = (
+            df[column]
+            .value_counts(dropna=False)
+            .sort_index()
+            .sort_values(ascending=False, kind="stable")
+        )
         for value, count in counts.items():
             rows.append({"coluna": column, "valor": value, "contagem": count})
     result = pd.DataFrame(rows)
-    return result.sort_values(["coluna", "contagem"], ascending=[True, False])
+    return result.sort_values(
+        ["coluna", "contagem"], ascending=[True, False], kind="stable"
+    )
 
 
 def build_genre_summary(df: pd.DataFrame) -> pd.DataFrame:
@@ -29,7 +39,7 @@ def build_genre_summary(df: pd.DataFrame) -> pd.DataFrame:
     )
     summary = df.groupby(GENRE_COLUMN)[numeric_columns].mean(numeric_only=True)
     summary.insert(0, "contagem", df.groupby(GENRE_COLUMN).size())
-    summary = summary.sort_values("contagem", ascending=False).reset_index()
+    summary = summary.sort_values("contagem", ascending=False, kind="stable").reset_index()
     return summary
 
 
