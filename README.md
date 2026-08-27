@@ -9,16 +9,26 @@ hoje concentra a etapa de análise exploratória de dados (EDA) que fundamenta o
 agente — entendimento de gêneros, popularidade e características de áudio das
 faixas — e evolui para as etapas de modelagem e recomendação.
 
+> **About (EN):** ResIA (Grupo 8) course project — a music/playlist
+> recommendation agent built from exploratory analysis of a Spotify tracks
+> dataset (genre, popularity, and audio features). Currently in the EDA
+> stage; recommendation modeling is next.
+
+**Quadro do Miro:** [Link do projeto](https://miro.com/app/board/uXjVHttBzWA=/)
+
 ## Sumário
 
-- [Equipe](#equipe)
-- [Base de dados](#base-de-dados)
-- [Estrutura do repositório](#estrutura-do-repositório)
-- [Análises disponíveis](#análises-disponíveis)
-- [Bibliotecas](#bibliotecas)
-- [Como reproduzir](#como-reproduzir)
-- [Roadmap](#roadmap)
-- [Licença](#licença)
+- [Grupo 8 — ResIA: Agente de Recomendação de Músicas](#grupo-8--resia-agente-de-recomendação-de-músicas)
+  - [Sumário](#sumário)
+  - [Equipe](#equipe)
+  - [Sugestões de nome do projeto](#sugestões-de-nome-do-projeto)
+  - [Base de dados](#base-de-dados)
+  - [Estrutura do repositório](#estrutura-do-repositório)
+  - [Análises disponíveis](#análises-disponíveis)
+  - [Bibliotecas](#bibliotecas)
+  - [Como reproduzir](#como-reproduzir)
+  - [Roadmap](#roadmap)
+  - [Licença](#licença)
 
 ## Equipe
 
@@ -51,6 +61,19 @@ faixas — e evolui para as etapas de modelagem e recomendação.
 </td>
 </tr>
 </table>
+
+## Sugestões de nome do projeto
+
+Candidatos para renomear o repositório (estilo: termo de música/áudio +
+sufixo tech como Sense/IA):
+
+- AudioSense
+- MelodIA
+- TuneSense
+- RitmIA
+- GrooveIA
+- HarmonIA
+- MoodSense
 
 ## Base de dados
 
@@ -89,11 +112,13 @@ requirements.txt               # dependências Python
 ## Análises disponíveis
 
 - **`genre_popularity.png`** — popularidade média por gênero, em barras
-  ranqueadas.
+  ranqueadas. Gênero mais popular: *chill* (53,7 de popularidade média).
 - **`genre_energy_dance.png`** — dispersão energia × dançabilidade, um ponto
-  por gênero.
+  por gênero. Mais energético: *death-metal* (0,93); menos energético:
+  *classical* (0,19); mais dançável: *chicago-house* (0,77).
 - **`genre_mode.png`** — proporção de faixas em escala maior (mode 1) vs.
-  menor (mode 0) por gênero.
+  menor (mode 0) por gênero. Maior predominância de escala maior: *country*
+  (89%); maior predominância de escala menor: *deep-house* (54%).
 - **`popularity_occurrences.png`** — relação entre popularidade média e
   quantidade de faixas do artista na base (proxy de volume de catálogo).
 
