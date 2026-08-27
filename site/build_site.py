@@ -224,9 +224,12 @@ def build() -> None:
         table={
             "title": "Pares mais correlacionados",
             "headers": ["Variavel A", "Variavel B", "Correlacao"],
-            "rows": load_table_rows(
-                CORRELATIONS_CSV, ["column_a", "column_b", "correlation"], round_cols={"correlation": 3}
-            ),
+            "rows": [
+                [col_a, col_b, f"{correlation:.3f}"]
+                for col_a, col_b, correlation in load_table_rows(
+                    CORRELATIONS_CSV, ["column_a", "column_b", "correlation"]
+                )
+            ],
         },
     )
     (DIST_DIR / "correlacoes.html").write_text(correlacoes_html, encoding="utf-8")
