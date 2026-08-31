@@ -139,14 +139,18 @@ em 2025: momentum superior à média global, no mercado de origem do time.
 lidera com 31,4%, mas quase 70% do mercado está dividido ou em plataformas
 que não abrem seu motor de recomendação a auditoria.
 
-**A solução.** LLM conduz a conversa via tool-calling sobre uma função
-determinística de recomendação por conteúdo (k-NN / similaridade de
-cosseno). O LLM nunca inventa faixa — só narra um resultado real. Fallback
-determinístico por palavra-chave garante a demo mesmo se a API cair.
+**A solução — em desenho.** O desenho técnico exato de como o agente vai
+funcionar ainda está sendo consolidado pelo time. Os princípios que já estão
+definidos, independente da arquitetura final: a recomendação sempre parte de
+uma faixa que existe de verdade no catálogo (nunca uma faixa inventada), e a
+experiência precisa continuar funcionando mesmo se algum serviço externo
+falhar no meio de uma demonstração.
 
-**Por que não é risco técnico alto.** O motor content-based não depende de
-matriz usuário-item que não existe no dataset — trabalha só com metadado e
-features de áudio que já estão nas 114 mil faixas reais.
+**Por que o risco técnico é controlável.** Qualquer que seja o desenho
+final, o motor de recomendação vai trabalhar em cima do que já existe nas
+114 mil faixas do catálogo (metadado e características de áudio) — não
+depende de um histórico de escuta de milhões de usuários que hoje não
+temos.
 
 **Vantagem ética como diferencial.** Compromisso de medir diversidade/
 cobertura sempre que popularidade for sinal de recomendação — resposta direta
