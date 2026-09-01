@@ -209,7 +209,12 @@ def build() -> None:
 
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
 
-    index_html = env.get_template("index.html").render(title="Analises", analyses=ANALYSES)
+    index_html = env.get_template("index.html").render(
+        title="Analises",
+        analyses=ANALYSES,
+        team=TEAM,
+        tiles=load_home_tiles(PROFILE_JSON),
+    )
     (DIST_DIR / "index.html").write_text(index_html, encoding="utf-8")
 
     rows = load_genre_rows(GENRE_CSV)
@@ -232,8 +237,7 @@ def build() -> None:
         )
         (DIST_DIR / analysis["href"]).write_text(html, encoding="utf-8")
 
-    with open(PROFILE_JSON, encoding="utf-8") as f:
-        total_tracks_display = f"{json.load(f)['total_tracks']:,}".replace(",", ".")
+    total_tracks_display = f"{load_dataset_profile(PROFILE_JSON)['total_tracks']:,}".replace(",", ".")
 
     visao_geral_html = env.get_template("analise.html").render(
         title="Visao Geral do Dataset",
