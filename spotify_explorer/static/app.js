@@ -215,10 +215,87 @@ function initRecommendationsForm() {
   });
 }
 
+async function loadUserStatus() {
+  const loggedOutEl = document.getElementById("me-logged-out");
+  const loggedInEl = document.getElementById("me-logged-in");
+  const profileEl = document.getElementById("me-profile");
+  const headerStatusEl = document.getElementById("user-status");
+
+  let response;
+  try {
+    response = await fetch("/api/me");
+  } catch (err) {
+    loggedOutEl.hidden = false;
+    loggedInEl.hidden = true;
+    headerStatusEl.textContent = "";
+    return;
+  }
+
+  if (!response.ok) {
+    loggedOutEl.hidden = false;
+    loggedInEl.hidden = true;
+    headerStatusEl.textContent = "";
+    return;
+  }
+
+  let profile;
+  try {
+    profile = await response.json();
+  } catch (err) {
+    loggedOutEl.hidden = false;
+    loggedInEl.hidden = true;
+    headerStatusEl.textContent = "";
+    return;
+  }
+
+  loggedOutEl.hidden = true;
+  loggedInEl.hidden = false;
+  profileEl.textContent = `Logado como: ${profile.display_name || profile.id}`;
+  headerStatusEl.textContent = profile.display_name || profile.id;
+}
+
+function initTopForm() {
+  const form = document.getElementById("top-form");
+  const resultEl = document.getElementById("top-result");
+  const statusEl = document.getElementById("top-status");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const target = event.submitter.dataset.target;
+    const timeRange = new FormData(form).get("time_range");
+    const path = target === "artists" ? "/api/me/top/artists" : "/api/me/top/tracks";
+    await callEndpoint(`${path}?time_range=${timeRange}`, {}, resultEl, statusEl);
+  });
+}
+
+function initSavedTracksButton() {
+  const button = document.getElementById("saved-tracks-button");
+  const resultEl = document.getElementById("saved-tracks-result");
+  const statusEl = document.getElementById("saved-tracks-status");
+
+  button.addEventListener("click", async () => {
+    await callEndpoint("/api/me/tracks", {}, resultEl, statusEl);
+  });
+}
+
+function initRecentlyPlayedButton() {
+  const button = document.getElementById("recently-played-button");
+  const resultEl = document.getElementById("recently-played-result");
+  const statusEl = document.getElementById("recently-played-status");
+
+  button.addEventListener("click", async () => {
+    await callEndpoint("/api/me/player/recently-played?limit=50", {}, resultEl, statusEl);
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
   initSearchForm();
   initTrackForm();
   initArtistForm();
   initRecommendationsForm();
+  initTopForm();
+  initSavedTracksButton();
+  initRecentlyPlayedButton();
+  loadUserStatus();
 });
