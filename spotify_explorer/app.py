@@ -166,6 +166,54 @@ def register_routes(app):
         body, status = spotify_client.call_api("/me", token)
         return jsonify(body), status
 
+    def _user_data_route(path, params=None):
+        try:
+            token = user_auth.get_valid_user_token(
+                app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_CLIENT_SECRET"]
+            )
+        except user_auth.NotLoggedInError as exc:
+            return jsonify({"error": str(exc)}), 401
+
+        body, status = spotify_client.call_api(path, token, params=params)
+        return jsonify(body), status
+
+    @app.route("/api/me/top/tracks")
+    def top_tracks():
+        return _user_data_route(
+            "/me/top/tracks",
+            params={
+                "time_range": request.args.get("time_range", "medium_term"),
+                "limit": request.args.get("limit", "20"),
+            },
+        )
+
+    @app.route("/api/me/top/artists")
+    def top_artists():
+        return _user_data_route(
+            "/me/top/artists",
+            params={
+                "time_range": request.args.get("time_range", "medium_term"),
+                "limit": request.args.get("limit", "20"),
+            },
+        )
+
+    @app.route("/api/me/tracks")
+    def saved_tracks():
+        return _user_data_route(
+            "/me/tracks",
+            params={
+                "limit": request.args.get("limit", "20"),
+                "offset": request.args.get("offset", "0"),
+            },
+        )
+
+    @app.route("/api/me/player/recently-played")
+    def recently_played():
+        return _user_data_route(
+            "/me/player/recently-played",
+            params={"limit": request.args.get("limit", "20")},
+        )
+
 
 if __name__ == "__main__":
     flask_app = create_app()

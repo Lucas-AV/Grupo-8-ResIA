@@ -85,3 +85,96 @@ def test_me_returns_profile_when_logged_in(client, monkeypatch):
 
     assert response.status_code == 200
     assert response.get_json() == {"display_name": "Test User"}
+
+
+def test_top_tracks_requires_login(client, monkeypatch):
+    def fake_get_valid_user_token(client_id, client_secret):
+        raise app_module.user_auth.NotLoggedInError("faça login primeiro em /login")
+
+    monkeypatch.setattr(app_module.user_auth, "get_valid_user_token", fake_get_valid_user_token)
+
+    response = client.get("/api/me/top/tracks")
+
+    assert response.status_code == 401
+
+
+def test_top_tracks_uses_time_range_and_limit(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/top/tracks"
+        assert params == {"time_range": "long_term", "limit": "5"}
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/top/tracks?time_range=long_term&limit=5")
+
+    assert response.status_code == 200
+
+
+def test_top_tracks_defaults_to_medium_term(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert params["time_range"] == "medium_term"
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/top/tracks")
+
+    assert response.status_code == 200
+
+
+def test_top_artists_uses_time_range(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/top/artists"
+        assert params["time_range"] == "short_term"
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/top/artists?time_range=short_term")
+
+    assert response.status_code == 200
+
+
+def test_saved_tracks_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/tracks"
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/tracks")
+
+    assert response.status_code == 200
+
+
+def test_recently_played_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/player/recently-played"
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/player/recently-played")
+
+    assert response.status_code == 200
