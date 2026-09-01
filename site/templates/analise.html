@@ -33,12 +33,20 @@
   {% for figure in figures %}
   <section>
     <figure class="analysis-figure">
-      <img src="{{ figure.image }}" alt="{{ figure.alt }}" loading="lazy">
+      <button type="button" class="figure-trigger" data-open-dialog="dialog-fig-{{ loop.index }}" aria-label="Ampliar grafico: {{ figure.caption }}">
+        <img src="{{ figure.image }}" alt="{{ figure.alt }}" loading="lazy">
+      </button>
       <figcaption>{{ figure.caption }}</figcaption>
     </figure>
     {% if figure.leitura %}
     <p class="figure-leitura"><span class="pitch-highlight">Leitura.</span> {{ figure.leitura }}</p>
     {% endif %}
+    <dialog class="figure-dialog" id="dialog-fig-{{ loop.index }}">
+      <button type="button" class="figure-dialog-close" data-close-dialog aria-label="Fechar">&times;</button>
+      <img src="{{ figure.image }}" alt="{{ figure.alt }}">
+      <h3>{{ figure.caption }}</h3>
+      {% if figure.leitura %}<p>{{ figure.leitura }}</p>{% endif %}
+    </dialog>
   </section>
   {% endfor %}
 
@@ -60,4 +68,24 @@
   </section>
   {% endif %}
 </div>
+{% endblock %}
+
+{% block scripts %}
+{% if figures %}
+<script>
+  document.querySelectorAll("[data-open-dialog]").forEach((trigger) => {
+    trigger.addEventListener("click", () => {
+      document.getElementById(trigger.dataset.openDialog).showModal();
+    });
+  });
+  document.querySelectorAll("[data-close-dialog]").forEach((btn) => {
+    btn.addEventListener("click", () => btn.closest("dialog").close());
+  });
+  document.querySelectorAll(".figure-dialog").forEach((dialog) => {
+    dialog.addEventListener("click", (e) => {
+      if (e.target === dialog) dialog.close();
+    });
+  });
+</script>
+{% endif %}
 {% endblock %}

@@ -307,6 +307,78 @@ svg text { font-family: "Source Sans 3", sans-serif; }
   line-height: 1.6;
 }
 
+.figure-trigger {
+  all: unset;
+  display: block;
+  width: 100%;
+  cursor: zoom-in;
+  border-radius: 8px;
+}
+
+.figure-trigger:focus-visible {
+  outline: 2px solid var(--accent-450);
+  outline-offset: 2px;
+}
+
+.figure-dialog {
+  position: relative;
+  max-width: min(920px, 92vw);
+  max-height: 88vh;
+  padding: 24px;
+  border: none;
+  border-radius: 14px;
+  background: var(--surface);
+  color: var(--ink);
+  overflow-y: auto;
+}
+
+.figure-dialog::backdrop {
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+}
+
+.figure-dialog img {
+  width: 100%;
+  height: auto;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  display: block;
+}
+
+.figure-dialog h3 {
+  margin: 16px 0 8px;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.figure-dialog p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 14.5px;
+  line-height: 1.65;
+}
+
+.figure-dialog-close {
+  all: unset;
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: var(--ink);
+  cursor: pointer;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.figure-dialog-close:hover { background: var(--row-hover); }
+
 table {
   width: 100%;
   border-collapse: collapse;

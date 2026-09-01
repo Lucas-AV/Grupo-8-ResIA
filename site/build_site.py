@@ -409,10 +409,14 @@ def build() -> None:
                 "alt": "Grafico de linhas: MAU e assinantes Premium do Spotify por trimestre",
                 "caption": "MAU e assinantes Premium por trimestre",
                 "leitura": (
-                    "As duas linhas sobem juntas e quase no mesmo ritmo — o Spotify "
-                    "nao esta so atraindo mais gente de graca: esta convertendo essas "
-                    "pessoas em assinante pagante na mesma proporcao. Bom sinal de "
-                    "saude do negocio."
+                    "As duas linhas sobem juntas e quase no mesmo ritmo: MAU passou "
+                    "de 675M para 777M (+15,1%) enquanto assinantes Premium foram de "
+                    "263M para 300M (+14,1%) nos mesmos 7 trimestres. O Spotify nao "
+                    "esta so atraindo mais gente de graca — esta convertendo essas "
+                    "pessoas em assinante pagante numa proporcao quase identica ao "
+                    "crescimento da base total. Bom sinal de saude do negocio: a taxa "
+                    "de conversao de usuario gratis pra pago nao esta caindo conforme "
+                    "a base cresce."
                 ),
             },
             {
@@ -420,10 +424,13 @@ def build() -> None:
                 "alt": "Grafico de linhas: receita total do Spotify por trimestre",
                 "caption": "Receita total por trimestre",
                 "leitura": (
-                    "A receita sobe de forma quase constante, sem quedas bruscas de "
-                    "um trimestre pro outro — tipico de negocio de assinatura, onde a "
-                    "receita ja “contratada” segura o resultado mesmo em "
-                    "trimestres mais fracos."
+                    "A receita sobe de forma quase constante trimestre a trimestre, "
+                    "de €4.242M (2024-Q4) ate €4.777M (2026-Q2) — sem quedas bruscas "
+                    "no meio do caminho. Tipico de negocio de assinatura: a receita "
+                    "ja “contratada” (assinantes que pagam todo mes, "
+                    "independente de quanto usam o app naquele mes) segura o "
+                    "resultado mesmo em trimestres sazonalmente mais fracos, "
+                    "diferente de um negocio que depende de compras pontuais."
                 ),
             },
             {
@@ -431,10 +438,13 @@ def build() -> None:
                 "alt": "Grafico de linhas: margem operacional do Spotify por trimestre",
                 "caption": "Margem operacional por trimestre",
                 "leitura": (
-                    "Margem operacional varia mais do que receita ou usuarios (entre "
-                    "9,7% e 15,8%) — pequenas mudancas em custo de licenciamento de "
-                    "musica ou marketing pontual pesam mais na margem do que no total "
-                    "de usuarios."
+                    "Margem operacional e quanto sobra de lucro depois das despesas "
+                    "do negocio, pra cada real que entra — e ela varia bem mais que "
+                    "receita ou usuarios: de um minimo de 9,7% ate um pico de 15,8% "
+                    "no periodo observado. Normal: pequenas mudancas em custo de "
+                    "licenciamento de musica ou em campanhas de marketing pontuais "
+                    "pesam proporcionalmente mais numa fatia fina (margem) do que em "
+                    "numeros grandes e mais estaveis (usuarios, receita)."
                 ),
             },
             {
@@ -442,10 +452,13 @@ def build() -> None:
                 "alt": "Grafico de barras: receita global de musica gravada, total vs. streaming",
                 "caption": "Receita global de musica gravada, total vs. streaming",
                 "leitura": (
-                    "A fatia de streaming ja e bem maior que o resto do mercado (CD, "
-                    "vinil, direitos de radio/TV etc. somados) — streaming deixou de "
-                    "ser “um jeito a mais” de ouvir musica e virou o motor "
-                    "principal da industria inteira."
+                    "A fatia de streaming (US$ 22,06bi) ja e bem maior que o resto do "
+                    "mercado de musica gravada somado (CD, vinil, downloads, direitos "
+                    "de radio/TV etc.) dentro do total de US$ 31,7bi em 2025. "
+                    "Streaming deixou de ser “um jeito a mais” de ouvir "
+                    "musica e virou o motor principal da industria inteira — o "
+                    "mercado global cresceu 6,4% em 2025, acelerando frente aos 4,7% "
+                    "de 2024."
                 ),
             },
             {
@@ -453,11 +466,14 @@ def build() -> None:
                 "alt": "Grafico de barras: crescimento de assinantes pagos de streaming no mundo",
                 "caption": "Crescimento de assinantes pagos no mundo",
                 "leitura": (
-                    "A linha continua subindo, mas os degraus entre um ano e outro "
-                    "estao ficando menores — o mercado esta amadurecendo. Crescer so "
-                    "“roubando” gente que ainda nao assina fica mais dificil; "
-                    "crescer fazendo quem ja assina usar mais e sair menos vira o "
-                    "jogo principal."
+                    "A linha continua subindo — de 509 milhoes em 2021 para 837 "
+                    "milhoes em 2025 — mas os degraus entre um ano e outro estao "
+                    "ficando menores: 94 milhoes de novos assinantes liquidos em "
+                    "2022 cairam para 73 milhoes em 2025. O mercado esta "
+                    "amadurecendo. Isso muda a estrategia: crescer so “roubando” "
+                    "gente que ainda nao assina nenhum servico fica mais dificil a "
+                    "cada ano; fazer quem ja assina usar mais e cancelar menos vira "
+                    "o jogo principal."
                 ),
             },
             {
@@ -465,11 +481,13 @@ def build() -> None:
                 "alt": "Grafico de barras: comparacao de crescimento do mercado fonografico, Brasil vs. global",
                 "caption": "Crescimento do mercado fonografico — Brasil vs. global (2025)",
                 "leitura": (
-                    "A barra do Brasil e mais que o dobro da barra do mundo. Pra quem "
-                    "esta construindo um produto pensando no publico brasileiro, isso "
-                    "e um bom sinal de timing: o mercado local nao esta so "
+                    "A barra do Brasil (+14,1% em 2025) e mais que o dobro da barra "
+                    "do mundo (+6,4%) — uma diferenca de 2,2 vezes. Pra quem esta "
+                    "construindo um produto pensando no publico brasileiro, isso e "
+                    "um bom sinal de timing: o mercado local nao esta so "
                     "“acompanhando” a tendencia global, esta crescendo mais "
-                    "rapido que ela."
+                    "rapido que ela, e isso ja se reflete no ranking IFPI, onde o "
+                    "Brasil subiu de #10 (2023) para #8 (2025) em dois anos."
                 ),
             },
             {
@@ -477,10 +495,15 @@ def build() -> None:
                 "alt": "Grafico de barras: participacao de mercado entre plataformas de streaming",
                 "caption": "Participacao de mercado entre plataformas",
                 "leitura": (
-                    "O Spotify lidera, mas nao tem maioria: as outras 4 categorias "
-                    "somadas dao quase 70% do mercado. Nao e um mercado de “um "
-                    "so dono” — e um mercado com um lider forte e bastante "
-                    "espaco dividido entre os demais."
+                    "O Spotify lidera com 31,4% de participacao (300M assinantes), "
+                    "mas esta longe da maioria: some Tencent Music (13,8%, 127,4M — "
+                    "oficial na China), Apple Music (12,6%, estimativa de "
+                    "terceiros), YouTube Music (12,4%, 125M oficial) e “Outros” "
+                    "(29,8%, residuo calculado que agrega Amazon Music, Deezer, "
+                    "Tidal etc.) e da quase 70% do mercado dividido. O HHI ≈ 2377 "
+                    "confirma: e uma concentracao moderada, mais perto do limite "
+                    "alto, nao um monopolio — ha espaco real pra um produto novo "
+                    "entrar."
                 ),
             },
         ],
