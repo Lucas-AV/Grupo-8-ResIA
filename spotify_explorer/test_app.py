@@ -71,3 +71,52 @@ def test_audio_analysis_calls_correct_path(client, monkeypatch):
     response = client.get("/api/audio-analysis/track1")
 
     assert response.status_code == 200
+
+
+def test_artist_calls_correct_path(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/artists/artist1"
+        return {"name": "Test Artist"}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/artist/artist1")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"name": "Test Artist"}
+
+
+def test_artist_top_tracks_calls_correct_path(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/artists/artist1/top-tracks"
+        return {"tracks": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/artist/artist1/top-tracks")
+
+    assert response.status_code == 200
+
+
+def test_artist_albums_calls_correct_path(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/artists/artist1/albums"
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/artist/artist1/albums")
+
+    assert response.status_code == 200
+
+
+def test_artist_related_artists_calls_correct_path(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/artists/artist1/related-artists"
+        return {"artists": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/artist/artist1/related-artists")
+
+    assert response.status_code == 200

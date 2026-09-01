@@ -75,6 +75,43 @@ def register_routes(app):
         )
         return jsonify(body), status
 
+    @app.route("/api/artist/<artist_id>")
+    def artist(artist_id):
+        body, status = spotify_client.api_get(
+            f"/artists/{artist_id}",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+        )
+        return jsonify(body), status
+
+    @app.route("/api/artist/<artist_id>/top-tracks")
+    def artist_top_tracks(artist_id):
+        body, status = spotify_client.api_get(
+            f"/artists/{artist_id}/top-tracks",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+            params={"market": request.args.get("market", "US")},
+        )
+        return jsonify(body), status
+
+    @app.route("/api/artist/<artist_id>/albums")
+    def artist_albums(artist_id):
+        body, status = spotify_client.api_get(
+            f"/artists/{artist_id}/albums",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+        )
+        return jsonify(body), status
+
+    @app.route("/api/artist/<artist_id>/related-artists")
+    def artist_related_artists(artist_id):
+        body, status = spotify_client.api_get(
+            f"/artists/{artist_id}/related-artists",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+        )
+        return jsonify(body), status
+
 
 if __name__ == "__main__":
     flask_app = create_app()
