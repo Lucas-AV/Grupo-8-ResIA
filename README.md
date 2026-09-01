@@ -15,6 +15,7 @@ faixas — e evolui para as etapas de modelagem e recomendação.
 > stage; recommendation modeling is next.
 
 **Quadro do Miro:** [Link do projeto](https://miro.com/app/board/uXjVHttBzWA=/)
+**Quadro do JIRA:** Link do Quadro
 
 ## Sumário
 
