@@ -35,6 +35,7 @@ MARKET_PNGS = [
     MARKET_DIR / "output_brasil_vs_global.png",
     MARKET_DIR / "output_market_share.png",
 ]
+MARKET_REPORT_PDF = MARKET_DIR / "relatorio-sinal-do-streaming.pdf"
 
 TEAM = [
     {"name": "Lucas Alves Vilela", "github": "Lucas-AV"},
@@ -311,6 +312,7 @@ def build() -> None:
             "marcados como tal no relatorio completo: analise_mercado_streaming/"
             "RELATORIO.md (proveniencia detalhada em data/FONTES.md)."
         ),
+        download={"href": MARKET_REPORT_PDF.name, "label": "Baixar relatorio em PDF"},
         tiles=[
             {"label": "MAU Spotify (7 trimestres)", "value": "+15,1%", "sub": "675M -> 777M, oficial"},
             {"label": "Premium Spotify (7 trimestres)", "value": "+14,1%", "sub": "263M -> 300M, oficial"},
@@ -340,6 +342,7 @@ def build() -> None:
     )
     for png in all_pngs:
         shutil.copy(png, DIST_DIR / png.name)
+    shutil.copy(MARKET_REPORT_PDF, DIST_DIR / MARKET_REPORT_PDF.name)
 
     print(f"Site gerado em {DIST_DIR}")
 

@@ -138,6 +138,10 @@ h1, h2 {
   line-height: 1.6;
 }
 
+.page > header .btn {
+  margin-top: 20px;
+}
+
 .card-grid {
   max-width: 1080px;
   margin: 24px auto 80px;
