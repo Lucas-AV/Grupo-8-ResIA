@@ -11,6 +11,7 @@
   --accent-450: #2a78d6;
   --accent-400: #3987e5;
   --accent-700: #0d366b;
+  --on-accent: #ffffff;
   --grid-line: #e2dfd2;
   --row-hover: #f1eee2;
 }
@@ -29,6 +30,7 @@
     --accent-450: #5a9eec;
     --accent-400: #3987e5;
     --accent-700: #b7d3f6;
+    --on-accent: var(--bg);
     --grid-line: #322f28;
     --row-hover: #26241e;
   }
@@ -47,6 +49,7 @@
   --accent-450: #5a9eec;
   --accent-400: #3987e5;
   --accent-700: #b7d3f6;
+  --on-accent: var(--bg);
   --grid-line: #322f28;
   --row-hover: #26241e;
 }
@@ -381,7 +384,7 @@ tbody tr:hover td { background: var(--row-hover); }
   transition: opacity 0.15s ease, border-color 0.15s ease, color 0.15s ease;
 }
 
-.btn-primary { background: var(--accent-450); color: #fff; }
+.btn-primary { background: var(--accent-450); color: var(--on-accent); }
 .btn-primary:hover { opacity: 0.88; }
 
 .btn-secondary {
