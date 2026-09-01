@@ -101,6 +101,7 @@ Dataset: [Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya
 
 ```
 dataset.csv                    # dataset bruto (Kaggle)
+analise_exploratoria.ipynb     # notebook que concentra a EDA (mesma logica dos scripts abaixo, saida inline)
 group_occurrences.py           # agrupa dataset.csv por coluna e por track_genre
 occurrences_by_column.csv      # contagem de valores por coluna (formato longo)
 occurrences_by_genre.csv       # contagem de faixas + médias por gênero
@@ -164,6 +165,7 @@ seu próprio ambiente (`Project.toml`/`Manifest.toml`).
 | [adjustText](https://github.com/Phlya/adjustText) | Reposiciona rótulos de texto em gráficos matplotlib para evitar sobreposição | Afastar os rótulos de gênero que se sobrepunham no scatter de energia × dançabilidade (`genre_energy_dance.png`) |
 | [Jinja2](https://jinja.palletsprojects.com/) | Motor de templates para gerar texto/HTML a partir de dados | Renderizar as páginas HTML do site (`site/build_site.py` + `site/templates/`) |
 | [pytest](https://docs.pytest.org/) | Framework de testes automatizados | Rodar os testes do repositório (`tests/`) |
+| [JupyterLab](https://jupyterlab.readthedocs.io/) | Ambiente de notebooks interativos | Rodar `analise_exploratoria.ipynb`, o notebook que concentra a EDA |
 
 ## Como reproduzir
 
@@ -176,6 +178,7 @@ python plot_popularity_occurrences.py # gera popularity_occurrences.png
 python profile_dataset.py             # gera dataset_profile.json e distribuicoes por artista/album
 python plot_correlations.py           # gera correlation_heatmap.png e correlations_top_pairs.csv
 python site/build_site.py             # gera o site em site/dist/ (abrir site/dist/index.html)
+jupyter lab analise_exploratoria.ipynb # abre o notebook de EDA (mesma logica, saida inline)
 ```
 
 Testes: `pytest`
