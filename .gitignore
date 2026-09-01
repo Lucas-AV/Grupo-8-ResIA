@@ -5,3 +5,4 @@ __pycache__/
 site/dist/
 .mcp.json
 spotify_explorer/.env
+.worktrees/
