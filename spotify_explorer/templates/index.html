@@ -1,5 +1,127 @@
 <!doctype html>
 <html lang="pt-br">
-<head><meta charset="utf-8"><title>Spotify API Explorer</title></head>
-<body><h1>Spotify API Explorer</h1></body>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Spotify API Explorer</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <header>
+    <h1>Spotify API Explorer</h1>
+    <div id="user-status"></div>
+  </header>
+
+  {% if missing_credentials %}
+  <div class="banner banner-error">
+    SPOTIFY_CLIENT_ID / SPOTIFY_CLIENT_SECRET não configurados. Copie
+    <code>.env.example</code> para <code>.env</code> e preencha com um app criado no
+    <a href="https://developer.spotify.com/dashboard" target="_blank" rel="noopener">Spotify Developer Dashboard</a>.
+  </div>
+  {% endif %}
+
+  {% if auth_error %}
+  <div class="banner banner-error">Erro no login: {{ auth_error }}</div>
+  {% endif %}
+
+  <nav class="tabs">
+    <button class="tab-button active" data-tab="tab-search">Search</button>
+    <button class="tab-button" data-tab="tab-track">Track &amp; Audio</button>
+    <button class="tab-button" data-tab="tab-artist">Artist</button>
+    <button class="tab-button" data-tab="tab-recommendations">Recommendations</button>
+    <button class="tab-button" data-tab="tab-me">Meus dados</button>
+  </nav>
+
+  <section id="tab-search" class="tab-panel active">
+    <form id="search-form">
+      <label>Query <input type="text" name="q" required></label>
+      <label>Type
+        <select name="type">
+          <option value="track">track</option>
+          <option value="artist">artist</option>
+          <option value="album">album</option>
+        </select>
+      </label>
+      <label>Limit <input type="number" name="limit" value="10" min="1" max="50"></label>
+      <button type="submit">Buscar</button>
+    </form>
+    <p class="status" id="search-status"></p>
+    <div class="result" id="search-result"></div>
+  </section>
+
+  <section id="tab-track" class="tab-panel">
+    <form id="track-form">
+      <label>Track ID <input type="text" name="track_id" required placeholder="ex: 11dFghVXANMlKmJXsNCbNl"></label>
+      <button type="submit">Buscar track + audio-features + audio-analysis</button>
+    </form>
+    <p class="status" id="track-status"></p>
+    <div class="result" id="track-result"></div>
+  </section>
+
+  <section id="tab-artist" class="tab-panel">
+    <form id="artist-form">
+      <label>Artist ID <input type="text" name="artist_id" required placeholder="ex: 0TnOYISbd1XYRBk9myaseg"></label>
+      <button type="submit">Buscar artist + top-tracks + albums + related-artists</button>
+    </form>
+    <p class="status" id="artist-status"></p>
+    <div class="result" id="artist-result"></div>
+  </section>
+
+  <section id="tab-recommendations" class="tab-panel">
+    <form id="recommendations-form">
+      <label>Seed genres (csv) <input type="text" name="seed_genres" placeholder="pop,rock"></label>
+      <label>Seed tracks (csv) <input type="text" name="seed_tracks"></label>
+      <label>Seed artists (csv) <input type="text" name="seed_artists"></label>
+      <label>Target energy (0-1) <input type="number" name="target_energy" step="0.1" min="0" max="1"></label>
+      <label>Target valence (0-1) <input type="number" name="target_valence" step="0.1" min="0" max="1"></label>
+      <button type="submit">Buscar recomendações</button>
+    </form>
+    <p class="status" id="recommendations-status"></p>
+    <div class="result" id="recommendations-result"></div>
+  </section>
+
+  <section id="tab-me" class="tab-panel">
+    <div id="me-logged-out">
+      <p>Nenhum usuário conectado.</p>
+      <a class="button" href="/login">Conectar Spotify</a>
+    </div>
+    <div id="me-logged-in" hidden>
+      <p id="me-profile"></p>
+      <a class="button" href="/logout">Desconectar</a>
+
+      <fieldset>
+        <legend>Top tracks / artists</legend>
+        <form id="top-form">
+          <label>Time range
+            <select name="time_range">
+              <option value="short_term">short_term (~4 semanas)</option>
+              <option value="medium_term" selected>medium_term (~6 meses)</option>
+              <option value="long_term">long_term (vários anos)</option>
+            </select>
+          </label>
+          <button type="submit" data-target="tracks">Top tracks</button>
+          <button type="submit" data-target="artists">Top artists</button>
+        </form>
+        <p class="status" id="top-status"></p>
+        <div class="result" id="top-result"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Faixas curtidas</legend>
+        <button type="button" id="saved-tracks-button">Buscar curtidas</button>
+        <p class="status" id="saved-tracks-status"></p>
+        <div class="result" id="saved-tracks-result"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Tocadas recentemente</legend>
+        <button type="button" id="recently-played-button">Buscar recentes (máx. 50)</button>
+        <p class="status" id="recently-played-status"></p>
+        <div class="result" id="recently-played-result"></div>
+      </fieldset>
+    </div>
+  </section>
+
+  <script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
 </html>
