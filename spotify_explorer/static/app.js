@@ -62,18 +62,28 @@ function renderJSON(container, data) {
 async function callEndpoint(url, options, resultEl, statusEl) {
   statusEl.textContent = "Carregando...";
   statusEl.className = "status";
+
+  let response;
   try {
-    const response = await fetch(url, options);
-    const data = await response.json();
-    statusEl.textContent = `HTTP ${response.status}`;
-    statusEl.className = "status " + (response.ok ? "status-ok" : "status-error");
-    renderJSON(resultEl, data);
-    return { ok: response.ok, status: response.status, data };
+    response = await fetch(url, options);
   } catch (err) {
     statusEl.textContent = "Erro de rede";
     statusEl.className = "status status-error";
     resultEl.textContent = String(err);
     return { ok: false, status: 0, data: null };
+  }
+
+  statusEl.textContent = `HTTP ${response.status}`;
+  statusEl.className = "status " + (response.ok ? "status-ok" : "status-error");
+
+  try {
+    const data = await response.json();
+    renderJSON(resultEl, data);
+    return { ok: response.ok, status: response.status, data };
+  } catch (err) {
+    statusEl.className = "status status-error";
+    resultEl.textContent = `Resposta HTTP ${response.status} não é JSON válido: ${err}`;
+    return { ok: false, status: response.status, data: null };
   }
 }
 
