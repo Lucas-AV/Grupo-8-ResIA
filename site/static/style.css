@@ -298,6 +298,15 @@ svg text { font-family: "Source Sans 3", sans-serif; }
 
 .analysis-figure figcaption { margin-top: 8px; font-size: 13px; color: var(--ink-2); }
 
+.figure-leitura {
+  margin: 14px 0 0;
+  padding-top: 14px;
+  border-top: 1px dashed var(--border);
+  color: var(--ink-2);
+  font-size: 14px;
+  line-height: 1.6;
+}
+
 table {
   width: 100%;
   border-collapse: collapse;
@@ -445,6 +454,12 @@ tbody tr:hover td { background: var(--row-hover); }
 .pitch-highlight {
   color: var(--accent-450);
   font-weight: 700;
+}
+
+.pitch-text-inset {
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
 
 .team-section {

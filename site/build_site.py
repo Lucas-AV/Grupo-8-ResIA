@@ -394,6 +394,7 @@ def build() -> None:
             "RELATORIO.md (proveniencia detalhada em data/FONTES.md)."
         ),
         download={"href": MARKET_REPORT_PDF.name, "label": "Baixar relatorio em PDF"},
+        pitch=PITCH_CARDS,
         tiles=[
             {"label": "MAU Spotify (7 trimestres)", "value": "+15,1%", "sub": "675M -> 777M, oficial"},
             {"label": "Premium Spotify (7 trimestres)", "value": "+14,1%", "sub": "263M -> 300M, oficial"},
@@ -403,8 +404,85 @@ def build() -> None:
             {"label": "HHI plataformas", "value": "~2377", "sub": "concentracao moderada"},
         ],
         figures=[
-            {"image": png.name, "alt": f"Grafico de mercado: {png.stem}", "caption": png.name}
-            for png in MARKET_PNGS
+            {
+                "image": "output_spotify_usuarios.png",
+                "alt": "Grafico de linhas: MAU e assinantes Premium do Spotify por trimestre",
+                "caption": "MAU e assinantes Premium por trimestre",
+                "leitura": (
+                    "As duas linhas sobem juntas e quase no mesmo ritmo — o Spotify "
+                    "nao esta so atraindo mais gente de graca: esta convertendo essas "
+                    "pessoas em assinante pagante na mesma proporcao. Bom sinal de "
+                    "saude do negocio."
+                ),
+            },
+            {
+                "image": "output_spotify_receita.png",
+                "alt": "Grafico de linhas: receita total do Spotify por trimestre",
+                "caption": "Receita total por trimestre",
+                "leitura": (
+                    "A receita sobe de forma quase constante, sem quedas bruscas de "
+                    "um trimestre pro outro — tipico de negocio de assinatura, onde a "
+                    "receita ja “contratada” segura o resultado mesmo em "
+                    "trimestres mais fracos."
+                ),
+            },
+            {
+                "image": "output_spotify_margem.png",
+                "alt": "Grafico de linhas: margem operacional do Spotify por trimestre",
+                "caption": "Margem operacional por trimestre",
+                "leitura": (
+                    "Margem operacional varia mais do que receita ou usuarios (entre "
+                    "9,7% e 15,8%) — pequenas mudancas em custo de licenciamento de "
+                    "musica ou marketing pontual pesam mais na margem do que no total "
+                    "de usuarios."
+                ),
+            },
+            {
+                "image": "output_mercado_global.png",
+                "alt": "Grafico de barras: receita global de musica gravada, total vs. streaming",
+                "caption": "Receita global de musica gravada, total vs. streaming",
+                "leitura": (
+                    "A fatia de streaming ja e bem maior que o resto do mercado (CD, "
+                    "vinil, direitos de radio/TV etc. somados) — streaming deixou de "
+                    "ser “um jeito a mais” de ouvir musica e virou o motor "
+                    "principal da industria inteira."
+                ),
+            },
+            {
+                "image": "output_assinantes_globais.png",
+                "alt": "Grafico de barras: crescimento de assinantes pagos de streaming no mundo",
+                "caption": "Crescimento de assinantes pagos no mundo",
+                "leitura": (
+                    "A linha continua subindo, mas os degraus entre um ano e outro "
+                    "estao ficando menores — o mercado esta amadurecendo. Crescer so "
+                    "“roubando” gente que ainda nao assina fica mais dificil; "
+                    "crescer fazendo quem ja assina usar mais e sair menos vira o "
+                    "jogo principal."
+                ),
+            },
+            {
+                "image": "output_brasil_vs_global.png",
+                "alt": "Grafico de barras: comparacao de crescimento do mercado fonografico, Brasil vs. global",
+                "caption": "Crescimento do mercado fonografico — Brasil vs. global (2025)",
+                "leitura": (
+                    "A barra do Brasil e mais que o dobro da barra do mundo. Pra quem "
+                    "esta construindo um produto pensando no publico brasileiro, isso "
+                    "e um bom sinal de timing: o mercado local nao esta so "
+                    "“acompanhando” a tendencia global, esta crescendo mais "
+                    "rapido que ela."
+                ),
+            },
+            {
+                "image": "output_market_share.png",
+                "alt": "Grafico de barras: participacao de mercado entre plataformas de streaming",
+                "caption": "Participacao de mercado entre plataformas",
+                "leitura": (
+                    "O Spotify lidera, mas nao tem maioria: as outras 4 categorias "
+                    "somadas dao quase 70% do mercado. Nao e um mercado de “um "
+                    "so dono” — e um mercado com um lider forte e bastante "
+                    "espaco dividido entre os demais."
+                ),
+            },
         ],
         table={
             "title": "Participacao de mercado entre plataformas (fim de 2025, MIDiA Research)",

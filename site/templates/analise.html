@@ -22,12 +22,23 @@
   </div>
   {% endif %}
 
+  {% if pitch %}
+  <div class="pitch-text pitch-text-inset">
+    {% for card in pitch %}
+    <p><span class="pitch-highlight">{{ card.label }}.</span> {{ card.body }}</p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
   {% for figure in figures %}
   <section>
     <figure class="analysis-figure">
       <img src="{{ figure.image }}" alt="{{ figure.alt }}" loading="lazy">
       <figcaption>{{ figure.caption }}</figcaption>
     </figure>
+    {% if figure.leitura %}
+    <p class="figure-leitura"><span class="pitch-highlight">Leitura.</span> {{ figure.leitura }}</p>
+    {% endif %}
   </section>
   {% endfor %}
 
