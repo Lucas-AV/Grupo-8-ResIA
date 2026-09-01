@@ -21,6 +21,20 @@ def test_search_calls_spotify_search_endpoint(client, monkeypatch):
     assert response.get_json() == {"tracks": {"items": []}}
 
 
+def test_search_with_missing_body_does_not_crash(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/search"
+        assert params == {"q": "", "type": "track", "limit": 10}
+        return {"error": {"status": 400, "message": "No search query"}}, 400
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.post("/api/search")
+
+    assert response.status_code == 400
+    assert response.get_json()["error"]["message"] == "No search query"
+
+
 def test_track_returns_spotify_status_code_on_error(client, monkeypatch):
     def fake_api_get(path, client_id, client_secret, params=None):
         assert path == "/tracks/bad-id"

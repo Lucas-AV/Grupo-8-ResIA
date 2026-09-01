@@ -35,7 +35,7 @@ def register_routes(app):
 
     @app.route("/api/search", methods=["POST"])
     def search():
-        data = request.get_json(force=True)
+        data = request.get_json(silent=True) or {}
         body, status = spotify_client.api_get(
             "/search",
             app.config["SPOTIFY_CLIENT_ID"],
