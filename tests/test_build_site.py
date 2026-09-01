@@ -4,7 +4,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "site"))
 
-from build_site import load_genre_rows, load_profile_tiles, load_table_rows
+from build_site import (
+    load_dataset_profile,
+    load_genre_rows,
+    load_profile_tiles,
+    load_table_rows,
+)
 
 
 def test_load_genre_rows_maps_and_rounds_columns(tmp_path):
@@ -121,3 +126,15 @@ def test_load_table_rows_selects_columns_and_preserves_order(tmp_path):
         ["Song A", "Artist X", 3],
         ["Song B", "Artist Y", 2],
     ]
+
+
+def test_load_dataset_profile_parses_json(tmp_path):
+    profile_path = tmp_path / "dataset_profile.json"
+    profile_path.write_text(
+        json.dumps({"total_tracks": 5, "unique_genres": 2}),
+        encoding="utf-8",
+    )
+
+    profile = load_dataset_profile(profile_path)
+
+    assert profile == {"total_tracks": 5, "unique_genres": 2}

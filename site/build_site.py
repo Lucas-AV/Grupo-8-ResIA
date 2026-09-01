@@ -136,10 +136,15 @@ def rows_to_embeddable_json(rows: list[dict]) -> str:
     return json.dumps(rows, ensure_ascii=False).replace("</", "<\\/")
 
 
+def load_dataset_profile(profile_path: Path) -> dict:
+    """Parse dataset_profile.json once; shared by the home tiles and the overview page."""
+    with open(profile_path, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def load_profile_tiles(profile_path: Path) -> list[dict]:
     """Turn dataset_profile.json into the tile list visao-geral.html renders."""
-    with open(profile_path, encoding="utf-8") as f:
-        profile = json.load(f)
+    profile = load_dataset_profile(profile_path)
     total_nulls = sum(profile["null_counts"].values())
     return [
         {"label": "Faixas na base", "value": f"{profile['total_tracks']:,}".replace(",", ".")},
