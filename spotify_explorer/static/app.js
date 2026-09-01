@@ -112,6 +112,17 @@ function initSearchForm() {
   });
 }
 
+async function fetchJSON(url) {
+  const response = await fetch(url);
+  let data;
+  try {
+    data = await response.json();
+  } catch (err) {
+    data = { error: `Resposta HTTP ${response.status} não é JSON válido: ${err}` };
+  }
+  return { status: response.status, ok: response.ok, data };
+}
+
 function initTrackForm() {
   const form = document.getElementById("track-form");
   const resultEl = document.getElementById("track-result");
@@ -121,15 +132,31 @@ function initTrackForm() {
     event.preventDefault();
     const trackId = new FormData(form).get("track_id");
 
-    const [track, audioFeatures, audioAnalysis] = await Promise.all([
-      fetch(`/api/track/${trackId}`).then((r) => r.json()),
-      fetch(`/api/audio-features/${trackId}`).then((r) => r.json()),
-      fetch(`/api/audio-analysis/${trackId}`).then((r) => r.json()),
-    ]);
+    statusEl.textContent = "Carregando...";
+    statusEl.className = "status";
 
-    statusEl.textContent = "3 chamadas concluídas (ver JSON por seção)";
-    statusEl.className = "status status-ok";
-    renderJSON(resultEl, { track, audio_features: audioFeatures, audio_analysis: audioAnalysis });
+    try {
+      const [track, audioFeatures, audioAnalysis] = await Promise.all([
+        fetchJSON(`/api/track/${trackId}`),
+        fetchJSON(`/api/audio-features/${trackId}`),
+        fetchJSON(`/api/audio-analysis/${trackId}`),
+      ]);
+
+      const results = [track, audioFeatures, audioAnalysis];
+      const allOk = results.every((r) => r.ok);
+      const statuses = results.map((r) => r.status).join(", ");
+      statusEl.textContent = `HTTP ${statuses}`;
+      statusEl.className = "status " + (allOk ? "status-ok" : "status-error");
+      renderJSON(resultEl, {
+        track: track.data,
+        audio_features: audioFeatures.data,
+        audio_analysis: audioAnalysis.data,
+      });
+    } catch (err) {
+      statusEl.textContent = "Erro de rede";
+      statusEl.className = "status status-error";
+      resultEl.textContent = String(err);
+    }
   });
 }
 
@@ -142,21 +169,33 @@ function initArtistForm() {
     event.preventDefault();
     const artistId = new FormData(form).get("artist_id");
 
-    const [artist, topTracks, albums, relatedArtists] = await Promise.all([
-      fetch(`/api/artist/${artistId}`).then((r) => r.json()),
-      fetch(`/api/artist/${artistId}/top-tracks`).then((r) => r.json()),
-      fetch(`/api/artist/${artistId}/albums`).then((r) => r.json()),
-      fetch(`/api/artist/${artistId}/related-artists`).then((r) => r.json()),
-    ]);
+    statusEl.textContent = "Carregando...";
+    statusEl.className = "status";
 
-    statusEl.textContent = "4 chamadas concluídas (ver JSON por seção)";
-    statusEl.className = "status status-ok";
-    renderJSON(resultEl, {
-      artist,
-      top_tracks: topTracks,
-      albums,
-      related_artists: relatedArtists,
-    });
+    try {
+      const [artist, topTracks, albums, relatedArtists] = await Promise.all([
+        fetchJSON(`/api/artist/${artistId}`),
+        fetchJSON(`/api/artist/${artistId}/top-tracks`),
+        fetchJSON(`/api/artist/${artistId}/albums`),
+        fetchJSON(`/api/artist/${artistId}/related-artists`),
+      ]);
+
+      const results = [artist, topTracks, albums, relatedArtists];
+      const allOk = results.every((r) => r.ok);
+      const statuses = results.map((r) => r.status).join(", ");
+      statusEl.textContent = `HTTP ${statuses}`;
+      statusEl.className = "status " + (allOk ? "status-ok" : "status-error");
+      renderJSON(resultEl, {
+        artist: artist.data,
+        top_tracks: topTracks.data,
+        albums: albums.data,
+        related_artists: relatedArtists.data,
+      });
+    } catch (err) {
+      statusEl.textContent = "Erro de rede";
+      statusEl.className = "status status-error";
+      resultEl.textContent = String(err);
+    }
   });
 }
 
