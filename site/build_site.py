@@ -249,10 +249,10 @@ def load_home_tiles(profile_path: Path) -> list[dict]:
     """Headline stats for the landing page: dataset size + curated market numbers."""
     profile = load_dataset_profile(profile_path)
     return [
-        {"label": "Faixas analisadas", "value": f"{profile['total_tracks']:,}".replace(",", ".")},
-        {"label": "Generos", "value": str(profile["unique_genres"])},
-        {"label": "Crescimento Brasil (2025)", "value": "+14,1%", "sub": "vs +6,4% global"},
-        {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "IFPI 2026"},
+        {"label": "Faixas analisadas", "value": f"{profile['total_tracks']:,}".replace(",", "."), "icon": "music"},
+        {"label": "Generos", "value": str(profile["unique_genres"]), "icon": "layers"},
+        {"label": "Crescimento Brasil (2025)", "value": "+14,1%", "sub": "vs +6,4% global", "icon": "trending-up"},
+        {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "IFPI 2026", "icon": "globe"},
     ]
 
 
@@ -261,16 +261,17 @@ def load_profile_tiles(profile_path: Path) -> list[dict]:
     profile = load_dataset_profile(profile_path)
     total_nulls = sum(profile["null_counts"].values())
     return [
-        {"label": "Faixas na base", "value": f"{profile['total_tracks']:,}".replace(",", ".")},
+        {"label": "Faixas na base", "value": f"{profile['total_tracks']:,}".replace(",", "."), "icon": "music"},
         {
             "label": "Faixas unicas",
             "value": f"{profile['unique_track_ids']:,}".replace(",", "."),
             "sub": f"{profile['duplicate_rows']} linhas duplicadas (mesma faixa em outro genero)",
+            "icon": "check-badge",
         },
-        {"label": "Artistas", "value": f"{profile['unique_artists']:,}".replace(",", ".")},
-        {"label": "Albuns", "value": f"{profile['unique_albums']:,}".replace(",", ".")},
-        {"label": "Generos", "value": str(profile["unique_genres"])},
-        {"label": "Valores nulos", "value": str(total_nulls)},
+        {"label": "Artistas", "value": f"{profile['unique_artists']:,}".replace(",", "."), "icon": "users"},
+        {"label": "Albuns", "value": f"{profile['unique_albums']:,}".replace(",", "."), "icon": "disc"},
+        {"label": "Generos", "value": str(profile["unique_genres"]), "icon": "layers"},
+        {"label": "Valores nulos", "value": str(total_nulls), "icon": "alert"},
     ]
 
 
@@ -410,12 +411,12 @@ def build() -> None:
         download={"href": MARKET_REPORT_PDF.name, "label": "Baixar relatorio em PDF"},
         pitch=PITCH_CARDS,
         tiles=[
-            {"label": "MAU Spotify (7 trimestres)", "value": "+15,1%", "sub": "675M -> 777M, oficial"},
-            {"label": "Premium Spotify (7 trimestres)", "value": "+14,1%", "sub": "263M -> 300M, oficial"},
-            {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "69,6% streaming, IFPI 2026"},
-            {"label": "Crescimento Brasil 2025", "value": "+14,1%", "sub": "vs +6,4% global (2,2x)"},
-            {"label": "Ranking global do Brasil", "value": "#8", "sub": "#10 (2023) -> #8 (2025)"},
-            {"label": "HHI plataformas", "value": "~2377", "sub": "concentracao moderada"},
+            {"label": "MAU Spotify (7 trimestres)", "value": "+15,1%", "sub": "675M -> 777M, oficial", "icon": "users"},
+            {"label": "Premium Spotify (7 trimestres)", "value": "+14,1%", "sub": "263M -> 300M, oficial", "icon": "star"},
+            {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "69,6% streaming, IFPI 2026", "icon": "globe"},
+            {"label": "Crescimento Brasil 2025", "value": "+14,1%", "sub": "vs +6,4% global (2,2x)", "icon": "trending-up"},
+            {"label": "Ranking global do Brasil", "value": "#8", "sub": "#10 (2023) -> #8 (2025)", "icon": "trophy"},
+            {"label": "HHI plataformas", "value": "~2377", "sub": "concentracao moderada", "icon": "pie-chart"},
         ],
         figures=[
             {
