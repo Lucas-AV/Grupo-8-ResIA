@@ -308,6 +308,7 @@ def build() -> None:
 
     index_html = env.get_template("index.html").render(
         title="Analises",
+        current_page="index.html",
         analyses=ANALYSES,
         team=TEAM,
         tiles=load_home_tiles(PROFILE_JSON),
@@ -318,6 +319,7 @@ def build() -> None:
     rows = load_genre_rows(GENRE_CSV)
     genero_html = env.get_template("genero.html").render(
         title="Perfil dos Generos",
+        current_page="genero.html",
         rows_json=rows_to_embeddable_json(rows),
     )
     (DIST_DIR / "genero.html").write_text(genero_html, encoding="utf-8")
@@ -325,6 +327,7 @@ def build() -> None:
     for analysis in STATIC_ANALYSES:
         html = env.get_template("analise.html").render(
             title=analysis["heading"],
+            current_page=analysis["href"],
             eyebrow=analysis["eyebrow"],
             heading=analysis["heading"],
             description=analysis["description"],
@@ -339,6 +342,7 @@ def build() -> None:
 
     visao_geral_html = env.get_template("analise.html").render(
         title="Visao Geral do Dataset",
+        current_page="visao-geral.html",
         eyebrow="Dataset Spotify · visao geral",
         heading="Visao Geral do Dataset",
         description=(
@@ -369,6 +373,7 @@ def build() -> None:
 
     correlacoes_html = env.get_template("analise.html").render(
         title="Correlacoes",
+        current_page="correlacoes.html",
         eyebrow="Dataset Spotify · correlacao entre variaveis numericas",
         heading="Correlacoes entre popularidade, duracao e audio",
         description=(
@@ -398,6 +403,7 @@ def build() -> None:
 
     mercado_html = env.get_template("analise.html").render(
         title="Mercado de Streaming",
+        current_page="mercado.html",
         eyebrow="Analise de mercado · gerada em Julia (CSV.jl, DataFrames.jl, Plots.jl)",
         heading="Mercado de Streaming de Musica",
         description=(
