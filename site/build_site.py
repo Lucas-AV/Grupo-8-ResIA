@@ -36,6 +36,14 @@ MARKET_PNGS = [
     MARKET_DIR / "output_market_share.png",
 ]
 
+TEAM = [
+    {"name": "Lucas Alves Vilela", "github": "Lucas-AV"},
+    {"name": "Dayane Ferreira", "github": "dayarierref"},
+    {"name": "Eduarda Reis", "github": "dudsstar16"},
+    {"name": "Ruan Sobreira Carvalho", "github": "Ruan-Carvalho"},
+    {"name": "femathrl0", "github": "femathrl0"},
+]
+
 ANALYSES = [
     {
         "id": "genero",
@@ -140,6 +148,17 @@ def load_dataset_profile(profile_path: Path) -> dict:
     """Parse dataset_profile.json once; shared by the home tiles and the overview page."""
     with open(profile_path, encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_home_tiles(profile_path: Path) -> list[dict]:
+    """Headline stats for the landing page: dataset size + curated market numbers."""
+    profile = load_dataset_profile(profile_path)
+    return [
+        {"label": "Faixas analisadas", "value": f"{profile['total_tracks']:,}".replace(",", ".")},
+        {"label": "Generos", "value": str(profile["unique_genres"])},
+        {"label": "Crescimento Brasil (2025)", "value": "+14,1%", "sub": "vs +6,4% global"},
+        {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "IFPI 2026"},
+    ]
 
 
 def load_profile_tiles(profile_path: Path) -> list[dict]:

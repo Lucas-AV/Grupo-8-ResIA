@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "site"))
 from build_site import (
     load_dataset_profile,
     load_genre_rows,
+    load_home_tiles,
     load_profile_tiles,
     load_table_rows,
 )
@@ -109,6 +110,23 @@ def test_load_profile_tiles_sums_null_counts_across_columns(tmp_path):
 
     nulls_tile = next(tile for tile in tiles if tile["label"] == "Valores nulos")
     assert nulls_tile["value"] == "3"
+
+
+def test_load_home_tiles_combines_dataset_and_market_numbers(tmp_path):
+    profile_path = tmp_path / "dataset_profile.json"
+    profile_path.write_text(
+        json.dumps({"total_tracks": 31819, "unique_genres": 32}),
+        encoding="utf-8",
+    )
+
+    tiles = load_home_tiles(profile_path)
+
+    assert tiles == [
+        {"label": "Faixas analisadas", "value": "31.819"},
+        {"label": "Generos", "value": "32"},
+        {"label": "Crescimento Brasil (2025)", "value": "+14,1%", "sub": "vs +6,4% global"},
+        {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "IFPI 2026"},
+    ]
 
 
 def test_load_table_rows_selects_columns_and_preserves_order(tmp_path):
