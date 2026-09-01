@@ -104,3 +104,11 @@ quem não quer.
   resposta") se quiser pular 4.5 quando a resposta de 4.4 for "Não".
 - Nenhuma pergunta de identificação direta (nome, CPF) — mantém a coleta
   compatível com uso de dados anônimos em projeto acadêmico.
+
+## Criação automática via Apps Script
+
+[`criar_formulario.gs`](criar_formulario.gs) monta esse formulário inteiro
+programaticamente (todas as seções e perguntas acima) via `FormApp`. Cole em
+[script.google.com](https://script.google.com), rode `criarFormulario` e
+autorize — o log de execução devolve o link de edição e o link público do
+Form já pronto.
