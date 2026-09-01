@@ -188,10 +188,27 @@ STATIC_ANALYSES = [
             "cada genero, calculada por groupby(\"track_genre\")[\"mode\"].mean() "
             "a partir de dataset.csv."
         ),
+        "tiles": [
+            {"label": "Escala maior (geral)", "value": "63,5%", "sub": "media de todos os generos", "icon": "pie-chart"},
+            {"label": "Genero mais em escala maior", "value": "Country", "sub": "88,9% das faixas", "icon": "trending-up"},
+            {"label": "Genero mais em escala menor", "value": "Deep-house", "sub": "53,8% das faixas em escala menor", "icon": "trending-down"},
+        ],
         "figures": [
             {
                 "path": ROOT / "genre_mode.png",
                 "alt": "Grafico de barras empilhadas: proporcao de escala maior e menor por genero",
+                "caption": "Escala maior vs. menor por genero",
+                "leitura": (
+                    "Em media, 63,5% das faixas do dataset estao em escala maior — "
+                    "mas isso varia bastante por genero. Country e o extremo de "
+                    "escala maior (88,9% das faixas), coerente com a tradicao "
+                    "harmonica do genero. Deep-house e o unico genero onde a "
+                    "escala menor predomina (53,8% das faixas), o que combina com "
+                    "o tom mais introspectivo e atmosferico tipico do estilo. Nao "
+                    "ha correlacao obvia entre escala e popularidade — e mais um "
+                    "reflexo de convencao estilistica de cada genero do que um "
+                    "sinal comercial."
+                ),
             }
         ],
     },
@@ -204,10 +221,29 @@ STATIC_ANALYSES = [
             "..., 21+) e a popularidade media das faixas em cada faixa de "
             "ocorrencia."
         ),
+        "tiles": [
+            {"label": "Artistas com 1 faixa", "value": "6.148", "sub": "56,5% da base de artistas", "icon": "users"},
+            {"label": "Popularidade media (1 faixa)", "value": "35,7", "sub": "vs 26,6 em artistas com 21+ faixas", "icon": "trending-down"},
+            {"label": "Artista com mais faixas", "value": "171", "sub": "my little airport, no dataset", "icon": "trophy"},
+        ],
         "figures": [
             {
                 "path": ROOT / "popularity_occurrences.png",
                 "alt": "Grafico de barras: popularidade media por faixa de quantidade de ocorrencias do artista",
+                "caption": "Popularidade media por faixa de ocorrencias do artista",
+                "leitura": (
+                    "A tendencia e inversa ao que se poderia esperar: quanto mais "
+                    "faixas um artista tem na base, menor a popularidade media "
+                    "delas — de 35,7 pontos para artistas com so 1 faixa ate 26,6 "
+                    "pontos para os com 21+ faixas. Mais da metade dos artistas "
+                    "(6.148 de 10.872, 56,5%) aparece so uma vez na base. Uma "
+                    "leitura possivel: artistas com catalogo grande tendem a ter "
+                    "faixas mais nichadas/antigas diluindo a media, enquanto "
+                    "quem aparece uma unica vez tende a ser um single de maior "
+                    "impacto recente. Nao e evidencia de causalidade — so uma "
+                    "correlacao a se ter em mente ao usar contagem de faixas "
+                    "como sinal de relevancia do artista."
+                ),
             }
         ],
     },
@@ -331,8 +367,14 @@ def build() -> None:
             eyebrow=analysis["eyebrow"],
             heading=analysis["heading"],
             description=analysis["description"],
+            tiles=analysis.get("tiles"),
             figures=[
-                {"image": fig["path"].name, "alt": fig["alt"], "caption": fig["path"].name}
+                {
+                    "image": fig["path"].name,
+                    "alt": fig["alt"],
+                    "caption": fig.get("caption", fig["path"].name),
+                    "leitura": fig.get("leitura"),
+                }
                 for fig in analysis["figures"]
             ],
         )
@@ -355,12 +397,31 @@ def build() -> None:
             {
                 "image": ARTIST_DIST_PNG.name,
                 "alt": "Grafico de barras: quantidade de artistas por faixa de numero de musicas na base",
-                "caption": ARTIST_DIST_PNG.name,
+                "caption": "Artistas por faixa de numero de musicas na base",
+                "leitura": (
+                    "A base e dominada por artistas com pouquissimas faixas: "
+                    "6.148 dos 10.872 artistas (56,5%) aparecem so uma vez, e "
+                    "2.121 (19,5%) aparecem exatamente duas vezes — juntos, esses "
+                    "dois grupos ja somam 76% de todos os artistas. So 181 "
+                    "artistas (1,7%) tem 21 ou mais faixas na base. E uma "
+                    "distribuicao de cauda longa tipica de catalogos musicais: "
+                    "poucos artistas com catalogo extenso, muitos com presenca "
+                    "pontual."
+                ),
             },
             {
                 "image": ALBUM_DIST_PNG.name,
                 "alt": "Grafico de barras: quantidade de albuns por faixa de numero de musicas na base",
-                "caption": ALBUM_DIST_PNG.name,
+                "caption": "Albuns por faixa de numero de musicas na base",
+                "leitura": (
+                    "O padrao se repete com albuns, ainda mais concentrado: "
+                    "10.351 dos 15.481 albuns (66,9%) tem apenas uma faixa "
+                    "presente na base — provavelmente singles ou faixas isoladas "
+                    "amostradas de albuns maiores, nao o album completo. Apenas "
+                    "91 albuns (0,6%) tem 21 ou mais faixas amostradas. Isso "
+                    "reforca que o dataset e uma amostra por faixa/genero, nao "
+                    "uma colecao de albuns completos."
+                ),
             },
         ],
         table={
@@ -381,11 +442,30 @@ def build() -> None:
             "de audio continuas do dataset (key, mode e time_signature ficam "
             "de fora por nao serem continuas)."
         ),
+        tiles=[
+            {"label": "Correlacao mais forte", "value": "0,775", "sub": "energia x loudness", "icon": "trending-up"},
+            {"label": "Correlacao negativa mais forte", "value": "-0,742", "sub": "energia x acousticness", "icon": "trending-down"},
+            {"label": "Pares analisados", "value": "36", "sub": "combinacoes de 9 features continuas", "icon": "pie-chart"},
+        ],
         figures=[
             {
                 "image": CORRELATION_HEATMAP_PNG.name,
                 "alt": "Heatmap de correlacao entre popularidade, duracao e features de audio",
-                "caption": CORRELATION_HEATMAP_PNG.name,
+                "caption": "Heatmap de correlacao de Pearson",
+                "leitura": (
+                    "As correlacoes mais fortes do dataset sao intuitivas: energia "
+                    "e loudness andam quase juntas (r=0,775 — faixas mais altas "
+                    "tendem a soar mais energeticas), e energia e acousticness "
+                    "sao quase opostas (r=-0,742 — faixas acusticas tendem a ser "
+                    "menos energeticas, e vice-versa). Danceability e valence "
+                    "tambem se correlacionam de forma moderada (r=0,512): faixas "
+                    "mais dancantes tendem a soar mais positivas/alegres. "
+                    "Nenhuma feature isolada explica popularidade sozinha — a "
+                    "correlacao mais forte com popularity nesta tabela nem "
+                    "aparece no top 10, sinal de que popularidade depende mais "
+                    "de fatores fora do audio (artista, marketing, timing) do "
+                    "que das caracteristicas sonoras da faixa."
+                ),
             },
         ],
         table={
