@@ -107,8 +107,20 @@ quem não quer.
 
 ## Criação automática via Apps Script
 
-[`criar_formulario.gs`](criar_formulario.gs) monta esse formulário inteiro
-programaticamente (todas as seções e perguntas acima) via `FormApp`. Cole em
-[script.google.com](https://script.google.com), rode `criarFormulario` e
-autorize — o log de execução devolve o link de edição e o link público do
-Form já pronto.
+Duas formas de gerar o Form programaticamente, ambas em
+[script.google.com](https://script.google.com):
+
+- [`criar_formulario.gs`](criar_formulario.gs) — versão original, perguntas
+  hardcoded em chamadas diretas de `FormApp`. Roda `criarFormulario`.
+- [`gerar_formulario.gs`](gerar_formulario.gs) — versão **parametrizada**:
+  lê as perguntas de uma entrada de dados (texto estruturado ou JSON) e
+  monta o form a partir disso, reutilizável pra qualquer questionário. Roda
+  `gerarFormulario`. As perguntas deste questionário já vêm embutidas no
+  script (nas constantes `PERGUNTAS_TEXTO`/`PERGUNTAS_JSON`); os mesmos
+  dados também existem como arquivos independentes —
+  [`perguntas.txt`](perguntas.txt) e [`perguntas.json`](perguntas.json) —
+  pra copiar/colar em outro questionário ou editar fora do script.
+
+Em ambos os casos: cole o arquivo inteiro, rode a função, autorize na
+primeira execução — o log devolve o link de edição e o link público do
+Form.
