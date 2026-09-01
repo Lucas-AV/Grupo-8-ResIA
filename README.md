@@ -80,7 +80,7 @@ sufixo tech como Sense/IA):
 
 Dataset: [Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset) (Kaggle).
 
-`dataset.csv` contém ~114 mil faixas distribuídas em 114 gêneros, com colunas:
+`dataset.csv` contém ~31,8 mil faixas distribuídas em 32 gêneros, com colunas:
 
 - Identificação: `track_id`, `artists`, `album_name`, `track_name`, `track_genre`
 - Popularidade: `popularity`
