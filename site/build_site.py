@@ -49,7 +49,6 @@ TEAM = [
 PITCH_CARDS = [
     {
         "label": "Problema",
-        "heading": "Descoberta ainda e estatica",
         "body": (
             "Catalogos com centenas de milhares de faixas, mas a experiencia "
             "de descoberta continua sendo ranking e playlist generica — sem "
@@ -58,7 +57,6 @@ PITCH_CARDS = [
     },
     {
         "label": "Timing de mercado",
-        "heading": "Brasil crescendo 2,2x mais rapido",
         "body": (
             "Mercado global de streaming ainda em expansao (+6,4% a/a) — e o "
             "Brasil subiu 3 posicoes no ranking IFPI em 2 anos, crescendo "
@@ -68,7 +66,6 @@ PITCH_CARDS = [
     },
     {
         "label": "Concorrencia",
-        "heading": "Espaco para diferenciacao",
         "body": (
             "HHI ≈ 2377 e concentracao moderada, nao monopolio: Spotify "
             "lidera com 31,4%, mas quase 70% do mercado esta dividido ou em "
@@ -77,7 +74,6 @@ PITCH_CARDS = [
     },
     {
         "label": "A solucao — em desenho",
-        "heading": "Um agente que conversa, nao so ranqueia",
         "body": (
             "O desenho tecnico exato de como o agente vai funcionar ainda "
             "esta sendo consolidado pelo time. Os principios ja definidos: a "

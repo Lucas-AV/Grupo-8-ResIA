@@ -426,35 +426,25 @@ tbody tr:hover td { background: var(--row-hover); }
   padding: 0 24px;
 }
 
-.pitch-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+.pitch-text {
+  max-width: 720px;
+  margin: 8px auto 40px;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
   gap: 16px;
 }
 
-.pitch-card {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 22px;
+.pitch-text p {
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 16px;
+  line-height: 1.7;
 }
 
-.pitch-label {
-  font-family: "IBM Plex Mono", ui-monospace, monospace;
-  font-size: 11.5px;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
+.pitch-highlight {
   color: var(--accent-450);
-  margin: 0 0 8px;
-}
-
-.pitch-card h3 { font-size: 17px; font-weight: 700; color: var(--ink); margin: 0 0 8px; }
-.pitch-card p { margin: 0; color: var(--ink-2); font-size: 14px; line-height: 1.55; }
-
-.pitch-more {
-  margin-top: 16px;
-  margin-bottom: 40px;
+  font-weight: 700;
 }
 
 .team-section {

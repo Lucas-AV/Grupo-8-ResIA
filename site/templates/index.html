@@ -16,17 +16,11 @@
   <span class="section-number">01</span>
   <h2>O Pitch</h2>
 </div>
-<div class="pitch-grid home-tiles">
+<div class="pitch-text">
   {% for card in pitch %}
-  <div class="pitch-card">
-    <p class="pitch-label">{{ card.label }}</p>
-    <h3>{{ card.heading }}</h3>
-    <p>{{ card.body }}</p>
-  </div>
+  <p><span class="pitch-highlight">{{ card.label }}.</span> {{ card.body }}</p>
   {% endfor %}
-</div>
-<div class="pitch-more home-tiles">
-  <a class="btn btn-secondary" href="mercado.html">Ler relatorio completo &#8599;</a>
+  <p><a class="btn btn-secondary" href="mercado.html">Ler relatorio completo &#8599;</a></p>
 </div>
 
 <div class="section-heading home-tiles">
