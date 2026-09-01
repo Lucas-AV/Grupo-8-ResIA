@@ -15,25 +15,17 @@ htmlcov/
 # Jupyter
 .ipynb_checkpoints/
 
-# Dados e artefatos gerados (os READMEs permanecem versionados)
-dados/brutos/*
-!dados/brutos/README.md
-dados/tratados/*
-!dados/tratados/README.md
-dados/modelos/*
-!dados/modelos/README.md
-dados/amostras/*
-!dados/amostras/README.md
-resultados/plots/*
-!resultados/plots/README.md
-resultados/metricas/*
-!resultados/metricas/README.md
+# Dados e artefatos selecionados para colaboração
+# Os datasets, modelos e resultados em suas pastas dedicadas são versionados.
 *.db
 *.sqlite
 *.sqlite3
 *.joblib
 *.pkl
 *.parquet
+!dados/modelos/*.joblib
+!dados/modelos/*.pkl
+!dados/modelos/*.parquet
 
 # Frontend
 frontend/node_modules/

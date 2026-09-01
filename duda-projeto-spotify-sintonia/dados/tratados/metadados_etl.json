@@ -1,0 +1,89 @@
+{
+  "proveniencia": {
+    "arquivo": "C:\\Users\\eduar\\001_projeto-spotify-unb\\dados\\brutos\\dataset.csv",
+    "sha256": "b202fa49909b2d5cef71a04b1d21243cfeb36414535f2ca9272aa646721177bd",
+    "executado_em_utc": "2026-09-01T02:16:25.114482+00:00"
+  },
+  "antes_do_tratamento": {
+    "linhas": 114000,
+    "colunas": 21,
+    "nomes_colunas": [
+      "Unnamed: 0",
+      "track_id",
+      "artists",
+      "album_name",
+      "track_name",
+      "popularity",
+      "duration_ms",
+      "explicit",
+      "danceability",
+      "energy",
+      "key",
+      "loudness",
+      "mode",
+      "speechiness",
+      "acousticness",
+      "instrumentalness",
+      "liveness",
+      "valence",
+      "tempo",
+      "time_signature",
+      "track_genre"
+    ],
+    "tipos": {
+      "Unnamed: 0": "int64",
+      "track_id": "str",
+      "artists": "str",
+      "album_name": "str",
+      "track_name": "str",
+      "popularity": "int64",
+      "duration_ms": "int64",
+      "explicit": "bool",
+      "danceability": "float64",
+      "energy": "float64",
+      "key": "int64",
+      "loudness": "float64",
+      "mode": "int64",
+      "speechiness": "float64",
+      "acousticness": "float64",
+      "instrumentalness": "float64",
+      "liveness": "float64",
+      "valence": "float64",
+      "tempo": "float64",
+      "time_signature": "int64",
+      "track_genre": "str"
+    },
+    "nulos_por_coluna": {
+      "artists": 1,
+      "album_name": 1,
+      "track_name": 1
+    },
+    "duplicatas_exatas": 0,
+    "duplicatas_exatas_sem_coluna_indice": 450,
+    "track_ids_repetidos": 24259,
+    "generos_distintos": 114
+  },
+  "decisoes": {
+    "duplicatas_exatas": "remover",
+    "campos_obrigatorios": "descartar linha sem track_id, track_name ou artists",
+    "nulos_numericos": "mediana por gênero; fallback para mediana global",
+    "album_nulo": "preencher com desconhecido",
+    "generos_repetidos": "consolidar por track_id e manter todos os gêneros",
+    "normalizacao": "MinMaxScaler em colunas *_norm, preservando valores brutos"
+  },
+  "tratamento": {
+    "colunas_indice_removidas": [
+      "Unnamed: 0"
+    ],
+    "duplicatas_exatas_removidas": 450,
+    "linhas_descartadas_campos_obrigatorios": 1,
+    "faixas_consolidadas_por_track_id": 23809,
+    "conflitos_numericos_resolvidos_por_mediana": 720,
+    "nulos_restantes": {}
+  },
+  "depois_do_tratamento": {
+    "linhas": 89740,
+    "colunas": 30,
+    "generos_distintos": 113
+  }
+}
