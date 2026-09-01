@@ -322,22 +322,38 @@ svg text { font-family: "Source Sans 3", sans-serif; }
 
 .figure-dialog {
   position: relative;
-  max-width: min(920px, 92vw);
-  max-height: 88vh;
-  padding: 24px;
+  max-width: min(1000px, 94vw);
+  max-height: 90vh;
+  padding: 28px;
   border: none;
-  border-radius: 14px;
+  border-radius: 16px;
   background: var(--surface);
   color: var(--ink);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.35);
   overflow-y: auto;
 }
 
 .figure-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(2px);
+  background: rgba(8, 7, 5, 0.72);
+  backdrop-filter: blur(3px);
 }
 
-.figure-dialog img {
+.figure-dialog-body {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+@media (min-width: 800px) {
+  .figure-dialog-body {
+    display: grid;
+    grid-template-columns: 1.15fr 1fr;
+    align-items: start;
+    gap: 28px;
+  }
+}
+
+.figure-dialog-media img {
   width: 100%;
   height: auto;
   border-radius: 8px;
@@ -345,39 +361,51 @@ svg text { font-family: "Source Sans 3", sans-serif; }
   display: block;
 }
 
-.figure-dialog h3 {
-  margin: 16px 0 8px;
-  font-size: 18px;
+.figure-dialog-info h3 {
+  margin: 0 0 10px;
+  font-size: 19px;
   font-weight: 700;
   color: var(--ink);
 }
 
-.figure-dialog p {
-  margin: 0;
+.figure-dialog-info p {
+  margin: 0 0 16px;
   color: var(--ink-2);
   font-size: 14.5px;
   line-height: 1.65;
 }
 
+.figure-dialog-table {
+  margin-bottom: 16px;
+  max-height: 240px;
+}
+
+.figure-dialog-table table { font-size: 12.5px; min-width: 0; }
+.figure-dialog-table th, .figure-dialog-table td { padding: 6px 10px; }
+
+.figure-dialog-download { font-size: 13px; padding: 9px 16px; }
+
 .figure-dialog-close {
   all: unset;
   position: absolute;
-  top: 12px;
-  right: 12px;
-  width: 32px;
-  height: 32px;
+  top: 14px;
+  right: 14px;
+  width: 34px;
+  height: 34px;
   display: flex;
   align-items: center;
   justify-content: center;
   border-radius: 50%;
   background: var(--surface-2);
+  border: 1px solid var(--border);
   color: var(--ink);
   cursor: pointer;
   font-size: 18px;
   line-height: 1;
+  z-index: 1;
 }
 
-.figure-dialog-close:hover { background: var(--row-hover); }
+.figure-dialog-close:hover { background: var(--row-hover); border-color: var(--accent-450); }
 
 table {
   width: 100%;

@@ -26,6 +26,13 @@ CORRELATION_HEATMAP_PNG = ROOT / "correlation_heatmap.png"
 
 MARKET_DIR = ROOT / "analise_mercado_streaming"
 MARKET_SHARE_CSV = MARKET_DIR / "data" / "platform_market_share.csv"
+MARKET_DATA_CSVS = [
+    MARKET_DIR / "data" / "spotify_quarterly.csv",
+    MARKET_DIR / "data" / "global_market_revenue.csv",
+    MARKET_DIR / "data" / "global_paid_subscribers.csv",
+    MARKET_DIR / "data" / "brazil_market.csv",
+    MARKET_SHARE_CSV,
+]
 MARKET_PNGS = [
     MARKET_DIR / "output_spotify_usuarios.png",
     MARKET_DIR / "output_spotify_receita.png",
@@ -418,6 +425,20 @@ def build() -> None:
                     "de conversao de usuario gratis pra pago nao esta caindo conforme "
                     "a base cresce."
                 ),
+                "csv": "spotify_quarterly.csv",
+                "table": {
+                    "title": "MAU e Premium por trimestre",
+                    "headers": ["Trimestre", "MAU (M)", "Premium (M)"],
+                    "rows": [
+                        ["2024-Q4", 675, 263],
+                        ["2025-Q1", 678, 268],
+                        ["2025-Q2", 696, 276],
+                        ["2025-Q3", 713, 281],
+                        ["2025-Q4", 751, 290],
+                        ["2026-Q1", 761, 293],
+                        ["2026-Q2", 777, 300],
+                    ],
+                },
             },
             {
                 "image": "output_spotify_receita.png",
@@ -432,6 +453,20 @@ def build() -> None:
                     "resultado mesmo em trimestres sazonalmente mais fracos, "
                     "diferente de um negocio que depende de compras pontuais."
                 ),
+                "csv": "spotify_quarterly.csv",
+                "table": {
+                    "title": "Receita total por trimestre",
+                    "headers": ["Trimestre", "Receita total (EUR M)"],
+                    "rows": [
+                        ["2024-Q4", 4242],
+                        ["2025-Q1", 4190],
+                        ["2025-Q2", 4193],
+                        ["2025-Q3", 4272],
+                        ["2025-Q4", 4531],
+                        ["2026-Q1", 4533],
+                        ["2026-Q2", 4777],
+                    ],
+                },
             },
             {
                 "image": "output_spotify_margem.png",
@@ -446,6 +481,20 @@ def build() -> None:
                     "pesam proporcionalmente mais numa fatia fina (margem) do que em "
                     "numeros grandes e mais estaveis (usuarios, receita)."
                 ),
+                "csv": "spotify_quarterly.csv",
+                "table": {
+                    "title": "Margem operacional por trimestre",
+                    "headers": ["Trimestre", "Margem operacional (%)"],
+                    "rows": [
+                        ["2024-Q4", "11,2%"],
+                        ["2025-Q1", "12,1%"],
+                        ["2025-Q2", "9,7%"],
+                        ["2025-Q3", "13,6%"],
+                        ["2025-Q4", "15,5%"],
+                        ["2026-Q1", "15,8%"],
+                        ["2026-Q2", "—"],
+                    ],
+                },
             },
             {
                 "image": "output_mercado_global.png",
@@ -460,6 +509,16 @@ def build() -> None:
                     "mercado global cresceu 6,4% em 2025, acelerando frente aos 4,7% "
                     "de 2024."
                 ),
+                "csv": "global_market_revenue.csv",
+                "table": {
+                    "title": "Receita global de musica gravada",
+                    "headers": ["Ano", "Receita total (US$ bi)", "Receita streaming (US$ bi)"],
+                    "rows": [
+                        [2014, 13.1, "—"],
+                        [2024, 29.6, 20.4],
+                        [2025, 31.7, 22.06],
+                    ],
+                },
             },
             {
                 "image": "output_assinantes_globais.png",
@@ -475,6 +534,18 @@ def build() -> None:
                     "cada ano; fazer quem ja assina usar mais e cancelar menos vira "
                     "o jogo principal."
                 ),
+                "csv": "global_paid_subscribers.csv",
+                "table": {
+                    "title": "Assinantes pagos globais",
+                    "headers": ["Ano", "Assinantes (M)", "Novos assinantes liq. (M)"],
+                    "rows": [
+                        [2021, 509, "—"],
+                        [2022, 603, 94],
+                        [2023, 680, 77],
+                        [2024, 764, 84],
+                        [2025, 837, 73],
+                    ],
+                },
             },
             {
                 "image": "output_brasil_vs_global.png",
@@ -489,6 +560,15 @@ def build() -> None:
                     "rapido que ela, e isso ja se reflete no ranking IFPI, onde o "
                     "Brasil subiu de #10 (2023) para #8 (2025) em dois anos."
                 ),
+                "csv": "brazil_market.csv",
+                "table": {
+                    "title": "Brasil vs. mercado global — crescimento 2025",
+                    "headers": ["Mercado", "Crescimento 2025 (% a/a)"],
+                    "rows": [
+                        ["Brasil", "14,1%"],
+                        ["Global", "6,4%"],
+                    ],
+                },
             },
             {
                 "image": "output_market_share.png",
@@ -505,6 +585,12 @@ def build() -> None:
                     "alto, nao um monopolio — ha espaco real pra um produto novo "
                     "entrar."
                 ),
+                "csv": "platform_market_share.csv",
+                "table": {
+                    "title": "Participacao de mercado entre plataformas",
+                    "headers": ["Plataforma", "Participacao", "Assinantes (M)", "Divulgacao"],
+                    "rows": load_market_share_rows(MARKET_SHARE_CSV),
+                },
             },
         ],
         table={
@@ -525,6 +611,8 @@ def build() -> None:
     for png in all_pngs:
         shutil.copy(png, DIST_DIR / png.name)
     shutil.copy(MARKET_REPORT_PDF, DIST_DIR / MARKET_REPORT_PDF.name)
+    for csv_path in MARKET_DATA_CSVS:
+        shutil.copy(csv_path, DIST_DIR / csv_path.name)
 
     print(f"Site gerado em {DIST_DIR}")
 

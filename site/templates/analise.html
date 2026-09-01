@@ -43,9 +43,32 @@
     {% endif %}
     <dialog class="figure-dialog" id="dialog-fig-{{ loop.index }}">
       <button type="button" class="figure-dialog-close" data-close-dialog aria-label="Fechar">&times;</button>
-      <img src="{{ figure.image }}" alt="{{ figure.alt }}">
-      <h3>{{ figure.caption }}</h3>
-      {% if figure.leitura %}<p>{{ figure.leitura }}</p>{% endif %}
+      <div class="figure-dialog-body">
+        <div class="figure-dialog-media">
+          <img src="{{ figure.image }}" alt="{{ figure.alt }}">
+        </div>
+        <div class="figure-dialog-info">
+          <h3>{{ figure.caption }}</h3>
+          {% if figure.leitura %}<p>{{ figure.leitura }}</p>{% endif %}
+          {% if figure.table %}
+          <div class="figure-dialog-table table-wrap">
+            <table>
+              <thead>
+                <tr>{% for header in figure.table.headers %}<th>{{ header }}</th>{% endfor %}</tr>
+              </thead>
+              <tbody>
+                {% for row in figure.table.rows %}
+                <tr>{% for cell in row %}<td>{{ cell }}</td>{% endfor %}</tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+          {% endif %}
+          {% if figure.csv %}
+          <a class="btn btn-secondary figure-dialog-download" href="{{ figure.csv }}" download>Baixar dados (CSV)</a>
+          {% endif %}
+        </div>
+      </div>
     </dialog>
   </section>
   {% endfor %}
