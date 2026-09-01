@@ -1,0 +1,2 @@
+"""Configuração tipada do backend."""
+

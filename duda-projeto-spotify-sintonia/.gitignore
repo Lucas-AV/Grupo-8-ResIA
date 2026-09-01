@@ -1,0 +1,50 @@
+# Segredos e ambientes locais
+.env
+.env.local
+.venv/
+venv/
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Dados e artefatos gerados (os READMEs permanecem versionados)
+dados/brutos/*
+!dados/brutos/README.md
+dados/tratados/*
+!dados/tratados/README.md
+dados/modelos/*
+!dados/modelos/README.md
+dados/amostras/*
+!dados/amostras/README.md
+resultados/plots/*
+!resultados/plots/README.md
+resultados/metricas/*
+!resultados/metricas/README.md
+*.db
+*.sqlite
+*.sqlite3
+*.joblib
+*.pkl
+*.parquet
+
+# Frontend
+frontend/node_modules/
+frontend/.next/
+frontend/out/
+frontend/coverage/
+frontend/.env.local
+*.tsbuildinfo
+
+# Sistema e editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
