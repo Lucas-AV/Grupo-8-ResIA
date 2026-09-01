@@ -27,6 +27,8 @@ jobs:
       - run: python plot_genre_charts.py
       - run: python plot_genre_mode.py
       - run: python plot_popularity_occurrences.py
+      - run: python profile_dataset.py
+      - run: python plot_correlations.py
       - run: python site/build_site.py
       - uses: actions/upload-pages-artifact@v3
         with:
