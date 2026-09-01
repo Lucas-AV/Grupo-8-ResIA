@@ -13,16 +13,16 @@ TEMPLATES_DIR = SITE_DIR / "templates"
 STATIC_DIR = SITE_DIR / "static"
 DIST_DIR = SITE_DIR / "dist"
 
-GENRE_CSV = ROOT / "occurrences_by_genre.csv"
-GENRE_PNGS = [ROOT / "genre_popularity.png", ROOT / "genre_energy_dance.png"]
+GENRE_CSV = ROOT / "data" / "occurrences_by_genre.csv"
+GENRE_PNGS = [ROOT / "images" / "genre_popularity.png", ROOT / "images" / "genre_energy_dance.png"]
 
-PROFILE_JSON = ROOT / "dataset_profile.json"
-MULTI_GENRE_CSV = ROOT / "dataset_multi_genre_tracks.csv"
-ARTIST_DIST_PNG = ROOT / "artist_track_distribution.png"
-ALBUM_DIST_PNG = ROOT / "album_track_distribution.png"
+PROFILE_JSON = ROOT / "data" / "dataset_profile.json"
+MULTI_GENRE_CSV = ROOT / "data" / "dataset_multi_genre_tracks.csv"
+ARTIST_DIST_PNG = ROOT / "images" / "artist_track_distribution.png"
+ALBUM_DIST_PNG = ROOT / "images" / "album_track_distribution.png"
 
-CORRELATIONS_CSV = ROOT / "correlations_top_pairs.csv"
-CORRELATION_HEATMAP_PNG = ROOT / "correlation_heatmap.png"
+CORRELATIONS_CSV = ROOT / "data" / "correlations_top_pairs.csv"
+CORRELATION_HEATMAP_PNG = ROOT / "images" / "correlation_heatmap.png"
 
 MARKET_DIR = ROOT / "analise_mercado_streaming"
 MARKET_SHARE_CSV = MARKET_DIR / "data" / "platform_market_share.csv"
@@ -195,7 +195,7 @@ STATIC_ANALYSES = [
         ],
         "figures": [
             {
-                "path": ROOT / "genre_mode.png",
+                "path": ROOT / "images" / "genre_mode.png",
                 "alt": "Grafico de barras empilhadas: proporcao de escala maior e menor por genero",
                 "caption": "Escala maior vs. menor por genero",
                 "leitura": (
@@ -228,7 +228,7 @@ STATIC_ANALYSES = [
         ],
         "figures": [
             {
-                "path": ROOT / "popularity_occurrences.png",
+                "path": ROOT / "images" / "popularity_occurrences.png",
                 "alt": "Grafico de barras: popularidade media por faixa de quantidade de ocorrencias do artista",
                 "caption": "Popularidade media por faixa de ocorrencias do artista",
                 "leitura": (

@@ -24,9 +24,9 @@ from chart_style import (
     apply_style,
 )
 
-INPUT_FILE = "occurrences_by_genre.csv"
-BAR_OUTPUT_FILE = "genre_popularity.png"
-SCATTER_OUTPUT_FILE = "genre_energy_dance.png"
+INPUT_FILE = "data/occurrences_by_genre.csv"
+BAR_OUTPUT_FILE = "images/genre_popularity.png"
+SCATTER_OUTPUT_FILE = "images/genre_energy_dance.png"
 
 
 def plot_popularity_bars(df: pd.DataFrame) -> None:

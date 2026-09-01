@@ -11,8 +11,8 @@ matplotlib.use("Agg")  # headless: no display in CI, and no window needed locall
 import matplotlib.pyplot as plt
 import pandas as pd
 
-INPUT_FILE = "dataset.csv"
-OUTPUT_FILE = "popularity_occurrences.png"
+INPUT_FILE = "data/dataset.csv"
+OUTPUT_FILE = "images/popularity_occurrences.png"
 
 ACCENT = "#2a78d6"
 INK = "#0b0b0b"

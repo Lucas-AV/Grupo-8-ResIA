@@ -7,10 +7,10 @@ Gera tambem um CSV com o agrupamento focado em track_genre
 
 import pandas as pd
 
-INPUT_FILE = "dataset.csv"
-OUTPUT_FILE = "occurrences_by_column.csv"
+INPUT_FILE = "data/dataset.csv"
+OUTPUT_FILE = "data/occurrences_by_column.csv"
 GENRE_COLUMN = "track_genre"
-GENRE_OUTPUT_FILE = "occurrences_by_genre.csv"
+GENRE_OUTPUT_FILE = "data/occurrences_by_genre.csv"
 
 
 def build_occurrence_table(df: pd.DataFrame) -> pd.DataFrame:
