@@ -228,12 +228,13 @@ h1, h2 {
 }
 
 .tiles {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  display: flex;
+  flex-wrap: wrap;
   gap: 12px;
 }
 
 .tile {
+  flex: 1 1 190px;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 10px;
