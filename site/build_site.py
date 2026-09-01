@@ -83,6 +83,47 @@ PITCH_CARDS = [
             "meio de uma demonstracao."
         ),
     },
+    {
+        "label": "Por que o risco tecnico e controlavel",
+        "body": (
+            "Qualquer que seja o desenho final, o motor de recomendacao vai "
+            "trabalhar em cima do que ja existe nas 31,8 mil faixas do "
+            "catalogo (metadado e caracteristicas de audio) — nao depende de "
+            "um historico de escuta de milhoes de usuarios que hoje nao "
+            "temos."
+        ),
+    },
+    {
+        "label": "Vantagem etica como diferencial",
+        "body": (
+            "Compromisso de medir diversidade/cobertura sempre que "
+            "popularidade for sinal de recomendacao — resposta direta ao "
+            "mesmo problema de “filter bubble” que ja pesa contra "
+            "incumbentes."
+        ),
+    },
+    {
+        "label": "O que o investimento habilita",
+        "body": (
+            "Dados reais de interacao de usuario, para fechar o gap de "
+            "collaborative filtering (o dataset atual nao tem matriz "
+            "usuario-item). Login via Spotify OAuth, casando historico real "
+            "do usuario com as features ja presentes no dataset local — a "
+            "API de audio-features do Spotify foi descontinuada para apps "
+            "novos desde nov/2024. Evolucao para um modelo hibrido "
+            "(conteudo + colaborativo)."
+        ),
+    },
+    {
+        "label": "Riscos assumidos, nao escondidos",
+        "body": (
+            "~24.259 track_id duplicados no dataset (mesma faixa em varios "
+            "generos) — tratamento documentado, nao ignorado. Dados de "
+            "mercado deste relatorio sao curadoria manual de agosto/2026, "
+            "nao um feed automatico: servem para validar direcao "
+            "estrategica, nao como cotacao de preco."
+        ),
+    },
 ]
 
 ANALYSES = [

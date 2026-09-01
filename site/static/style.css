@@ -427,7 +427,7 @@ tbody tr:hover td { background: var(--row-hover); }
 }
 
 .pitch-text {
-  max-width: 720px;
+  max-width: 900px;
   margin: 8px auto 40px;
   padding: 0 24px;
   display: flex;
