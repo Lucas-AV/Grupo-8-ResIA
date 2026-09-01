@@ -122,6 +122,50 @@ def register_routes(app):
         )
         return jsonify(body), status
 
+    @app.route("/login")
+    def login():
+        return redirect(
+            user_auth.get_login_url(
+                app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_REDIRECT_URI"]
+            )
+        )
+
+    @app.route("/callback")
+    def callback():
+        error = request.args.get("error")
+        if error:
+            return redirect(url_for("index", auth_error=error))
+
+        try:
+            user_auth.exchange_code(
+                request.args.get("code"),
+                request.args.get("state"),
+                app.config["SPOTIFY_CLIENT_ID"],
+                app.config["SPOTIFY_CLIENT_SECRET"],
+                app.config["SPOTIFY_REDIRECT_URI"],
+            )
+        except ValueError as exc:
+            return redirect(url_for("index", auth_error=str(exc)))
+
+        return redirect(url_for("index"))
+
+    @app.route("/logout")
+    def logout():
+        user_auth.logout()
+        return redirect(url_for("index"))
+
+    @app.route("/api/me")
+    def me():
+        try:
+            token = user_auth.get_valid_user_token(
+                app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_CLIENT_SECRET"]
+            )
+        except user_auth.NotLoggedInError as exc:
+            return jsonify({"error": str(exc)}), 401
+
+        body, status = spotify_client.call_api("/me", token)
+        return jsonify(body), status
+
 
 if __name__ == "__main__":
     flask_app = create_app()
