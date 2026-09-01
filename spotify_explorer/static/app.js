@@ -87,6 +87,99 @@ async function callEndpoint(url, options, resultEl, statusEl) {
   }
 }
 
+function initSearchForm() {
+  const form = document.getElementById("search-form");
+  const resultEl = document.getElementById("search-result");
+  const statusEl = document.getElementById("search-status");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    await callEndpoint(
+      "/api/search",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          q: formData.get("q"),
+          type: formData.get("type"),
+          limit: Number(formData.get("limit")),
+        }),
+      },
+      resultEl,
+      statusEl
+    );
+  });
+}
+
+function initTrackForm() {
+  const form = document.getElementById("track-form");
+  const resultEl = document.getElementById("track-result");
+  const statusEl = document.getElementById("track-status");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const trackId = new FormData(form).get("track_id");
+
+    const [track, audioFeatures, audioAnalysis] = await Promise.all([
+      fetch(`/api/track/${trackId}`).then((r) => r.json()),
+      fetch(`/api/audio-features/${trackId}`).then((r) => r.json()),
+      fetch(`/api/audio-analysis/${trackId}`).then((r) => r.json()),
+    ]);
+
+    statusEl.textContent = "3 chamadas concluídas (ver JSON por seção)";
+    statusEl.className = "status status-ok";
+    renderJSON(resultEl, { track, audio_features: audioFeatures, audio_analysis: audioAnalysis });
+  });
+}
+
+function initArtistForm() {
+  const form = document.getElementById("artist-form");
+  const resultEl = document.getElementById("artist-result");
+  const statusEl = document.getElementById("artist-status");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const artistId = new FormData(form).get("artist_id");
+
+    const [artist, topTracks, albums, relatedArtists] = await Promise.all([
+      fetch(`/api/artist/${artistId}`).then((r) => r.json()),
+      fetch(`/api/artist/${artistId}/top-tracks`).then((r) => r.json()),
+      fetch(`/api/artist/${artistId}/albums`).then((r) => r.json()),
+      fetch(`/api/artist/${artistId}/related-artists`).then((r) => r.json()),
+    ]);
+
+    statusEl.textContent = "4 chamadas concluídas (ver JSON por seção)";
+    statusEl.className = "status status-ok";
+    renderJSON(resultEl, {
+      artist,
+      top_tracks: topTracks,
+      albums,
+      related_artists: relatedArtists,
+    });
+  });
+}
+
+function initRecommendationsForm() {
+  const form = document.getElementById("recommendations-form");
+  const resultEl = document.getElementById("recommendations-result");
+  const statusEl = document.getElementById("recommendations-status");
+
+  form.addEventListener("submit", async (event) => {
+    event.preventDefault();
+    const formData = new FormData(form);
+    const params = new URLSearchParams();
+    for (const [key, value] of formData.entries()) {
+      if (value) params.set(key, value);
+    }
+    await callEndpoint(`/api/recommendations?${params}`, {}, resultEl, statusEl);
+  });
+}
+
 document.addEventListener("DOMContentLoaded", () => {
   initTabs();
+  initSearchForm();
+  initTrackForm();
+  initArtistForm();
+  initRecommendationsForm();
 });
