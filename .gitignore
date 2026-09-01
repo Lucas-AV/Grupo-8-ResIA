@@ -4,3 +4,4 @@ __pycache__/
 .pytest_cache/
 site/dist/
 .mcp.json
+spotify_explorer/.env
