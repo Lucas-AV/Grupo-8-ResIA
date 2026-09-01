@@ -355,10 +355,31 @@ tbody tr:hover td { background: var(--row-hover); }
   padding: 64px 24px 16px;
 }
 
+.hero-meta {
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--ink-3);
+  margin: 0 0 14px;
+}
+
 .hero h1 {
-  font-size: clamp(32px, 5vw, 48px);
-  font-weight: 800;
+  font-family: "Anton", "Manrope", system-ui, sans-serif;
+  font-size: clamp(36px, 6vw, 64px);
+  font-weight: 400;
+  line-height: 1.05;
+  text-transform: uppercase;
   color: var(--ink);
+}
+
+.hero-rule {
+  width: 64px;
+  height: 4px;
+  background: var(--accent-450);
+  border-radius: 2px;
+  margin: 18px 0 0;
 }
 
 .hero > p {
@@ -411,10 +432,33 @@ tbody tr:hover td { background: var(--row-hover); }
   padding: 40px 24px 8px;
 }
 
-.team-section h2 {
+.section-heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0 0 20px;
+}
+
+.section-number {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  background: var(--accent-450);
+  color: var(--on-accent);
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12px;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+
+.section-heading h2 {
   font-size: 22px;
   font-weight: 700;
-  margin: 0 0 20px;
+  color: var(--ink);
+  margin: 0;
 }
 
 .team-grid {
