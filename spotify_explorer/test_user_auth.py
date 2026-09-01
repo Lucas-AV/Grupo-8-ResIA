@@ -58,6 +58,27 @@ def test_exchange_code_rejects_mismatched_state(app):
             )
 
 
+@patch("user_auth.requests.post")
+def test_exchange_code_raises_on_failed_exchange(mock_post, app):
+    mock_post.return_value = Mock(
+        status_code=400,
+        json=lambda: {"error": "invalid_grant", "error_description": "code expired"},
+    )
+
+    with app.test_request_context():
+        session["oauth_state"] = "abc"
+
+        with pytest.raises(user_auth.CodeExchangeError) as exc_info:
+            user_auth.exchange_code(
+                "code123", "abc", "client-id", "client-secret",
+                "http://127.0.0.1:5000/callback",
+            )
+
+        assert exc_info.value.status_code == 400
+        assert exc_info.value.body["error"] == "invalid_grant"
+        assert isinstance(exc_info.value, ValueError)
+
+
 def test_get_valid_user_token_returns_cached_when_not_expired(app):
     with app.test_request_context():
         session["user_access_token"] = "cached-at"

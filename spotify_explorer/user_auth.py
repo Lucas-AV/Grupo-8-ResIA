@@ -15,6 +15,13 @@ class NotLoggedInError(Exception):
     pass
 
 
+class CodeExchangeError(ValueError):
+    def __init__(self, body, status_code):
+        super().__init__(f"troca de code falhou com status {status_code}")
+        self.body = body
+        self.status_code = status_code
+
+
 def get_login_url(client_id, redirect_uri):
     state = secrets.token_urlsafe(16)
     session["oauth_state"] = state
@@ -46,7 +53,9 @@ def exchange_code(code, state, client_id, client_secret, redirect_uri):
             "redirect_uri": redirect_uri,
         },
     )
-    response.raise_for_status()
+    if response.status_code != 200:
+        raise CodeExchangeError(response.json(), response.status_code)
+
     payload = response.json()
     session["user_access_token"] = payload["access_token"]
     session["user_refresh_token"] = payload["refresh_token"]
