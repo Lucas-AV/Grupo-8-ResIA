@@ -60,6 +60,11 @@ faixas — e evolui para as etapas de modelagem e recomendação.
 <br><b>femathrl0</b>
 <br><a href="https://github.com/femathrl0"><img src="https://img.shields.io/badge/GitHub-femathrl0-181717?logo=github&logoColor=white" alt="GitHub femathrl0"></a>
 </td>
+<td align="center">
+<a href="https://github.com/rebecavitoriasalazar-cpu"><img src="https://github.com/rebecavitoriasalazar-cpu.png" width="100" style="border-radius:50%" alt="Rebeca Vitoria Salazar"></a>
+<br><b>Rebeca Vitoria Salazar</b>
+<br><a href="https://github.com/rebecavitoriasalazar-cpu"><img src="https://img.shields.io/badge/GitHub-rebecavitoriasalazar--cpu-181717?logo=github&logoColor=white" alt="GitHub rebecavitoriasalazar-cpu"></a>
+</td>
 </tr>
 </table>
 
