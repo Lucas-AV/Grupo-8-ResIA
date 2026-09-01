@@ -137,36 +137,42 @@ ANALYSES = [
     {
         "id": "genero",
         "title": "Perfil dos Generos",
+        "nav": "Generos",
         "description": "Popularidade e caracteristicas de audio por genero musical.",
         "href": "genero.html",
     },
     {
         "id": "modo",
         "title": "Escala por Genero",
+        "nav": "Modo",
         "description": "Proporcao de faixas em escala maior vs. menor, por genero.",
         "href": "modo.html",
     },
     {
         "id": "popularidade",
         "title": "Popularidade x Catalogo do Artista",
+        "nav": "Popularidade",
         "description": "Popularidade media da faixa conforme o numero de faixas do artista na base.",
         "href": "popularidade.html",
     },
     {
         "id": "visao-geral",
         "title": "Visao Geral do Dataset",
+        "nav": "Visao Geral",
         "description": "Estatisticas gerais, duplicatas e distribuicao de faixas por artista/album.",
         "href": "visao-geral.html",
     },
     {
         "id": "correlacoes",
         "title": "Correlacoes",
+        "nav": "Correlacoes",
         "description": "Correlacao entre popularidade, duracao e features de audio.",
         "href": "correlacoes.html",
     },
     {
         "id": "mercado",
         "title": "Mercado de Streaming",
+        "nav": "Mercado",
         "description": "Panorama do mercado global e do Brasil, e o pitch de investimento do agente. Analise em Julia.",
         "href": "mercado.html",
     },
@@ -297,6 +303,7 @@ def build() -> None:
     DIST_DIR.mkdir(parents=True)
 
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
+    env.globals["nav_items"] = ANALYSES
 
     index_html = env.get_template("index.html").render(
         title="Analises",

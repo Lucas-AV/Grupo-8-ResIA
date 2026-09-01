@@ -68,6 +68,7 @@ body {
 .site-main { flex: 1; }
 
 .site-nav {
+  position: relative;
   display: flex;
   justify-content: space-between;
   align-items: center;
@@ -81,6 +82,15 @@ body {
   color: var(--ink);
   text-decoration: none;
   font-size: 15px;
+  flex-shrink: 0;
+}
+
+.site-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
 }
 
 .site-nav-link {
@@ -88,9 +98,53 @@ body {
   text-decoration: none;
   font-size: 14px;
   font-weight: 500;
+  white-space: nowrap;
 }
 
 .site-nav-link:hover { color: var(--accent-450); }
+
+.site-nav-toggle {
+  all: unset;
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px;
+  cursor: pointer;
+}
+
+.site-nav-toggle span {
+  width: 20px;
+  height: 2px;
+  background: var(--ink);
+  border-radius: 1px;
+}
+
+@media (max-width: 760px) {
+  .site-nav-toggle { display: flex; }
+
+  .site-nav-links {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    padding: 8px 24px 18px;
+    background: var(--surface);
+    border-bottom: 1px solid var(--border);
+    box-shadow: 0 12px 24px rgba(0, 0, 0, 0.12);
+    z-index: 20;
+  }
+
+  .site-nav-links.open { display: flex; }
+
+  .site-nav-link {
+    width: 100%;
+    padding: 8px 0;
+  }
+}
 
 .site-footer {
   padding: 24px;

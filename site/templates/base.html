@@ -13,8 +13,27 @@
 <div class="site">
   <nav class="site-nav">
     <a class="site-nav-brand" href="index.html">Grupo 8 &middot; Analises</a>
-    <a class="site-nav-link" href="index.html">Analises</a>
+    <button type="button" class="site-nav-toggle" data-nav-toggle aria-expanded="false" aria-controls="site-nav-links" aria-label="Abrir menu de navegacao">
+      <span></span><span></span><span></span>
+    </button>
+    <div class="site-nav-links" id="site-nav-links">
+      <a class="site-nav-link" href="index.html">Inicio</a>
+      {% for item in nav_items %}
+      <a class="site-nav-link" href="{{ item.href }}">{{ item.nav }}</a>
+      {% endfor %}
+    </div>
   </nav>
+  <script>
+    (function () {
+      var toggle = document.querySelector("[data-nav-toggle]");
+      var links = document.getElementById("site-nav-links");
+      if (!toggle || !links) return;
+      toggle.addEventListener("click", function () {
+        var open = links.classList.toggle("open");
+        toggle.setAttribute("aria-expanded", open ? "true" : "false");
+      });
+    })();
+  </script>
   <main class="site-main">
     {% block content %}{% endblock %}
   </main>
