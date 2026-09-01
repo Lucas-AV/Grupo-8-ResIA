@@ -2,6 +2,7 @@ import time
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 from flask import Flask, session
 
 import user_auth
@@ -125,3 +126,62 @@ def test_get_valid_user_token_raises_when_not_logged_in(app):
     with app.test_request_context():
         with pytest.raises(user_auth.NotLoggedInError):
             user_auth.get_valid_user_token("client-id", "client-secret")
+
+
+@patch("user_auth.requests.post", side_effect=requests.exceptions.ConnectionError("boom"))
+def test_exchange_code_raises_on_connection_error(mock_post, app):
+    with app.test_request_context():
+        session["oauth_state"] = "abc"
+
+        with pytest.raises(user_auth.CodeExchangeError) as exc_info:
+            user_auth.exchange_code(
+                "code123", "abc", "client-id", "client-secret",
+                "http://127.0.0.1:5000/callback",
+            )
+
+        assert exc_info.value.status_code == 502
+        assert exc_info.value.body["error"] == "connection_error"
+
+
+@patch("user_auth.requests.post")
+def test_exchange_code_raises_on_non_json_success_body(mock_post, app):
+    mock_post.return_value = Mock(status_code=200, json=Mock(side_effect=ValueError("bad json")))
+
+    with app.test_request_context():
+        session["oauth_state"] = "abc"
+
+        with pytest.raises(user_auth.CodeExchangeError) as exc_info:
+            user_auth.exchange_code(
+                "code123", "abc", "client-id", "client-secret",
+                "http://127.0.0.1:5000/callback",
+            )
+
+        assert exc_info.value.body["error"] == "invalid_response"
+
+
+@patch("user_auth.requests.post", side_effect=requests.exceptions.ConnectionError("boom"))
+def test_get_valid_user_token_clears_session_on_connection_error(mock_post, app):
+    with app.test_request_context():
+        session["user_access_token"] = "old-at"
+        session["user_refresh_token"] = "rt"
+        session["user_token_expires_at"] = time.time() - 10
+
+        with pytest.raises(user_auth.NotLoggedInError):
+            user_auth.get_valid_user_token("client-id", "client-secret")
+
+        assert "user_access_token" not in session
+
+
+@patch("user_auth.requests.post")
+def test_get_valid_user_token_clears_session_on_non_json_refresh_body(mock_post, app):
+    mock_post.return_value = Mock(status_code=200, json=Mock(side_effect=ValueError("bad json")))
+
+    with app.test_request_context():
+        session["user_access_token"] = "old-at"
+        session["user_refresh_token"] = "rt"
+        session["user_token_expires_at"] = time.time() - 10
+
+        with pytest.raises(user_auth.NotLoggedInError):
+            user_auth.get_valid_user_token("client-id", "client-secret")
+
+        assert "user_access_token" not in session

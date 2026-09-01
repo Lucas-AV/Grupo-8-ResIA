@@ -44,19 +44,37 @@ def exchange_code(code, state, client_id, client_secret, redirect_uri):
     if state != session.get("oauth_state"):
         raise ValueError("state inválido — possível CSRF, tente logar novamente")
 
-    response = requests.post(
-        TOKEN_URL,
-        headers={"Authorization": f"Basic {_basic_auth_header(client_id, client_secret)}"},
-        data={
-            "grant_type": "authorization_code",
-            "code": code,
-            "redirect_uri": redirect_uri,
-        },
-    )
-    if response.status_code != 200:
-        raise CodeExchangeError(response.json(), response.status_code)
+    try:
+        response = requests.post(
+            TOKEN_URL,
+            headers={"Authorization": f"Basic {_basic_auth_header(client_id, client_secret)}"},
+            data={
+                "grant_type": "authorization_code",
+                "code": code,
+                "redirect_uri": redirect_uri,
+            },
+        )
+    except requests.exceptions.RequestException as exc:
+        raise CodeExchangeError({"error": "connection_error", "error_description": str(exc)}, 502)
 
-    payload = response.json()
+    if response.status_code != 200:
+        try:
+            error_body = response.json()
+        except ValueError:
+            error_body = {
+                "error": "invalid_response",
+                "error_description": "resposta da Spotify não é JSON",
+            }
+        raise CodeExchangeError(error_body, response.status_code)
+
+    try:
+        payload = response.json()
+    except ValueError:
+        raise CodeExchangeError(
+            {"error": "invalid_response", "error_description": "resposta da Spotify não é JSON"},
+            response.status_code,
+        )
+
     session["user_access_token"] = payload["access_token"]
     session["user_refresh_token"] = payload["refresh_token"]
     session["user_token_expires_at"] = time.time() + payload["expires_in"] - 30
@@ -69,19 +87,29 @@ def get_valid_user_token(client_id, client_secret):
     if session["user_token_expires_at"] > time.time():
         return session["user_access_token"]
 
-    response = requests.post(
-        TOKEN_URL,
-        headers={"Authorization": f"Basic {_basic_auth_header(client_id, client_secret)}"},
-        data={
-            "grant_type": "refresh_token",
-            "refresh_token": session["user_refresh_token"],
-        },
-    )
+    try:
+        response = requests.post(
+            TOKEN_URL,
+            headers={"Authorization": f"Basic {_basic_auth_header(client_id, client_secret)}"},
+            data={
+                "grant_type": "refresh_token",
+                "refresh_token": session["user_refresh_token"],
+            },
+        )
+    except requests.exceptions.RequestException:
+        session.clear()
+        raise NotLoggedInError("não foi possível renovar a sessão, faça login novamente")
+
     if response.status_code != 200:
         session.clear()
         raise NotLoggedInError("sessão expirada, faça login novamente")
 
-    payload = response.json()
+    try:
+        payload = response.json()
+    except ValueError:
+        session.clear()
+        raise NotLoggedInError("sessão expirada, faça login novamente")
+
     session["user_access_token"] = payload["access_token"]
     session["user_token_expires_at"] = time.time() + payload["expires_in"] - 30
     if "refresh_token" in payload:

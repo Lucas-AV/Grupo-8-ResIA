@@ -2,6 +2,7 @@ import time
 from unittest.mock import Mock, patch
 
 import pytest
+import requests
 
 import spotify_client
 
@@ -132,3 +133,41 @@ def test_api_get_returns_error_tuple_when_token_request_fails(mock_post):
 
     assert status == 400
     assert body["error"] == "invalid_client"
+
+
+@patch("spotify_client.requests.post", side_effect=requests.exceptions.ConnectionError("boom"))
+def test_get_app_token_raises_apptokenerror_on_connection_error(mock_post):
+    with pytest.raises(spotify_client.AppTokenError) as exc_info:
+        spotify_client.get_app_token("client-id", "client-secret")
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.body["error"] == "connection_error"
+
+
+@patch("spotify_client.requests.post")
+def test_get_app_token_raises_apptokenerror_on_non_json_success_body(mock_post):
+    mock_post.return_value = Mock(status_code=200, json=Mock(side_effect=ValueError("bad json")))
+
+    with pytest.raises(spotify_client.AppTokenError) as exc_info:
+        spotify_client.get_app_token("client-id", "client-secret")
+
+    assert exc_info.value.status_code == 200
+    assert exc_info.value.body["error"] == "invalid_response"
+
+
+@patch("spotify_client.requests.get", side_effect=requests.exceptions.ConnectionError("boom"))
+def test_call_api_returns_error_tuple_on_connection_error(mock_get):
+    body, status = spotify_client.call_api("/search", "token")
+
+    assert status == 502
+    assert body["error"] == "connection_error"
+
+
+@patch("spotify_client.requests.get")
+def test_call_api_returns_error_tuple_on_non_json_body(mock_get):
+    mock_get.return_value = Mock(status_code=200, json=Mock(side_effect=ValueError("bad json")), headers={})
+
+    body, status = spotify_client.call_api("/search", "token")
+
+    assert status == 200
+    assert body["error"] == "invalid_response"
