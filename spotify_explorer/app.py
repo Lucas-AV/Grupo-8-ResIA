@@ -112,6 +112,16 @@ def register_routes(app):
         )
         return jsonify(body), status
 
+    @app.route("/api/recommendations")
+    def recommendations():
+        body, status = spotify_client.api_get(
+            "/recommendations",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+            params=request.args.to_dict(),
+        )
+        return jsonify(body), status
+
 
 if __name__ == "__main__":
     flask_app = create_app()

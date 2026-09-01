@@ -120,3 +120,16 @@ def test_artist_related_artists_calls_correct_path(client, monkeypatch):
     response = client.get("/api/artist/artist1/related-artists")
 
     assert response.status_code == 200
+
+
+def test_recommendations_forwards_query_params(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/recommendations"
+        assert params == {"seed_genres": "pop", "target_energy": "0.8"}
+        return {"tracks": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/recommendations?seed_genres=pop&target_energy=0.8")
+
+    assert response.status_code == 200
