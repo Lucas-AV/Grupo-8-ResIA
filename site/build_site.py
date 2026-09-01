@@ -24,6 +24,18 @@ ALBUM_DIST_PNG = ROOT / "album_track_distribution.png"
 CORRELATIONS_CSV = ROOT / "correlations_top_pairs.csv"
 CORRELATION_HEATMAP_PNG = ROOT / "correlation_heatmap.png"
 
+MARKET_DIR = ROOT / "analise_mercado_streaming"
+MARKET_SHARE_CSV = MARKET_DIR / "data" / "platform_market_share.csv"
+MARKET_PNGS = [
+    MARKET_DIR / "output_spotify_usuarios.png",
+    MARKET_DIR / "output_spotify_receita.png",
+    MARKET_DIR / "output_spotify_margem.png",
+    MARKET_DIR / "output_mercado_global.png",
+    MARKET_DIR / "output_assinantes_globais.png",
+    MARKET_DIR / "output_brasil_vs_global.png",
+    MARKET_DIR / "output_market_share.png",
+]
+
 ANALYSES = [
     {
         "id": "genero",
@@ -54,6 +66,12 @@ ANALYSES = [
         "title": "Correlacoes",
         "description": "Correlacao entre popularidade, duracao e features de audio.",
         "href": "correlacoes.html",
+    },
+    {
+        "id": "mercado",
+        "title": "Mercado de Streaming",
+        "description": "Panorama do mercado global e do Brasil, e o pitch de investimento do agente. Analise em Julia.",
+        "href": "mercado.html",
     },
 ]
 
@@ -141,6 +159,23 @@ def load_table_rows(csv_path: Path, columns: list[str]) -> list[list]:
     """Read a CSV into the row-of-lists shape analise.html's table block needs."""
     df = pd.read_csv(csv_path)
     return df[columns].values.tolist()
+
+
+def load_market_share_rows(csv_path: Path) -> list[list]:
+    """Format platform_market_share.csv rows, flagging estimated/derived values."""
+    df = pd.read_csv(csv_path)
+    rows = []
+    for _, row in df.iterrows():
+        subs = "-" if pd.isna(row["subscribers_estimate_millions"]) else f"{row['subscribers_estimate_millions']:g}"
+        rows.append(
+            [
+                row["platform"],
+                f"{row['share_pct']:.1f}%",
+                subs,
+                row["disclosure_type"],
+            ]
+        )
+    return rows
 
 
 def build() -> None:
@@ -235,11 +270,44 @@ def build() -> None:
     )
     (DIST_DIR / "correlacoes.html").write_text(correlacoes_html, encoding="utf-8")
 
+    mercado_html = env.get_template("analise.html").render(
+        title="Mercado de Streaming",
+        eyebrow="Analise de mercado · gerada em Julia (CSV.jl, DataFrames.jl, Plots.jl)",
+        heading="Mercado de Streaming de Musica",
+        description=(
+            "Panorama do mercado global e do Brasil, mais o pitch de investimento "
+            "do agente de recomendacao, a partir de dados curados de Spotify, "
+            "IFPI, Pro-Musica Brasil e MIDiA Research (agosto/2026). Numeros "
+            "calculados por nos ou vindos de estimativas de terceiros estao "
+            "marcados como tal no relatorio completo: analise_mercado_streaming/"
+            "RELATORIO.md (proveniencia detalhada em data/FONTES.md)."
+        ),
+        tiles=[
+            {"label": "MAU Spotify (7 trimestres)", "value": "+15,1%", "sub": "675M -> 777M, oficial"},
+            {"label": "Premium Spotify (7 trimestres)", "value": "+14,1%", "sub": "263M -> 300M, oficial"},
+            {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "69,6% streaming, IFPI 2026"},
+            {"label": "Crescimento Brasil 2025", "value": "+14,1%", "sub": "vs +6,4% global (2,2x)"},
+            {"label": "Ranking global do Brasil", "value": "#8", "sub": "#10 (2023) -> #8 (2025)"},
+            {"label": "HHI plataformas", "value": "~2377", "sub": "concentracao moderada"},
+        ],
+        figures=[
+            {"image": png.name, "alt": f"Grafico de mercado: {png.stem}", "caption": png.name}
+            for png in MARKET_PNGS
+        ],
+        table={
+            "title": "Participacao de mercado entre plataformas (fim de 2025, MIDiA Research)",
+            "headers": ["Plataforma", "Participacao", "Assinantes (M)", "Divulgacao"],
+            "rows": load_market_share_rows(MARKET_SHARE_CSV),
+        },
+    )
+    (DIST_DIR / "mercado.html").write_text(mercado_html, encoding="utf-8")
+
     shutil.copytree(STATIC_DIR, DIST_DIR / "static")
     all_pngs = (
         GENRE_PNGS
         + [fig["path"] for analysis in STATIC_ANALYSES for fig in analysis["figures"]]
         + [ARTIST_DIST_PNG, ALBUM_DIST_PNG, CORRELATION_HEATMAP_PNG]
+        + MARKET_PNGS
     )
     for png in all_pngs:
         shutil.copy(png, DIST_DIR / png.name)

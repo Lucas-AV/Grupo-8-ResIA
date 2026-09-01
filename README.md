@@ -110,7 +110,26 @@ tests/                         # testes automatizados (pytest)
 conftest.py                    # config do pytest (path do projeto)
 requirements.txt               # dependências Python
 .github/workflows/pages.yml    # workflow de deploy do site no GitHub Pages
+analise_mercado_streaming/     # análise de mercado do pitch, em Julia (stack separada, ver abaixo)
 ```
+
+## Análise de mercado (Julia)
+
+A pasta [`analise_mercado_streaming/`](analise_mercado_streaming/) contém a
+análise do mercado de streaming de música (Spotify, IFPI, Pró-Música Brasil,
+MIDiA Research) que fundamenta o pitch de investimento do projeto. É uma
+stack separada e deliberada: enquanto o resto do repositório é Python, essa
+análise roda em **Julia** (`CSV.jl`, `DataFrames.jl`, `Plots.jl`), isolada em
+seu próprio ambiente (`Project.toml`/`Manifest.toml`).
+
+- Relatório completo, com a proveniência de cada número (oficial, calculado
+  por nós, ou estimativa de terceiros) e a estrutura do pitch de investimento:
+  [`analise_mercado_streaming/RELATORIO.md`](analise_mercado_streaming/RELATORIO.md)
+- Notas de fonte e limitações por planilha:
+  [`analise_mercado_streaming/data/FONTES.md`](analise_mercado_streaming/data/FONTES.md)
+- Versão no site publicado: [Mercado de Streaming](https://lucas-av.github.io/Grupo-8-ResIA/mercado.html)
+- Como reproduzir: ver [`analise_mercado_streaming/README.md`](analise_mercado_streaming/README.md)
+  (resumo: `julia setup.jl && julia analise_mercado.jl`)
 
 ## Análises disponíveis
 
@@ -160,6 +179,7 @@ Testes: `pytest`
 
 - [x] Análise exploratória por gênero (popularidade, energia, dançabilidade, escala)
 - [x] Site GitHub Pages com dashboard interativo das análises publicado em https://lucas-av.github.io/Grupo-8-ResIA/
+- [x] Análise de mercado (Julia) e pitch de investimento
 - [ ] Modelagem do agente de recomendação (conteúdo/colaborativo/híbrido)
 - [ ] Avaliação com dataset complementar de interação/avaliação de usuários
 
