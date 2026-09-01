@@ -1,6 +1,8 @@
 import time
 from unittest.mock import Mock, patch
 
+import pytest
+
 import spotify_client
 
 
@@ -12,6 +14,7 @@ def setup_function():
 @patch("spotify_client.requests.post")
 def test_get_app_token_requests_new_token_when_none_cached(mock_post):
     mock_post.return_value = Mock(
+        status_code=200,
         json=lambda: {"access_token": "abc123", "expires_in": 3600},
         raise_for_status=lambda: None,
     )
@@ -38,6 +41,7 @@ def test_get_app_token_refreshes_after_expiry(mock_post):
     spotify_client._token_cache["access_token"] = "old-token"
     spotify_client._token_cache["expires_at"] = time.time() - 10
     mock_post.return_value = Mock(
+        status_code=200,
         json=lambda: {"access_token": "new-token", "expires_in": 3600},
         raise_for_status=lambda: None,
     )
@@ -101,3 +105,30 @@ def test_api_get_uses_app_token_and_delegates_to_call_api(mock_get_token, mock_c
     assert (body, status) == ({"tracks": []}, 200)
     mock_get_token.assert_called_once_with("client-id", "client-secret")
     mock_call_api.assert_called_once_with("/search", "fake-app-token", params={"q": "test"})
+
+
+@patch("spotify_client.requests.post")
+def test_get_app_token_raises_apptokenerror_on_failure(mock_post):
+    mock_post.return_value = Mock(
+        status_code=400,
+        json=lambda: {"error": "invalid_client", "error_description": "Invalid client secret"},
+    )
+
+    with pytest.raises(spotify_client.AppTokenError) as exc_info:
+        spotify_client.get_app_token("bad-client-id", "bad-secret")
+
+    assert exc_info.value.status_code == 400
+    assert exc_info.value.body["error"] == "invalid_client"
+
+
+@patch("spotify_client.requests.post")
+def test_api_get_returns_error_tuple_when_token_request_fails(mock_post):
+    mock_post.return_value = Mock(
+        status_code=400,
+        json=lambda: {"error": "invalid_client", "error_description": "Invalid client secret"},
+    )
+
+    body, status = spotify_client.api_get("/search", "bad-client-id", "bad-secret")
+
+    assert status == 400
+    assert body["error"] == "invalid_client"

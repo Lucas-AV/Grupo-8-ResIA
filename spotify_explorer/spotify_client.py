@@ -9,6 +9,13 @@ API_BASE = "https://api.spotify.com/v1"
 _token_cache = {"access_token": None, "expires_at": 0}
 
 
+class AppTokenError(Exception):
+    def __init__(self, body, status_code):
+        super().__init__(f"Spotify token request failed with status {status_code}")
+        self.body = body
+        self.status_code = status_code
+
+
 def get_app_token(client_id, client_secret):
     if _token_cache["access_token"] and _token_cache["expires_at"] > time.time():
         return _token_cache["access_token"]
@@ -20,7 +27,9 @@ def get_app_token(client_id, client_secret):
         headers={"Authorization": f"Basic {encoded}"},
         data={"grant_type": "client_credentials"},
     )
-    response.raise_for_status()
+    if response.status_code != 200:
+        raise AppTokenError(response.json(), response.status_code)
+
     payload = response.json()
     _token_cache["access_token"] = payload["access_token"]
     _token_cache["expires_at"] = time.time() + payload["expires_in"] - 30
@@ -41,5 +50,8 @@ def call_api(path, token, params=None):
 
 
 def api_get(path, client_id, client_secret, params=None):
-    token = get_app_token(client_id, client_secret)
+    try:
+        token = get_app_token(client_id, client_secret)
+    except AppTokenError as exc:
+        return exc.body, exc.status_code
     return call_api(path, token, params=params)
