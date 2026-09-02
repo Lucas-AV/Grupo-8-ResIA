@@ -6,6 +6,7 @@ import TrackTab from "./tabs/TrackTab.vue";
 import ArtistTab from "./tabs/ArtistTab.vue";
 import RecommendationsTab from "./tabs/RecommendationsTab.vue";
 import MeusDadosTab from "./tabs/MeusDadosTab.vue";
+import { useAuthStatus } from "./composables/useAuthStatus.js";
 
 const tabs = [
   { id: "search", label: "Search", component: SearchTab },
@@ -18,19 +19,21 @@ const tabs = [
 const activeTab = ref("search");
 const config = reactive({ missingCredentials: false });
 const authError = ref(new URLSearchParams(window.location.search).get("auth_error"));
+const { state: authState, refresh: refreshAuthStatus } = useAuthStatus();
 
 onMounted(async () => {
   const result = await fetchJSON("/api/config");
   if (result.ok) {
     config.missingCredentials = Boolean(result.data.missing_credentials);
   }
+  refreshAuthStatus();
 });
 </script>
 
 <template>
   <header>
     <h1>Spotify API Explorer</h1>
-    <div id="user-status"></div>
+    <div id="user-status">{{ authState.loggedIn ? (authState.profile.display_name || authState.profile.id) : "" }}</div>
   </header>
 
   <div v-if="config.missingCredentials" class="banner banner-error">
