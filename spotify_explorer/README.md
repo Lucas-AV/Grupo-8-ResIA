@@ -68,6 +68,10 @@ login a Spotify te devolve pra `:5000` (o Flask), não pro Vite.
 - **Track & Audio** — `GET /tracks/{id}`, `/audio-features/{id}`,
   `/audio-analysis/{id}`
 - **Artist** — `GET /artists/{id}` + top-tracks + albums + related-artists
+- **Album** — `GET /albums/{id}` (dados + faixas)
+- **Playlist** — `GET /playlists/{id}` (dados + faixas — só playlists
+  públicas, Client Credentials não vê playlist privada de terceiros)
+- **New Releases** — `GET /browse/new-releases`
 - **Recommendations** — `GET /recommendations` com seeds e parâmetros alvo
 - **Meus dados** — requer login (Authorization Code Flow): top
   tracks/artists por `time_range`, faixas curtidas, tocadas recentemente
