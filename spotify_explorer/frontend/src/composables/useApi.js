@@ -22,14 +22,16 @@ export async function fetchJSON(url, options = {}) {
 }
 
 export function useApi() {
-  const status = reactive({ text: "", className: "status" });
+  const status = reactive({ text: "", className: "status", loading: false });
 
   async function call(url, options = {}) {
+    status.loading = true;
     status.text = "Carregando...";
     status.className = "status";
 
     const result = await fetchJSON(url, options);
 
+    status.loading = false;
     if (result.status === 0) {
       status.text = "Erro de rede";
     } else if (result.error) {
