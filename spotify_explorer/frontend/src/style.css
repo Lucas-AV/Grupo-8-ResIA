@@ -13,12 +13,6 @@ body {
   margin-inline: auto;
 }
 
-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
 .banner {
   padding: 0.75rem 1rem;
   border-radius: 6px;
@@ -28,27 +22,6 @@ header {
 .banner-error {
   background: color-mix(in srgb, var(--error) 15%, transparent);
   border: 1px solid var(--error);
-}
-
-.tabs {
-  display: flex;
-  gap: 0.5rem;
-  border-bottom: 1px solid var(--border);
-  margin: 1rem 0;
-  flex-wrap: wrap;
-}
-
-.tab-button {
-  padding: 0.5rem 1rem;
-  border: none;
-  background: none;
-  cursor: pointer;
-  border-bottom: 2px solid transparent;
-}
-
-.tab-button.active {
-  border-bottom-color: var(--accent);
-  font-weight: bold;
 }
 
 form {
