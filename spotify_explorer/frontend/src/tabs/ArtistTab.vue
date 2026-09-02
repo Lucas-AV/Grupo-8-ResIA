@@ -20,7 +20,7 @@ async function onSubmit() {
 
   const results = [artist, topTracks, albums, relatedArtists];
   const allOk = results.every((r) => r.ok);
-  const statuses = results.map((r) => r.status).join(", ");
+  const statuses = results.map((r) => (r.status === 0 ? "erro de rede" : r.status)).join(", ");
   status.text = `HTTP ${statuses}`;
   status.className = "status " + (allOk ? "status-ok" : "status-error");
   result.data = {
