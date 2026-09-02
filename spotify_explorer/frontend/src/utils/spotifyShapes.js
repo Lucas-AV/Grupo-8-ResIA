@@ -1,9 +1,13 @@
+function asArray(value) {
+  return Array.isArray(value) ? value : [];
+}
+
 export function trackSummary(track) {
   if (!track || !track.name) return null;
   return {
     image: track.album?.images?.[0]?.url ?? null,
     title: track.name,
-    subtitle: (track.artists ?? []).map((a) => a.name).join(", "),
+    subtitle: asArray(track.artists).map((a) => a.name).join(", "),
   };
 }
 
@@ -15,7 +19,7 @@ export function artistSummary(artist) {
     subtitle:
       artist.followers?.total != null
         ? `${artist.followers.total.toLocaleString("pt-BR")} seguidores`
-        : (artist.genres ?? []).join(", "),
+        : asArray(artist.genres).join(", "),
   };
 }
 
@@ -24,6 +28,6 @@ export function albumSummary(album) {
   return {
     image: album.images?.[0]?.url ?? null,
     title: album.name,
-    subtitle: (album.artists ?? []).map((a) => a.name).join(", "),
+    subtitle: asArray(album.artists).map((a) => a.name).join(", "),
   };
 }
