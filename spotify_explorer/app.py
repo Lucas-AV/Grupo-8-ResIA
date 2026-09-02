@@ -132,6 +132,34 @@ def register_routes(app):
         )
         return jsonify(body), status
 
+    @app.route("/api/album/<album_id>")
+    def album(album_id):
+        body, status = spotify_client.api_get(
+            f"/albums/{album_id}",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+        )
+        return jsonify(body), status
+
+    @app.route("/api/playlist/<playlist_id>")
+    def playlist(playlist_id):
+        body, status = spotify_client.api_get(
+            f"/playlists/{playlist_id}",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+        )
+        return jsonify(body), status
+
+    @app.route("/api/new-releases")
+    def new_releases():
+        body, status = spotify_client.api_get(
+            "/browse/new-releases",
+            app.config["SPOTIFY_CLIENT_ID"],
+            app.config["SPOTIFY_CLIENT_SECRET"],
+            params={"limit": request.args.get("limit", "20")},
+        )
+        return jsonify(body), status
+
     @app.route("/login")
     def login():
         return redirect(

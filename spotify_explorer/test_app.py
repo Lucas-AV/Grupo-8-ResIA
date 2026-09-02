@@ -173,3 +173,54 @@ def test_config_reports_credentials_present(client):
 
     assert response.status_code == 200
     assert response.get_json() == {"missing_credentials": False}
+
+
+def test_album_calls_correct_path(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/albums/album1"
+        return {"name": "Test Album"}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/album/album1")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"name": "Test Album"}
+
+
+def test_playlist_calls_correct_path(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/playlists/playlist1"
+        return {"name": "Test Playlist"}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/playlist/playlist1")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"name": "Test Playlist"}
+
+
+def test_new_releases_forwards_limit_param(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert path == "/browse/new-releases"
+        assert params == {"limit": "5"}
+        return {"albums": {"items": []}}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/new-releases?limit=5")
+
+    assert response.status_code == 200
+
+
+def test_new_releases_defaults_limit_to_20(client, monkeypatch):
+    def fake_api_get(path, client_id, client_secret, params=None):
+        assert params["limit"] == "20"
+        return {"albums": {"items": []}}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "api_get", fake_api_get)
+
+    response = client.get("/api/new-releases")
+
+    assert response.status_code == 200
