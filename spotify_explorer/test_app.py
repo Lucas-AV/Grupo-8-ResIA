@@ -133,3 +133,43 @@ def test_recommendations_forwards_query_params(client, monkeypatch):
     response = client.get("/api/recommendations?seed_genres=pop&target_energy=0.8")
 
     assert response.status_code == 200
+
+
+def test_index_shows_build_instructions_when_frontend_not_built(client, tmp_path):
+    client.application.config["FRONTEND_DIST_DIR"] = str(tmp_path / "does-not-exist")
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert b"npm run build" in response.data
+
+
+def test_index_serves_built_frontend_when_present(client, tmp_path):
+    (tmp_path / "index.html").write_text("<html><body>built app</body></html>", encoding="utf-8")
+    client.application.config["FRONTEND_DIST_DIR"] = str(tmp_path)
+
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert b"built app" in response.data
+
+
+def test_config_reports_missing_credentials(monkeypatch):
+    monkeypatch.setenv("SPOTIFY_CLIENT_ID", "")
+    monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "")
+    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:5000/callback")
+    monkeypatch.setenv("FLASK_SECRET_KEY", "test-secret")
+    flask_app = app_module.create_app()
+    test_client = flask_app.test_client()
+
+    response = test_client.get("/api/config")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"missing_credentials": True}
+
+
+def test_config_reports_credentials_present(client):
+    response = client.get("/api/config")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"missing_credentials": False}

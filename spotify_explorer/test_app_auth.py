@@ -178,3 +178,26 @@ def test_recently_played_calls_correct_path(client, monkeypatch):
     response = client.get("/api/me/player/recently-played")
 
     assert response.status_code == 200
+
+
+def test_callback_redirects_to_configured_frontend_url(client, monkeypatch):
+    def fake_exchange_code(code, state, client_id, client_secret, redirect_uri):
+        pass
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+    client.application.config["FRONTEND_URL"] = "http://127.0.0.1:5173"
+
+    response = client.get("/callback?code=abc&state=xyz")
+
+    assert response.status_code == 302
+    assert response.location == "http://127.0.0.1:5173"
+
+
+def test_logout_redirects_to_configured_frontend_url(client, monkeypatch):
+    monkeypatch.setattr(app_module.user_auth, "logout", lambda: None)
+    client.application.config["FRONTEND_URL"] = "http://127.0.0.1:5173"
+
+    response = client.get("/logout")
+
+    assert response.status_code == 302
+    assert response.location == "http://127.0.0.1:5173"

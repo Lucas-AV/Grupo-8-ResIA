@@ -1,7 +1,8 @@
 import os
+from urllib.parse import urlencode
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, render_template, request, url_for
+from flask import Flask, jsonify, redirect, request, send_from_directory
 
 import spotify_client
 import user_auth
@@ -17,6 +18,8 @@ def create_app():
     app.config["SPOTIFY_REDIRECT_URI"] = os.environ.get(
         "SPOTIFY_REDIRECT_URI", "http://127.0.0.1:5000/callback"
     )
+    app.config["FRONTEND_URL"] = os.environ.get("FRONTEND_URL", "/")
+    app.config["FRONTEND_DIST_DIR"] = os.path.join(app.static_folder, "frontend")
     register_routes(app)
     return app
 
@@ -24,14 +27,21 @@ def create_app():
 def register_routes(app):
     @app.route("/")
     def index():
+        index_path = os.path.join(app.config["FRONTEND_DIST_DIR"], "index.html")
+        if not os.path.exists(index_path):
+            return (
+                "<h1>Frontend não buildado</h1>"
+                "<p>Rode <code>cd spotify_explorer/frontend && npm install && npm run build</code> "
+                "e recarregue esta página.</p>"
+            ), 200
+        return send_from_directory(app.config["FRONTEND_DIST_DIR"], "index.html")
+
+    @app.route("/api/config")
+    def api_config():
         missing_credentials = not (
             app.config["SPOTIFY_CLIENT_ID"] and app.config["SPOTIFY_CLIENT_SECRET"]
         )
-        return render_template(
-            "index.html",
-            missing_credentials=missing_credentials,
-            auth_error=request.args.get("auth_error"),
-        )
+        return jsonify({"missing_credentials": missing_credentials})
 
     @app.route("/api/search", methods=["POST"])
     def search():
@@ -134,7 +144,7 @@ def register_routes(app):
     def callback():
         error = request.args.get("error")
         if error:
-            return redirect(url_for("index", auth_error=error))
+            return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': error})}")
 
         try:
             user_auth.exchange_code(
@@ -145,14 +155,14 @@ def register_routes(app):
                 app.config["SPOTIFY_REDIRECT_URI"],
             )
         except ValueError as exc:
-            return redirect(url_for("index", auth_error=str(exc)))
+            return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': str(exc)})}")
 
-        return redirect(url_for("index"))
+        return redirect(app.config["FRONTEND_URL"])
 
     @app.route("/logout")
     def logout():
         user_auth.logout()
-        return redirect(url_for("index"))
+        return redirect(app.config["FRONTEND_URL"])
 
     @app.route("/api/me")
     def me():
