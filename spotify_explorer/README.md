@@ -15,16 +15,22 @@ design completo.
    preencha `SPOTIFY_CLIENT_ID` / `SPOTIFY_CLIENT_SECRET` com os do seu
    app. Gere um valor aleatório para `FLASK_SECRET_KEY` (ex:
    `python -c "import secrets; print(secrets.token_hex(32))"`)
-4. Instale as dependências:
+4. Instale as dependências do backend:
    ```
    pip install -r requirements.txt -r spotify_explorer/requirements.txt
    ```
-5. Rode:
+5. Instale as dependências do frontend e gere o build:
    ```
-   cd spotify_explorer
+   cd spotify_explorer/frontend
+   npm install
+   npm run build
+   cd ..
+   ```
+6. Rode o backend (que já serve o frontend buildado):
+   ```
    python app.py
    ```
-6. Abra `http://127.0.0.1:5000`
+7. Abra `http://127.0.0.1:5000`
 
 ## Rodando os testes
 
@@ -35,6 +41,26 @@ pytest
 
 Todos os testes usam `requests` mockado — nenhum bate na API real, então
 não precisam de credenciais.
+
+## Desenvolvendo o frontend (hot-reload)
+
+Pra mexer nos componentes Vue com hot-reload, em vez do passo 5-6 acima,
+rode dois processos em paralelo:
+
+```
+# terminal 1 — backend
+python app.py
+
+# terminal 2 — frontend com hot-reload
+cd spotify_explorer/frontend
+npm run dev
+```
+
+Abra `http://127.0.0.1:5173` (não a `:5000`) — o Vite serve o frontend
+com hot-reload e proxeia `/api`, `/login`, `/logout`, `/callback` pro
+Flask automaticamente. Pra isso funcionar com o login (OAuth), adicione
+`FRONTEND_URL=http://127.0.0.1:5173` no `.env` — sem isso, depois do
+login a Spotify te devolve pra `:5000` (o Flask), não pro Vite.
 
 ## O que cada aba faz
 
