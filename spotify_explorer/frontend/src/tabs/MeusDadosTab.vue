@@ -40,7 +40,9 @@ async function fetchTop(target) {
   topTarget.value = target;
   const path = target === "artists" ? "/api/me/top/artists" : "/api/me/top/tracks";
   const { data } = await top.call(`${path}?time_range=${timeRange.value}`);
-  topResult.data = data;
+  if (target === topTarget.value) {
+    topResult.data = data;
+  }
 }
 
 async function fetchSaved() {
