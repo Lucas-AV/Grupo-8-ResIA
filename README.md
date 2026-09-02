@@ -210,6 +210,9 @@ Testes: `pytest`
 - [x] Análise exploratória por gênero (popularidade, energia, dançabilidade, escala)
 - [x] Site GitHub Pages com dashboard interativo das análises publicado em https://lucas-av.github.io/Grupo-8-ResIA/
 - [x] Análise de mercado (Julia) e pitch de investimento
+- [x] Arquitetura do agente conversacional definida (Proposta B) — ver
+      [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](docs/PIPELINE_AGENTE_PROPOSTA_B.md)
+      e backlog em [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](docs/BACKLOG_JIRA_PROPOSTA_B.md)
 - [ ] Modelagem do agente de recomendação (conteúdo/colaborativo/híbrido)
 - [ ] Avaliação com dataset complementar de interação/avaliação de usuários
 
