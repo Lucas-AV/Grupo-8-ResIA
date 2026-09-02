@@ -8,11 +8,17 @@ import TrackTab from "./tabs/TrackTab.vue";
 import ArtistTab from "./tabs/ArtistTab.vue";
 import RecommendationsTab from "./tabs/RecommendationsTab.vue";
 import MeusDadosTab from "./tabs/MeusDadosTab.vue";
+import AlbumTab from "./tabs/AlbumTab.vue";
+import PlaylistTab from "./tabs/PlaylistTab.vue";
+import NewReleasesTab from "./tabs/NewReleasesTab.vue";
 
 const tabs = [
   { id: "search", label: "Search", icon: "search", component: SearchTab },
   { id: "track", label: "Track & Audio", icon: "disc", component: TrackTab },
   { id: "artist", label: "Artist", icon: "mic", component: ArtistTab },
+  { id: "album", label: "Album", icon: "album", component: AlbumTab },
+  { id: "playlist", label: "Playlist", icon: "playlist", component: PlaylistTab },
+  { id: "new-releases", label: "New Releases", icon: "new-releases", component: NewReleasesTab },
   { id: "recommendations", label: "Recommendations", icon: "sparkles", component: RecommendationsTab },
   { id: "me", label: "Meus dados", icon: "heart", component: MeusDadosTab },
 ];
