@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page">
+  <header>
+    <p class="eyebrow">{{ eyebrow }}</p>
+    <h1>{{ heading }}</h1>
+    <p>{{ description }}</p>
+  </header>
+
+  <div class="persona-grid">
+    {% for persona in personas %}
+    <article class="persona-card">
+      <div class="persona-head">
+        <div class="persona-avatar" aria-hidden="true">{{ persona.initials }}</div>
+        <div>
+          <p class="persona-name">{{ persona.name }}</p>
+          <p class="persona-role">{{ persona.role }}</p>
+        </div>
+      </div>
+      <p class="persona-quote">&ldquo;{{ persona.quote }}&rdquo;</p>
+      <div class="persona-section">
+        <h3>Contexto</h3>
+        <p class="persona-scenario">{{ persona.context }}</p>
+      </div>
+      <div class="persona-section">
+        <h3>Objetivos</h3>
+        <ul class="persona-list">
+          {% for goal in persona.goals %}<li>{{ goal }}</li>{% endfor %}
+        </ul>
+      </div>
+      <div class="persona-section">
+        <h3>Frustracoes</h3>
+        <ul class="persona-list">
+          {% for pain in persona.pains %}<li>{{ pain }}</li>{% endfor %}
+        </ul>
+      </div>
+      <div class="persona-section">
+        <h3>Cenario no agente</h3>
+        <p class="persona-scenario">{{ persona.scenario }}</p>
+      </div>
+      <div class="persona-tags">
+        {% for tag in persona.tags %}<span class="persona-tag">{{ tag }}</span>{% endfor %}
+      </div>
+    </article>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
