@@ -20,11 +20,19 @@ function entries(value) {
 function brackets(value) {
   return Array.isArray(value) ? ["[", "]"] : ["{", "}"];
 }
+
+function primitiveClass(value) {
+  if (value === null || value === undefined) return "json-null";
+  if (typeof value === "string") return "json-string";
+  if (typeof value === "number") return "json-number";
+  if (typeof value === "boolean") return "json-boolean";
+  return "";
+}
 </script>
 
 <template>
   <template v-if="data === null || data === undefined">
-    <span>null</span>
+    <span class="json-null">null</span>
   </template>
   <template v-else-if="isContainer(data)">
     <span v-if="entries(data).length === 0">{{ brackets(data)[0] }}{{ brackets(data)[1] }}</span>
@@ -39,6 +47,6 @@ function brackets(value) {
     </details>
   </template>
   <template v-else>
-    <span>{{ JSON.stringify(data) }}</span>
+    <span :class="primitiveClass(data)">{{ JSON.stringify(data) }}</span>
   </template>
 </template>
