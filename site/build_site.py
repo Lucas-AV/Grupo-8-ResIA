@@ -176,6 +176,119 @@ ANALYSES = [
         "description": "Panorama do mercado global e do Brasil, e o pitch de investimento do agente. Analise em Julia.",
         "href": "mercado.html",
     },
+    {
+        "id": "personas",
+        "title": "Personas do Agente",
+        "nav": "Personas",
+        "description": "Quatro perfis de usuario que ilustram os principais caminhos do pipeline conversacional (Proposta B).",
+        "href": "personas.html",
+    },
+]
+
+PERSONAS = [
+    {
+        "initials": "M",
+        "name": "Marina, 24",
+        "role": "Ouvinte casual anonimo",
+        "quote": "So quero um som pra hoje, nao quero criar conta pra isso.",
+        "context": (
+            "Abre o app direto do link, sem pensar em fazer cadastro. Pede "
+            "coisas rapidas, tipo genero ou humor do momento."
+        ),
+        "goals": [
+            "Descobrir musica rapido, sem atrito.",
+            "Testar o produto antes de considerar criar conta ou logar com o Spotify.",
+        ],
+        "pains": [
+            "Apps que pedem login antes de mostrar qualquer valor.",
+            "Respostas genericas demais, sem levar o pedido a serio.",
+        ],
+        "scenario": (
+            "Digita “quero pagode” e o roteador reconhece na hora, sem "
+            "chamar o LLM (caso de uso 1). Mais tarde manda “tudo bem?” e "
+            "recebe uma resposta de boas-vindas, sem forcar uma busca (caso "
+            "de uso 9)."
+        ),
+        "tags": ["Roteador deterministico", "Sessao anonima"],
+    },
+    {
+        "initials": "D",
+        "name": "Diego, 31",
+        "role": "Fa do Spotify que loga",
+        "quote": "Quero que o app ja saiba o que eu curto, sem eu ter que explicar tudo de novo.",
+        "context": (
+            "Assinante Spotify Premium, ouve muito hip-hop e eletronica. "
+            "Conecta a conta assim que descobre que da pra logar."
+        ),
+        "goals": [
+            "Receber recomendacao alinhada ao historico real de escuta.",
+            "Nao perder o contexto da conversa ao logar no meio dela.",
+        ],
+        "pains": [
+            "Perfil de gosto generico que ignora o que ele realmente ouve.",
+            "Ter que logar de novo toda hora por token expirado.",
+        ],
+        "scenario": (
+            "Comeca a conversa anonimo, loga no meio (caso de uso 11) e a "
+            "sessao e promovida sem perder historico. Buscas seguintes "
+            "passam a usar o perfil_usuario calculado do centroide das "
+            "faixas casadas (caso de uso 3)."
+        ),
+        "tags": ["Spotify OAuth", "Perfil de gosto"],
+    },
+    {
+        "initials": "B",
+        "name": "Bea, 27",
+        "role": "Pede em linguagem livre",
+        "quote": "Nao sei o nome de nenhum genero, so sei como eu quero me sentir.",
+        "context": (
+            "Nao pensa em musica por genero ou BPM. Descreve estado de "
+            "espirito e espera que o app entenda."
+        ),
+        "goals": [
+            "Ser entendida em linguagem natural, sem aprender termos tecnicos.",
+            "Refinar o pedido em cima da resposta anterior sem repetir tudo de novo.",
+        ],
+        "pains": [
+            "Apps que so aceitam filtro tecnico (genero, BPM, energia numerica).",
+            "Perder o contexto da conversa a cada nova mensagem.",
+        ],
+        "scenario": (
+            "Manda “algo pra relaxar depois de um dia puxado”, o roteador "
+            "nao reconhece e a extracao via LLM entra em acao (caso de uso "
+            "2). Depois manda “gostei, mas algo menos agitado” e a "
+            "extracao usa o historico da sessao pra entender o refinamento "
+            "(caso de uso 5)."
+        ),
+        "tags": ["Extracao via LLM", "Refinamento multi-turno"],
+    },
+    {
+        "initials": "R",
+        "name": "Rene, 45",
+        "role": "Cauteloso com privacidade e conteudo",
+        "quote": "Antes de eu clicar em “Conectar com Spotify”, me diz exatamente o que voces vao ler da minha conta.",
+        "context": (
+            "Usa o app com a familia por perto, evita conteudo explicito "
+            "tocando em casa. Desconfia de app que pede acesso a conta sem "
+            "explicar por que."
+        ),
+        "goals": [
+            "Entender exatamente quais dados sao lidos e pra que antes de logar.",
+            "Filtrar conteudo explicito das recomendacoes.",
+        ],
+        "pains": [
+            "Tela de permissao vaga, sem dizer o que e lido.",
+            "Apps que nao dizem o que fazem com o historico de escuta depois do login.",
+        ],
+        "scenario": (
+            "Le o aviso de consentimento antes do OAuth, que lista os 3 "
+            "scopes read-only pedidos e confirma que nada alem dos tokens "
+            "fica persistido (ticket 5.10). Ativa excluir_explicit=true e "
+            "confere que a resposta nunca cita faixa explicita (caso de uso "
+            "7)."
+        ),
+        "tags": ["Aviso de consentimento", "excluir_explicit"],
+    },
 ]
 
 STATIC_ANALYSES = [
@@ -694,6 +807,21 @@ def build() -> None:
         },
     )
     (DIST_DIR / "mercado.html").write_text(mercado_html, encoding="utf-8")
+
+    personas_html = env.get_template("personas.html").render(
+        title="Personas do Agente",
+        current_page="personas.html",
+        eyebrow="Proposta B · pipeline conversacional",
+        heading="Personas do Agente",
+        description=(
+            "Quatro perfis de usuario que ilustram os principais caminhos do "
+            "pipeline conversacional documentado em PIPELINE_AGENTE_PROPOSTA_B.md "
+            "— cada um mapeado aos casos de uso e tickets do backlog que o "
+            "cobrem."
+        ),
+        personas=PERSONAS,
+    )
+    (DIST_DIR / "personas.html").write_text(personas_html, encoding="utf-8")
 
     shutil.copytree(STATIC_DIR, DIST_DIR / "static")
     all_pngs = (
