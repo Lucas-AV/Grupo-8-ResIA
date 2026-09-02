@@ -443,3 +443,30 @@ h3 {
 .media-item-link:hover {
   color: var(--accent);
 }
+
+.preview-explicit-badge {
+  display: inline-block;
+  margin-left: 0.5rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 3px;
+  background: var(--bg-elevated-hover);
+  color: var(--text-secondary);
+  font-size: 0.65rem;
+  font-weight: 700;
+  vertical-align: middle;
+}
+
+.preview-spotify-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+  color: var(--accent);
+  font-size: 0.85rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.preview-spotify-link:hover {
+  text-decoration: underline;
+}
