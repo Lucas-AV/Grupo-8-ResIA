@@ -29,7 +29,10 @@ async function copyJSON() {
 <template>
   <div>
     <SkeletonBlock v-if="status.loading" />
-    <EmptyState v-else-if="data === null" :hint="emptyHint" />
+    <EmptyState v-else-if="data === null && !status.text" :hint="emptyHint" />
+    <div v-else-if="data === null" class="result-panel-header">
+      <p :class="status.className">{{ status.text }}</p>
+    </div>
     <div v-else>
       <slot name="preview" />
       <div class="result-panel-header">

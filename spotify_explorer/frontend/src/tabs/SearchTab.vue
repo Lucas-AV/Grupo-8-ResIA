@@ -1,5 +1,5 @@
 <script setup>
-import { computed, reactive } from "vue";
+import { computed, reactive, ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useHistory } from "../composables/useHistory.js";
 import { trackSummary, artistSummary, albumSummary } from "../utils/spotifyShapes.js";
@@ -10,17 +10,19 @@ const form = reactive({ q: "", type: "track", limit: 10 });
 const { status, call } = useApi();
 const result = reactive({ data: null });
 const { items: history, add: addToHistory } = useHistory("search");
+const submittedType = ref(form.type);
 
 const summaryFn = { track: trackSummary, artist: artistSummary, album: albumSummary };
 
 const items = computed(() => {
   if (!result.data) return [];
-  const list = result.data[`${form.type}s`]?.items ?? [];
-  const summarize = summaryFn[form.type];
+  const list = result.data[`${submittedType.value}s`]?.items ?? [];
+  const summarize = summaryFn[submittedType.value];
   return list.map(summarize).filter((item) => item !== null);
 });
 
 async function onSubmit() {
+  submittedType.value = form.type;
   const { data } = await call("/api/search", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
