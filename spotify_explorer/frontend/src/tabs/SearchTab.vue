@@ -1,11 +1,24 @@
 <script setup>
-import { reactive } from "vue";
+import { computed, reactive } from "vue";
 import { useApi } from "../composables/useApi.js";
-import JsonViewer from "../components/JsonViewer.vue";
+import { useHistory } from "../composables/useHistory.js";
+import { trackSummary, artistSummary, albumSummary } from "../utils/spotifyShapes.js";
+import ResultPanel from "../components/ResultPanel.vue";
+import MediaItemRow from "../components/MediaItemRow.vue";
 
 const form = reactive({ q: "", type: "track", limit: 10 });
 const { status, call } = useApi();
 const result = reactive({ data: null });
+const { items: history, add: addToHistory } = useHistory("search");
+
+const summaryFn = { track: trackSummary, artist: artistSummary, album: albumSummary };
+
+const items = computed(() => {
+  if (!result.data) return [];
+  const list = result.data[`${form.type}s`]?.items ?? [];
+  const summarize = summaryFn[form.type];
+  return list.map(summarize).filter((item) => item !== null);
+});
 
 async function onSubmit() {
   const { data } = await call("/api/search", {
@@ -14,11 +27,18 @@ async function onSubmit() {
     body: JSON.stringify({ q: form.q, type: form.type, limit: Number(form.limit) }),
   });
   result.data = data;
+  addToHistory(form.q);
 }
 </script>
 
 <template>
   <section>
+    <h2>Search</h2>
+    <div v-if="history.length" class="history-chips">
+      <button v-for="item in history" :key="item" type="button" class="history-chip" @click="form.q = item">
+        {{ item }}
+      </button>
+    </div>
     <form @submit.prevent="onSubmit">
       <label>Query <input type="text" v-model="form.q" required></label>
       <label>Type
@@ -29,9 +49,18 @@ async function onSubmit() {
         </select>
       </label>
       <label>Limit <input type="number" v-model.number="form.limit" min="1" max="50"></label>
-      <button type="submit">Buscar</button>
+      <button type="submit" class="btn">Buscar</button>
     </form>
-    <p :class="status.className">{{ status.text }}</p>
-    <div class="result"><JsonViewer v-if="result.data !== null" :data="result.data" /></div>
+    <ResultPanel
+      :status="status"
+      :data="result.data"
+      empty-hint="Digite um termo e escolha o tipo pra buscar no catálogo"
+    >
+      <template #preview>
+        <div v-for="(item, i) in items" :key="i">
+          <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+        </div>
+      </template>
+    </ResultPanel>
   </section>
 </template>
