@@ -25,6 +25,7 @@ faixas — e evolui para as etapas de modelagem e recomendação.
   - [Sugestões de nome do projeto](#sugestões-de-nome-do-projeto)
   - [Base de dados](#base-de-dados)
   - [Estrutura do repositório](#estrutura-do-repositório)
+  - [Arquitetura do agente conversacional (Proposta B)](#arquitetura-do-agente-conversacional-proposta-b)
   - [Análises disponíveis](#análises-disponíveis)
   - [Bibliotecas](#bibliotecas)
   - [Como reproduzir](#como-reproduzir)
@@ -141,6 +142,24 @@ seu próprio ambiente (`Project.toml`/`Manifest.toml`).
 - Versão no site publicado: [Mercado de Streaming](https://lucas-av.github.io/Grupo-8-ResIA/mercado.html)
 - Como reproduzir: ver [`analise_mercado_streaming/README.md`](analise_mercado_streaming/README.md)
   (resumo: `julia setup.jl && julia analise_mercado.jl`)
+
+## Arquitetura do agente conversacional (Proposta B)
+
+O time decidiu a arquitetura do agente conversacional que vai consumir o
+`dataset.csv`: um pipeline em etapas (roteador determinístico → extração
+estruturada via LLM → busca determinística → geração guiada), com
+integração completa a Spotify OAuth para personalizar recomendações a
+partir do histórico do usuário. Dois documentos de referência cobrem essa
+arquitetura ponta a ponta:
+
+- [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](docs/PIPELINE_AGENTE_PROPOSTA_B.md)
+  — especificação completa: ciclo de vida do agente, fluxo Spotify OAuth
+  (PKCE), contratos de dados entre componentes, pipeline de um turno de
+  conversa passo a passo, casos de uso, edge cases e plano de testes.
+- [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](docs/BACKLOG_JIRA_PROPOSTA_B.md) —
+  o mesmo escopo reorganizado em épicos e tickets prontos para o Kanban
+  do Jira, com prioridade, tamanho, dependências e referência à seção
+  técnica de cada item.
 
 ## Análises disponíveis
 
