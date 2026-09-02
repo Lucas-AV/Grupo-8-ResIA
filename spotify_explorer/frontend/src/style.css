@@ -89,6 +89,8 @@ fieldset {
   --text-secondary: #b3b3b3;
   --text-muted: #6a6a6a;
   --border-subtle: rgba(255, 255, 255, 0.1);
+  --border: rgba(255, 255, 255, 0.1);
+  --error: #f15e6c;
   --radius-sm: 4px;
   --radius-md: 8px;
   --sidebar-width: 240px;
