@@ -305,3 +305,48 @@ def test_my_playlists_calls_correct_path(client, monkeypatch):
     response = client.get("/api/me/playlists")
 
     assert response.status_code == 200
+
+
+def test_player_play_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/play"
+        assert method == "PUT"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/play")
+
+    assert response.status_code == 204
+
+
+def test_player_play_requires_login(client, monkeypatch):
+    def fake_get_valid_user_token(client_id, client_secret):
+        raise app_module.user_auth.NotLoggedInError("faça login primeiro em /login")
+
+    monkeypatch.setattr(app_module.user_auth, "get_valid_user_token", fake_get_valid_user_token)
+
+    response = client.post("/api/me/player/play")
+
+    assert response.status_code == 401
+
+
+def test_player_pause_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/pause"
+        assert method == "PUT"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/pause")
+
+    assert response.status_code == 204

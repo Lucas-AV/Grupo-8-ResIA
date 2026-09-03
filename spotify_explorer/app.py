@@ -204,7 +204,7 @@ def register_routes(app):
         body, status = spotify_client.call_api("/me", token)
         return jsonify(body), status
 
-    def _user_data_route(path, params=None):
+    def _user_data_route(path, params=None, method="GET", json_body=None):
         try:
             token = user_auth.get_valid_user_token(
                 app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_CLIENT_SECRET"]
@@ -212,7 +212,12 @@ def register_routes(app):
         except user_auth.NotLoggedInError as exc:
             return jsonify({"error": str(exc)}), 401
 
-        body, status = spotify_client.call_api(path, token, params=params)
+        kwargs = {"params": params}
+        if method != "GET":
+            kwargs["method"] = method
+        if json_body is not None:
+            kwargs["json_body"] = json_body
+        body, status = spotify_client.call_api(path, token, **kwargs)
         return jsonify(body), status
 
     @app.route("/api/me/top/tracks")
@@ -279,6 +284,14 @@ def register_routes(app):
                 "offset": request.args.get("offset", "0"),
             },
         )
+
+    @app.route("/api/me/player/play", methods=["POST"])
+    def player_play():
+        return _user_data_route("/me/player/play", method="PUT")
+
+    @app.route("/api/me/player/pause", methods=["POST"])
+    def player_pause():
+        return _user_data_route("/me/player/pause", method="PUT")
 
 
 if __name__ == "__main__":
