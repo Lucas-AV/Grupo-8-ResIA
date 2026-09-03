@@ -35,8 +35,10 @@ class PairingStore:
         with self._lock:
             self._purge_expired_locked()
             entry = self._entries.get(code)
-            if entry is not None:
-                entry["tokens"] = tokens
+            if entry is None:
+                return False
+            entry["tokens"] = tokens
+            return True
 
     def consume(self, code):
         with self._lock:

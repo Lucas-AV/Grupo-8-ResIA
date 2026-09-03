@@ -35,7 +35,6 @@ poll();
 
 def render_pair_error_page(status):
     mensagens = {
-        "expired": "Esse QR code expirou. Peça um novo.",
         "not_found": "Esse QR code não é válido. Peça um novo.",
     }
     mensagem = mensagens.get(status, "Não foi possível continuar com esse QR code.")

@@ -193,6 +193,7 @@ def register_routes(app):
     def callback():
         error = request.args.get("error")
         if error:
+            session.pop("pairing_code", None)
             return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': error})}")
 
         try:
@@ -204,11 +205,16 @@ def register_routes(app):
                 app.config["SPOTIFY_REDIRECT_URI"],
             )
         except ValueError as exc:
+            session.pop("pairing_code", None)
             return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': str(exc)})}")
 
         pair_code = session.pop("pairing_code", None)
         if pair_code is not None:
-            pairing.mark_completed(pair_code, tokens)
+            completed = pairing.mark_completed(pair_code, tokens)
+            if not completed:
+                return redirect(
+                    f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': 'qr_pairing_expired'})}"
+                )
 
         return redirect(app.config["FRONTEND_URL"])
 

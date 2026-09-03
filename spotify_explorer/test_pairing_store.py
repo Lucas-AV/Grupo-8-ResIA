@@ -25,6 +25,17 @@ def test_mark_completed_on_unknown_code_is_a_no_op():
     assert store.get_status("nope") == "not_found"
 
 
+def test_mark_completed_returns_true_on_success():
+    store = PairingStore()
+    code = store.create()
+    assert store.mark_completed(code, {"access_token": "at"}) is True
+
+
+def test_mark_completed_returns_false_on_unknown_code():
+    store = PairingStore()
+    assert store.mark_completed("nope", {"access_token": "at"}) is False
+
+
 def test_consume_returns_tokens_and_removes_entry():
     store = PairingStore()
     code = store.create()

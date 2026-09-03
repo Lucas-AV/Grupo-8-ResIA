@@ -745,3 +745,42 @@ def test_callback_relays_tokens_so_kiosk_status_poll_completes_and_logs_in(monke
 
     second_poll = kiosk.get(f"/api/pair/{code}/status")
     assert second_poll.get_json() == {"status": "not_found"}
+
+
+def test_callback_failure_clears_pairing_code_and_does_not_leak_into_later_login(client, monkeypatch):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+    client.get(f"/login?pair={code}")
+
+    def fake_exchange_code_fails(code_param, state, client_id, client_secret, redirect_uri):
+        raise ValueError("state inválido")
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code_fails)
+    client.get("/callback?code=abc&state=bad")
+
+    with client.session_transaction() as sess:
+        assert "pairing_code" not in sess
+
+    def fake_exchange_code_succeeds(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code_succeeds)
+    client.get("/callback?code=abc&state=xyz")
+
+    status_response = client.get(f"/api/pair/{code}/status")
+    assert status_response.get_json() == {"status": "pending"}
+
+
+def test_callback_shows_auth_error_when_pairing_entry_already_gone(client, monkeypatch):
+    def fake_exchange_code(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    with client.session_transaction() as sess:
+        sess["pairing_code"] = "does-not-exist"
+
+    response = client.get("/callback?code=abc&state=xyz")
+
+    assert response.status_code == 302
+    assert "auth_error=" in response.location

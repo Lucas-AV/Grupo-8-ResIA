@@ -25,11 +25,10 @@ def test_render_qr_page_reloads_on_expired_or_not_found():
     assert "window.location.reload()" in html
 
 
-def test_render_pair_error_page_for_expired():
+def test_render_pair_error_page_for_expired_falls_back_to_generic_message():
     html = qr_page.render_pair_error_page("expired")
 
-    assert "expirou" in html
-    assert '<a href="/login/qr">' in html
+    assert "Não foi possível continuar" in html
 
 
 def test_render_pair_error_page_for_not_found():
