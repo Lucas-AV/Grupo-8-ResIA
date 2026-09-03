@@ -104,15 +104,15 @@ rede mockada.
 ## Épico 1 — Motor de recomendação (status por ticket)
 
 Módulo `recomendacao/` — carregamento/normalização, índice de
-similaridade e a busca completa prontos; diversidade/cobertura (1.4)
-segue em aberto.
+similaridade, busca completa e métricas de diversidade/cobertura
+prontos; só falta a suíte formal de testes do backlog (1.5).
 
 | Ticket | O que cobre | Status |
 |---|---|---|
 | 1.1 — Carregar dataset e normalizar features de áudio | `recomendacao/dataset.py` — `carregar_dataset()` lê `data/dataset.csv` uma vez (cacheado com `functools.lru_cache`), marca `track_id_duplicado` sem remover linhas, e adiciona colunas `*_norm` com as 9 features de áudio contínuas padronizadas (z-score), preservando as colunas originais em escala crua pros filtros/buckets do ticket 1.3. | Feito |
 | 1.2 — Índice de similaridade (k-NN / cosseno) | `recomendacao/indice.py` — `construir_indice()` monta, uma única vez (cacheado), a matriz de features normalizada linha a linha (norma L2); `IndiceSimilaridade.mais_similares(vetor_alvo, n)` devolve as `n` faixas mais próximas por cosseno via produto escalar vetorizado (numpy puro, sem nova dependência). Busca no dataset real (~31,8 mil faixas) roda em milissegundos, bem abaixo do limite de ~1s. | Feito |
 | 1.3 — `buscar_recomendacoes(...)` completa | `recomendacao/busca.py` — assinatura completa (`genero`, `energia`, `valencia`, `dancabilidade`, `artista_referencia`, `excluir_explicit`, `n_resultados`, `perfil_usuario`, `faixas_ja_mostradas`); validação defensiva de cada campo (nunca levanta exceção); filtros rígidos (gênero, `excluir_explicit`, dedup de `track_id`) antes da similaridade; vetor-alvo pelos 3 casos (artista de referência → centróide, buckets categóricos, blend 70/30 com `perfil_usuario`); fallback por popularidade quando não há sinal nenhum; `n_resultados` sempre em `[1, 30]`. Ver decisões assumidas abaixo. | Feito |
-| 1.4 — Cálculo de diversidade e cobertura | Depende de **1.3**. | Não iniciado |
+| 1.4 — Cálculo de diversidade e cobertura | `diversidade_generos` (nº de gêneros distintos no resultado) e `cobertura_sessao` (proporção de faixas cujo `track_id` não está em `faixas_ja_mostradas`) calculados dentro de `buscar_recomendacoes` e sempre presentes na resposta — inclusive no fallback de popularidade e no caso de resultado vazio (`0` e `0.0`, respectivamente). | Feito |
 | 1.5 — Testes unitários de `buscar_recomendacoes` | Depende de **1.4**. | Não iniciado |
 
 **Decisões assumidas no 1.3** (a especificação detalhada referenciada
@@ -135,6 +135,10 @@ Jira tinha esse nível de detalhe). Vale o time confirmar:
   parâmetro de fato.
 - Faixas do próprio artista de referência não são excluídas do
   resultado (nada no ticket pedia isso).
+- `cobertura_sessao` com resultado vazio (nenhum candidato passou nos
+  filtros) devolve `0.0` em vez de indefinido/`NaN` — evita dividir por
+  zero sem esconder que não há faixas novas nem antigas, simplesmente
+  não há faixas.
 
-Testes: `pytest` — 93 testes (69 anteriores + 24 do ticket 1.3), todos
+Testes: `pytest` — 103 testes (93 anteriores + 10 do ticket 1.4), todos
 sem depender de rede ou de serviços externos.

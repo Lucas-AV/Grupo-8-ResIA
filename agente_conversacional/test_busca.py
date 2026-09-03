@@ -99,7 +99,7 @@ def test_aceita_todos_os_parametros_sem_quebrar(tmp_path, monkeypatch):
         faixas_ja_mostradas=["t1"],
     )
 
-    assert set(resultado) == {"faixas", "consulta_efetiva"}
+    assert set(resultado) == {"faixas", "diversidade_generos", "cobertura_sessao", "consulta_efetiva"}
     assert isinstance(resultado["faixas"], list)
 
 

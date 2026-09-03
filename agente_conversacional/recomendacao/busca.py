@@ -33,19 +33,16 @@ def buscar_recomendacoes(
     excecao por entrada invalida — cada parametro degrada pro seu
     comportamento padrao (ver `_validar_consulta`).
 
-    `faixas_ja_mostradas` e aceito e validado aqui (assinatura completa,
-    ticket 1.3), mas so e efetivamente usado no calculo de
-    `cobertura_sessao` do ticket 1.4 — esta funcao ainda nao filtra
-    resultados repetidos por causa dele.
+    `faixas_ja_mostradas` so afeta `cobertura_sessao` (ticket 1.4) — nao
+    filtra faixas repetidas do resultado em si, so mede a proporcao de
+    faixas novas nele.
     """
-    # faixas_ja_mostradas: aceito pela assinatura (ticket 1.3); usado so em
-    # 1.4 (calculo de cobertura_sessao) — nao filtra resultado aqui ainda.
-
     df = carregar_dataset()
     consulta = _validar_consulta(
         df, genero, energia, valencia, dancabilidade, artista_referencia, excluir_explicit, n_resultados
     )
     perfil_usuario_valido = _validar_perfil_usuario(perfil_usuario)
+    faixas_ja_mostradas_validas = _validar_faixas_ja_mostradas(faixas_ja_mostradas)
 
     mascara = _mascara_filtros_rigidos(df, consulta["genero"], consulta["excluir_explicit"])
     candidatos = df[mascara]
@@ -66,6 +63,8 @@ def buscar_recomendacoes(
 
     return {
         "faixas": _formatar_faixas(resultado),
+        "diversidade_generos": _calcular_diversidade_generos(resultado),
+        "cobertura_sessao": _calcular_cobertura_sessao(resultado, faixas_ja_mostradas_validas),
         "consulta_efetiva": consulta,
     }
 
@@ -121,6 +120,18 @@ def _validar_perfil_usuario(perfil_usuario):
     if vetor.shape != (len(FEATURES_AUDIO_NORM),) or np.isnan(vetor).any():
         return None
     return vetor
+
+
+def _validar_faixas_ja_mostradas(faixas_ja_mostradas):
+    # str tambem e iteravel (de caracteres) — tratar como lista invalida
+    # em vez de explodir em letras soltas que nunca vao bater com um
+    # track_id de verdade.
+    if faixas_ja_mostradas is None or isinstance(faixas_ja_mostradas, str):
+        return set()
+    try:
+        return {item for item in faixas_ja_mostradas if isinstance(item, str)}
+    except TypeError:
+        return set()
 
 
 def _mascara_artista(df, artista_referencia):
@@ -182,6 +193,17 @@ def _ranquear_por_similaridade(df, mascara, vetor_alvo, n_resultados):
 
     ordem = np.argsort(-scores[posicoes_validas])[:n_resultados]
     return df.iloc[posicoes_validas[ordem]]
+
+
+def _calcular_diversidade_generos(resultado):
+    return int(resultado["track_genre"].nunique())
+
+
+def _calcular_cobertura_sessao(resultado, faixas_ja_mostradas):
+    if len(resultado) == 0:
+        return 0.0
+    novas = (~resultado["track_id"].isin(faixas_ja_mostradas)).sum()
+    return novas / len(resultado)
 
 
 def _formatar_faixas(resultado):
