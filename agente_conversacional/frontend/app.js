@@ -223,6 +223,16 @@ async function enviarMensagem(sessionId, mensagem) {
   }
   clearTimeout(timeoutId);
 
+  // Ticket 4.9 (KAN-76): limite de mensagens atingido (rate limiting do
+  // ticket 8.4, quando ligado no backend). Fica fora do try/catch acima de
+  // propósito — não deve cair no fallback offline, que mascararia do
+  // usuário que ele precisa esperar antes de tentar de novo.
+  if (response.status === 429) {
+    const rateLimitError = new Error('Limite de mensagens atingido (HTTP 429).');
+    rateLimitError.isRateLimit = true;
+    throw rateLimitError;
+  }
+
   if (response.status >= 500) {
     let corpo = null;
     try {
@@ -354,6 +364,9 @@ async function carregarHistoricoInicial() {
     clearChatHistory(currentSessionId);
   }
 
+  // Ticket 4.12 (KAN-79): sessão restaurada já tem histórico -> não mostra onboarding.
+  // (a checagem de messages.length abaixo já cobre isso; sem novo fetch local aqui,
+  // que sobrescreveria o resultado do 4.6 acima com o cache desatualizado.)
   if (messages.length > 0) {
     if (heroEmptyState) heroEmptyState.style.display = 'none';
     messages.forEach((msg) => renderMessageBubble(msg, false));
@@ -447,6 +460,7 @@ function setupEventListeners() {
     currentSessionId = resetSession();
     messages = [];
     messagesContainer.innerHTML = '';
+    // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
     if (heroEmptyState) heroEmptyState.style.display = 'flex';
     updateSessionDisplay();
     showToast('Nova conversa iniciada!');
@@ -454,7 +468,13 @@ function setupEventListeners() {
   });
 
   btnSpotifyAuth?.addEventListener('click', () => {
-    showToast('Autenticação Spotify OAuth pronta para integração (Épico 5).');
+    // Ticket 4.7 (KAN-74): antes de qualquer redirect real pro Spotify, o
+    // usuário passa pela página de consentimento própria do backend
+    // (GET /auth/login → spotify_auth/consent.py), que lista os scopes
+    // lidos e a política de dados (ticket 5.10) e só depois linka pro
+    // redirect de fato (GET /auth/login/start). Abrimos essa página em vez
+    // de replicar o texto aqui pra não divergir do que o backend descreve.
+    window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
   });
 
   btnMic?.addEventListener('click', () => {
@@ -552,6 +572,11 @@ function renderMessageBubble(msg, animar = true) {
 
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
+  // Ticket 4.9 (KAN-76): marca visualmente a mensagem de limite de taxa
+  // (HTTP 429) como distinta de uma resposta normal do agente.
+  if (msg.isRateLimitError) {
+    bubble.classList.add('message-bubble--rate-limit');
+  }
 
   const textElem = document.createElement('div');
   textElem.className = 'message-text';
@@ -591,6 +616,8 @@ async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
   }
   btnSend.disabled = true;
 
+  // Ticket 4.12 (KAN-79): sugestões somem assim que o usuário envia a primeira
+  // mensagem — feito aqui, antes da chamada à API, para sumir de imediato.
   if (heroEmptyState) {
     heroEmptyState.style.display = 'none';
   }
@@ -632,7 +659,20 @@ async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
     console.error('Erro ao processar turno:', error);
     if (typingIndicator) typingIndicator.style.display = 'none';
 
-    if (error instanceof ErroBackend) {
+    if (error && error.isRateLimit) {
+      // Ticket 4.9 (KAN-76): HTTP 429 recebe mensagem própria, clara sobre o
+      // limite de mensagens, em vez do erro genérico/banner do ticket 4.8 (KAN-75).
+      const errorMsg = {
+        id: `error-${Date.now()}`,
+        role: 'agent',
+        conteudo: 'Você atingiu o limite de mensagens. Aguarde um instante e tente novamente.',
+        isRateLimitError: true,
+        timestamp: new Date().toISOString(),
+      };
+      messages.push(errorMsg);
+      renderMessageBubble(errorMsg, true);
+      scrollToBottom();
+    } else if (error instanceof ErroBackend) {
       // Ticket 4.8 (KAN-75): erro 500 padronizado do backend (ticket 8.3) vira
       // banner/toast genérico e recuperável — não trava o chat, não exige reload.
       showErrorBanner('Ocorreu um erro no servidor. Tente novamente em instantes.', () => {
@@ -650,6 +690,8 @@ async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
       scrollToBottom();
     }
   } finally {
+    // Critério de aceite (KAN-76): o input do chat continua disponível para
+    // uma nova tentativa, mesmo após um 429 — nada aqui desabilita o campo.
     isProcessing = false;
     btnSend.disabled = chatInput.value.trim().length === 0;
     chatInput.focus();

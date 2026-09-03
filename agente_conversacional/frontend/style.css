@@ -483,6 +483,13 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
+/* Ticket 4.9 (KAN-76): mensagem de limite de mensagens (HTTP 429) —
+   visualmente distinta de uma resposta normal e do erro genérico (KAN-75). */
+.message-bubble--rate-limit {
+  border-color: #b8860b;
+  background: rgba(184, 134, 11, 0.12);
+}
+
 .message-timestamp {
   font-size: 0.7rem;
   color: var(--text-muted);
