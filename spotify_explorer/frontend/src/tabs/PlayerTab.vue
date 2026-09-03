@@ -67,6 +67,28 @@ function cycleRepeat() {
   const next = REPEAT_STATES[(currentIndex + 1) % REPEAT_STATES.length];
   callControl("repeat", { state: next });
 }
+
+const relatedPlaylist = reactive({ status: "", data: null, error: null });
+
+async function generateRelatedPlaylist() {
+  relatedPlaylist.status = "loading";
+  relatedPlaylist.data = null;
+  relatedPlaylist.error = null;
+
+  const outcome = await fetchJSON("/api/me/playlists/related", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ track_id: nowPlaying.value.id, track_name: nowPlaying.value.name }),
+  });
+
+  if (outcome.ok) {
+    relatedPlaylist.status = "ok";
+    relatedPlaylist.data = outcome.data;
+  } else {
+    relatedPlaylist.status = "error";
+    relatedPlaylist.error = outcome.data;
+  }
+}
 </script>
 
 <template>
@@ -91,6 +113,23 @@ function cycleRepeat() {
         <template #preview>
           <div v-if="nowPlaying">
             <TrackPreview :track="nowPlaying" />
+            <button
+              type="button"
+              class="btn"
+              :disabled="relatedPlaylist.status === 'loading'"
+              @click="generateRelatedPlaylist"
+            >
+              Gerar playlist relacionada
+            </button>
+            <p v-if="relatedPlaylist.status === 'ok'">
+              Playlist criada — {{ relatedPlaylist.data.added_tracks }} faixas.
+              <a :href="relatedPlaylist.data.playlist.external_urls.spotify" target="_blank" rel="noopener">
+                Abrir no Spotify
+              </a>
+            </p>
+            <p v-else-if="relatedPlaylist.status === 'error'" class="status status-error">
+              Erro ({{ relatedPlaylist.error?.step }}): {{ JSON.stringify(relatedPlaylist.error?.error) }}
+            </p>
             <div class="audio-feature-bar">
               <span>Progresso</span>
               <div class="audio-feature-track">
