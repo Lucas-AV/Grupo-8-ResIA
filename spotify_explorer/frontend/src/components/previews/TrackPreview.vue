@@ -1,6 +1,7 @@
 <script setup>
 import { computed } from "vue";
 import { trackSummary } from "../../utils/spotifyShapes.js";
+import { usePreviewPlayer } from "../../composables/usePreviewPlayer.js";
 import Icon from "../Icon.vue";
 
 const props = defineProps({
@@ -9,6 +10,7 @@ const props = defineProps({
 });
 
 const summary = computed(() => trackSummary(props.track));
+const { playingUrl, toggle } = usePreviewPlayer();
 
 const hasFeatures = computed(
   () => props.audioFeatures && typeof props.audioFeatures.danceability === "number"
@@ -43,6 +45,10 @@ function formatDuration(ms) {
         <Icon name="external-link" :size="14" />
         Abrir no Spotify
       </a>
+      <button v-if="track.preview_url" type="button" class="preview-spotify-link" @click="toggle(track.preview_url)">
+        <Icon :name="playingUrl === track.preview_url ? 'pause' : 'player'" :size="14" />
+        {{ playingUrl === track.preview_url ? "Pausar prévia" : "Tocar prévia (30s)" }}
+      </button>
       <div v-if="typeof track.popularity === 'number'" class="audio-feature-bar">
         <span>Popularidade</span>
         <div class="audio-feature-track">

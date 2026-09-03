@@ -91,7 +91,7 @@ async function fetchPlayer() {
           <div v-if="queueItems.length">
             <h3>Fila</h3>
             <div v-for="(item, i) in queueItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
             </div>
           </div>
         </template>

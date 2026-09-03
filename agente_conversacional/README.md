@@ -168,8 +168,8 @@ redirecionar direto, se fizer mais sentido.
 | 5.3 — `GET /auth/callback` | `spotify_auth/routes.py` — valida `state`, troca código por tokens, trata `?error=access_denied` (login cancelado) sem erro visível ao usuário. | Feito |
 | 5.4 — Armazenamento/renovação de tokens | `spotify_auth/token_store.py` (SQLite + Fernet) e `client.get_valid_access_token` (renova quando falta <60s; se o refresh falhar, sessão cai pra anônima). | Feito |
 | 5.5 — Busca do histórico | `spotify_auth/history.py` — top tracks, recently played, saved tracks (paginado). 429/timeout tratados como histórico parcial, não bloqueiam o login. | Feito |
-| 5.6 — Matching com dataset local | Depende de **1.1** (dataset carregado em memória, Épico 1). | **Bloqueado — aguardando Épico 1** |
-| 5.7 — Perfil de gosto (centróide) | Depende de **1.3** (`buscar_recomendacoes`, Épico 1). | **Bloqueado — aguardando Épico 1** |
+| 5.6 — Matching com dataset local | 1.1 já está pronto (`recomendacao/dataset.py`); `recomendacao/normalizacao.py` (`normalizar_texto`) já existe pra reaproveitar aqui, conforme §3.5 do pipeline. | Desbloqueado — não iniciado |
+| 5.7 — Perfil de gosto (centróide) | 1.3 já está pronto — `buscar_recomendacoes(perfil_usuario=...)` já aceita e faz o blend 70/30 (`recomendacao/busca.py`). Falta só calcular o centróide a partir do histórico casado (5.6) e injetar aqui. | Desbloqueado — não iniciado |
 | 5.8 — `POST /auth/logout` | `spotify_auth/routes.py` — descarta os tokens da sessão. | Feito |
 | 5.9 — Casos de falha do OAuth | Tabela da seção 3.7 do pipeline coberta: `state` inválido, `error=access_denied`, refresh revogado, 429, timeout — todos testados com mocks (`test_spotify_client.py`, `test_spotify_history.py`, `test_spotify_routes.py`). | Feito |
 | 5.10 — Aviso de privacidade antes do login | `spotify_auth/consent.py` — `GET /auth/login` mostra os scopes lidos e a política de dados (§9 do pipeline) antes do link pra `/auth/login/start`. Implementado no backend por falta do Épico 4; ver desvio de fluxo acima. | Feito (via backend, adiantado do Épico 4) |
@@ -177,6 +177,47 @@ redirecionar direto, se fizer mais sentido.
 Testes: `pytest` — 57 testes (26 do Épico 0 + 31 do Épico 5), todos com
 rede mockada.
 
+## Épico 1 — Motor de recomendação (status por ticket)
+
+Módulo `recomendacao/` — Épico 1 completo: carregamento/normalização,
+índice de similaridade, busca completa, métricas de diversidade/
+cobertura e a suíte formal de testes de edge cases.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 1.1 — Carregar dataset e normalizar features de áudio | `recomendacao/dataset.py` — `carregar_dataset()` lê `data/dataset.csv` uma vez (cacheado com `functools.lru_cache`), marca `track_id_duplicado` sem remover linhas, e adiciona colunas `*_norm` com as 9 features de áudio contínuas padronizadas (z-score), preservando as colunas originais em escala crua pros filtros/buckets do ticket 1.3. | Feito |
+| 1.2 — Índice de similaridade (k-NN / cosseno) | `recomendacao/indice.py` — `construir_indice()` monta, uma única vez (cacheado), a matriz de features normalizada linha a linha (norma L2); `IndiceSimilaridade.mais_similares(vetor_alvo, n)` devolve as `n` faixas mais próximas por cosseno via produto escalar vetorizado (numpy puro, sem nova dependência). Busca no dataset real (~31,8 mil faixas) roda em milissegundos, bem abaixo do limite de ~1s. | Feito |
+| 1.3 — `buscar_recomendacoes(...)` completa | `recomendacao/busca.py` — assinatura completa (`genero`, `energia`, `valencia`, `dancabilidade`, `artista_referencia`, `excluir_explicit`, `n_resultados`, `perfil_usuario`, `faixas_ja_mostradas`); validação defensiva de cada campo (nunca levanta exceção); filtros rígidos (gênero, `excluir_explicit`, dedup de `track_id`) antes da similaridade; vetor-alvo pelos 3 casos (artista de referência → centróide, buckets categóricos, blend 70/30 com `perfil_usuario`); fallback por popularidade quando não há sinal nenhum; `n_resultados` sempre em `[1, 30]`. Ver decisões assumidas abaixo. | Feito |
+| 1.4 — Cálculo de diversidade e cobertura | `diversidade_generos` (nº de gêneros distintos no resultado) e `cobertura_sessao` (proporção de faixas cujo `track_id` não está em `faixas_ja_mostradas`) calculados dentro de `buscar_recomendacoes` e sempre presentes na resposta — inclusive no fallback de popularidade e no caso de resultado vazio (`0` e `0.0`, respectivamente). | Feito |
+| 1.5 — Testes unitários de `buscar_recomendacoes` | `test_recomendacoes_edge_cases.py` fecha as combinações que faltavam contra a tabela de edge cases (§7 do pipeline) e os critérios do ticket: atributo só (dançabilidade, valência — energia já estava em 1.3), gênero/artista inválido em combinação, dedup na busca por similaridade (não só no fallback), e resultado vazio nos dois caminhos (fallback e similaridade). O resto dos critérios (combinação de sinal, `n_resultados` fora da faixa, gênero/artista inválido isolado, dedup no fallback) já tinha saído coberto organicamente em 1.3/1.4. | Feito |
+
+**Decisões assumidas no 1.3** (a especificação detalhada referenciada
+pelo ticket — filtros/buckets/blend — não está mais no
+`PIPELINE_AGENTE_PROPOSTA_B.md` atual; só o texto do próprio ticket do
+Jira tinha esse nível de detalhe). Vale o time confirmar:
+
+- Buckets `baixa`/`media`/`alta` (e `triste`/`neutro`/`feliz` pra
+  valência) mapeiam pra -1/0/+1 desvio-padrão na dimensão normalizada
+  correspondente — não havia threshold explícito especificado.
+- Quando `artista_referencia` bate com o dataset, o centróide é
+  calculado sobre a base inteira (não restrito ao `genero` do filtro) —
+  representa o "perfil de som" do artista, independente de gênero.
+- Blend 70/30 é sempre `0.7 * vetor_da_consulta + 0.3 * perfil_usuario`
+  (perfil como viés secundário, nunca dominante) — quando não há nenhum
+  outro sinal (nem artista, nem bucket), `perfil_usuario` sozinho vira o
+  vetor-alvo (100%, sem blend).
+- `faixas_ja_mostradas` é aceito e validado na assinatura, mas não filtra
+  resultado nesta função — só o ticket 1.4 (`cobertura_sessao`) usa esse
+  parâmetro de fato.
+- Faixas do próprio artista de referência não são excluídas do
+  resultado (nada no ticket pedia isso).
+- `cobertura_sessao` com resultado vazio (nenhum candidato passou nos
+  filtros) devolve `0.0` em vez de indefinido/`NaN` — evita dividir por
+  zero sem esconder que não há faixas novas nem antigas, simplesmente
+  não há faixas.
+
+Testes: `pytest` — 109 testes (103 anteriores + 6 do ticket 1.5), todos
+sem depender de rede ou de serviços externos. Épico 1 completo.
 ## Épico 8 — Infraestrutura de projeto, qualidade e deploy (status por ticket)
 
 | Ticket | O que cobre | Status |
