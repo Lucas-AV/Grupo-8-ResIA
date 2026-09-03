@@ -1,14 +1,15 @@
 # Agente Conversacional — backend
 
-Implementacao do backend do agente de recomendacao (Proposta B). Ver
+Implementação do backend do agente de recomendação (Proposta B). Ver
 [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](../docs/PIPELINE_AGENTE_PROPOSTA_B.md)
 pra especificacao completa e
 [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](../docs/BACKLOG_JIRA_PROPOSTA_B.md) pro
 backlog em tickets. Este README cobre o que já existe: infraestrutura de
-LLM (Épico 0), integração Spotify OAuth (Épico 5) e infra/qualidade do
-projeto (Épico 8). O motor de recomendação (Épico 1), o pipeline
-conversacional (Épico 2) e o frontend (Épico 4) ainda não foram
-implementados.
+LLM (Épico 0), sessões e API (KAN-8), integração Spotify OAuth (Épico 5) e
+infra/qualidade do projeto (Épico 8). O motor de recomendação (Épico 1), o
+pipeline conversacional (Épico 2) e o frontend (Épico 4) ainda não foram
+implementados. Para uma visão simples da entrega do KAN-8, veja
+[`docs/KAN-8_BACKEND_API.md`](docs/KAN-8_BACKEND_API.md).
 
 ## Setup
 
@@ -70,20 +71,42 @@ cliente. O erro completo é logado no servidor (`logger.exception`, logger
 ## Rate limiting (ticket 8.4)
 
 `rate_limit.py` tem um limitador em memória (`RateLimiter`, configurável
-via `CHAT_RATE_LIMIT_MAX_REQUESTS`/`CHAT_RATE_LIMIT_WINDOW_SECONDS`),
-pronto pra virar `dependency` de `POST /chat` assim que esse endpoint
-existir (ticket 3.2, Épico 3) — ainda não está montado em nenhuma rota
-porque esse endpoint não existe.
+via `CHAT_RATE_LIMIT_MAX_REQUESTS`/`CHAT_RATE_LIMIT_WINDOW_SECONDS`) pronto
+para ser ligado à rota de conversa em uma etapa posterior.
+
+## API de sessões — KAN-8
+
+O backend mantém sessões de conversa **em memória** para o MVP. Cada sessão é
+criada com UUID4, expira após `SESSION_TIMEOUT_MINUTES` (30 minutos por padrão)
+e é descartada no restart do processo. A expiração trata somente o histórico de
+chat; a futura camada OAuth mantém os tokens em armazenamento separado.
+
+- `POST /session` cria uma sessão e devolve `{"session_id": "<uuid4>"}`.
+- `POST /chat` recebe `session_id` e `mensagem`; devolve texto, faixas e
+  métricas no contrato consumido pelo frontend.
+- `GET /chat/historico?session_id=...` devolve as mensagens auditáveis, com
+  `role`, `conteudo`, `faixas_citadas` e timestamp UTC.
+
+Sessões inexistentes ou expiradas retornam `404` com
+`detail.codigo = "sessao_invalida"`. Enquanto o pipeline do Épico 2 não for
+integrado, `POST /chat` retorna `503` com
+`detail.codigo = "pipeline_indisponivel"`; ele não usa catálogo demonstrativo
+nem inventa recomendações.
+
+O pipeline será conectado através de `TurnProcessor`. A fábrica
+`create_app(session_store=..., turn_processor=...)` aceita dependências
+opcionais para testes e para a integração com os Épicos 2 e 5.
 
 ## Testes
 
 ```bash
-pytest
+python -m pytest
 ```
 
-67 testes (dispatcher `chamar_llm`, os dois backends, boot do FastAPI,
-fluxo OAuth completo, CORS, tratamento de erro, rate limiter) — todos com
-LLM/Spotify mockados, não dependem de nada rodando de verdade. Roda
+Os testes cobrem o dispatcher `chamar_llm`, os backends, o boot do FastAPI,
+sessões, expiração, contratos HTTP do KAN-8, fluxo OAuth, CORS, tratamento de
+erros e rate limiter. Todos usam LLM/Spotify mockados e não dependem de nada
+rodando de verdade. A suíte roda
 automaticamente em todo push/PR via
 [`.github/workflows/agente-tests.yml`](../.github/workflows/agente-tests.yml)
 (ticket 8.5).
@@ -122,10 +145,10 @@ criptografados em SQLite (`cryptography.Fernet`), renovação proativa e
 busca de histórico. Rotas montadas em `app.py`
 (`GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`).
 
-`session_id` é aceito hoje como query param direto (não há cookie de
-sessão ainda — depende do gerenciador de sessão do ticket 3.4, Épico 3).
-Ajustar a assinatura de `/auth/login`/`/auth/logout` quando esse
-gerenciador existir.
+`session_id` é aceito como query param direto (não há cookie de sessão).
+Após o callback, o backend marca a sessão de conversa já existente como
+autenticada; os tokens continuam guardados separadamente pelo OAuth. Nenhuma
+segunda conversa é criada nesse processo.
 
 **Desvio do fluxo descrito na seção 3.2 do pipeline:** `GET /auth/login`
 não redireciona mais direto pro Spotify — devolve a página de
@@ -202,7 +225,7 @@ sem depender de rede ou de serviços externos. Épico 1 completo.
 | 8.1 — Scaffold do backend | Já existia como subproduto dos Épicos 0/5 — `app.py` como entrypoint, `requirements.txt` (instala limpo, testado), `.env.example` cobrindo 0.x/5.x/8.x. Backend sobe com `uvicorn app:app --reload`. | Feito |
 | 8.2 — CORS | `app.py` (`CORSMiddleware`), origem(ns) via `FRONTEND_URL` (nunca wildcard). Testado em `test_cors.py`. | Feito |
 | 8.3 — Handler de erro global | `app.py` (`handle_unhandled_exception`) — qualquer exceção não tratada vira HTTP 500 padronizado, nunca stack trace cru; log completo no servidor. Testado em `test_error_handler.py`. | Feito |
-| 8.4 — Rate limiting no `/chat` | `rate_limit.py` (`RateLimiter`) pronto e testado (`test_rate_limit.py`), mas depende de **3.2** (`POST /chat`, Épico 3) pra ter onde ser montado. | **Bloqueado — utilitário pronto, aguardando Épico 3** |
+| 8.4 — Rate limiting no `/chat` | `rate_limit.py` (`RateLimiter`) está pronto e testado (`test_rate_limit.py`). A rota `POST /chat` já existe pelo KAN-8; falta somente ligar o limitador nela no ticket 8.4. | **Pendente — integração específica do ticket 8.4** |
 | 8.5 — CI de testes (pytest) | [`.github/workflows/agente-tests.yml`](../.github/workflows/agente-tests.yml) — roda `pytest` em todo push/PR que toque `agente_conversacional/`. Cobre 1.5/2.9 automaticamente assim que esses testes existirem (descoberta automática do pytest). | Feito |
 | 8.6 — README / guia de setup | Este arquivo — Ollama, `.env`, CORS, erro global, rate limiter, testes, tabelas de status por épico. | Feito |
 | 8.7 — Deploy/hosting real | Depende de **3.2** e **4.1** (Épicos 3 e 4, nenhum implementado ainda) — sem backend orquestrado nem frontend, não há o que publicar. | **Bloqueado — aguardando Épicos 3 e 4** |

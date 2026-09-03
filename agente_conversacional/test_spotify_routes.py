@@ -21,6 +21,14 @@ class _FakeTokenStore:
         self.deleted = session_id
 
 
+class _FakeSessionStore:
+    def __init__(self):
+        self.authenticated_sessions = []
+
+    def mark_authenticated(self, session_id):
+        self.authenticated_sessions.append(session_id)
+
+
 @pytest.fixture
 def client(monkeypatch):
     monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client-123")
@@ -30,9 +38,11 @@ def client(monkeypatch):
     monkeypatch.setattr(routes, "_get_token_store", lambda: fake_store)
 
     app = FastAPI()
+    app.state.session_store = _FakeSessionStore()
     app.include_router(routes.router)
     with TestClient(app) as test_client:
         test_client.fake_store = fake_store
+        test_client.fake_session_store = app.state.session_store
         yield test_client
 
 
@@ -85,6 +95,7 @@ def test_callback_happy_path_saves_tokens_and_redirects_success(client, monkeypa
     assert response.headers["location"] == "/?spotify_login=success"
     session_id, access_token, refresh_token, _ = client.fake_store.saved
     assert (session_id, access_token, refresh_token) == ("sess-1", "at", "rt")
+    assert client.fake_session_store.authenticated_sessions == ["sess-1"]
 
 
 def test_callback_redirects_to_failed_when_token_exchange_fails(client, monkeypatch):

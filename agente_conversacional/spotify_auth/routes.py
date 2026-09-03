@@ -2,13 +2,14 @@ import logging
 import time
 from typing import Optional
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 from spotify_auth.client import PendingAuth, build_authorize_url, exchange_code_for_tokens
 from spotify_auth.consent import render_consent_page
 from spotify_auth.errors import SpotifyTokenExchangeError
 from spotify_auth.token_store import TokenStore
+from sessions.store import SessionNotFound
 
 logger = logging.getLogger("agente.spotify_auth")
 
@@ -36,7 +37,12 @@ def login_start(session_id: str = Query(...)):
 
 
 @router.get("/auth/callback")
-def callback(code: Optional[str] = None, state: Optional[str] = None, error: Optional[str] = None):
+def callback(
+    request: Request,
+    code: Optional[str] = None,
+    state: Optional[str] = None,
+    error: Optional[str] = None,
+):
     if error:
         logger.info("login Spotify cancelado pelo usuario (%s) — sessao permanece anonima", error)
         return RedirectResponse("/?spotify_login=cancelled")
@@ -54,6 +60,12 @@ def callback(code: Optional[str] = None, state: Optional[str] = None, error: Opt
 
     expires_at = time.time() + tokens["expires_in"]
     _get_token_store().save(pending["session_id"], tokens["access_token"], tokens["refresh_token"], expires_at)
+    session_store = getattr(request.app.state, "session_store", None)
+    if session_store is not None:
+        try:
+            session_store.mark_authenticated(pending["session_id"])
+        except SessionNotFound:
+            logger.info("sessao de chat nao existe mais; tokens OAuth permanecem armazenados")
     return RedirectResponse("/?spotify_login=success")
 
 
