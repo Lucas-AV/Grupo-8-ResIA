@@ -8,6 +8,11 @@ from flask import Flask, jsonify, redirect, request, send_from_directory
 import spotify_client
 import user_auth
 
+import segno
+
+import pairing_store
+import qr_page
+
 load_dotenv()
 
 
@@ -26,6 +31,8 @@ def create_app():
 
 
 def register_routes(app):
+    pairing = pairing_store.PairingStore()
+
     @app.route("/")
     def index():
         index_path = os.path.join(app.config["FRONTEND_DIST_DIR"], "index.html")
@@ -160,6 +167,13 @@ def register_routes(app):
             params={"limit": request.args.get("limit", "20")},
         )
         return jsonify(body), status
+
+    @app.route("/login/qr")
+    def login_qr():
+        code = pairing.create()
+        pair_url = f"{request.host_url}login?pair={code}"
+        svg_data_uri = segno.make(pair_url).svg_data_uri(scale=6)
+        return qr_page.render_qr_page(svg_data_uri, code, app.config["FRONTEND_URL"])
 
     @app.route("/login")
     def login():

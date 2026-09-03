@@ -1,4 +1,29 @@
+import re
+
 import app as app_module
+
+
+def test_login_qr_returns_html_with_qr_and_poll_code(client):
+    response = client.get("/login/qr")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "data:image/svg+xml" in body
+    assert "/api/pair/" in body
+
+    match = re.search(r'const code = "([^"]+)"', body)
+    assert match is not None
+    assert len(match.group(1)) > 10
+
+
+def test_login_qr_generates_a_fresh_code_each_time(client):
+    first = client.get("/login/qr").get_data(as_text=True)
+    second = client.get("/login/qr").get_data(as_text=True)
+
+    first_code = re.search(r'const code = "([^"]+)"', first).group(1)
+    second_code = re.search(r'const code = "([^"]+)"', second).group(1)
+
+    assert first_code != second_code
 
 
 def test_login_redirects_to_spotify_authorize(client):
