@@ -3,7 +3,7 @@ from datetime import date
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory, session
 
 import spotify_client
 import user_auth
@@ -177,6 +177,12 @@ def register_routes(app):
 
     @app.route("/login")
     def login():
+        pair_code = request.args.get("pair")
+        if pair_code is not None:
+            status = pairing.get_status(pair_code)
+            if status != "pending":
+                return qr_page.render_pair_error_page(status), 400
+            session["pairing_code"] = pair_code
         return redirect(
             user_auth.get_login_url(
                 app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_REDIRECT_URI"]

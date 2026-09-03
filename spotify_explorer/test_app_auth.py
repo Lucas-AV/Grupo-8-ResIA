@@ -654,3 +654,31 @@ def test_create_related_playlist_requires_login(client, monkeypatch):
     )
 
     assert response.status_code == 401
+
+
+def test_login_with_valid_pair_code_stashes_it_in_session_and_redirects_to_spotify(client):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    response = client.get(f"/login?pair={code}")
+
+    assert response.status_code == 302
+    assert response.location.startswith("https://accounts.spotify.com/authorize")
+    with client.session_transaction() as sess:
+        assert sess["pairing_code"] == code
+
+
+def test_login_with_unknown_pair_code_shows_error_without_redirecting_to_spotify(client):
+    response = client.get("/login?pair=does-not-exist")
+
+    assert response.status_code == 400
+    assert b"login/qr" in response.data
+
+
+def test_login_without_pair_param_behaves_exactly_like_before(client):
+    response = client.get("/login")
+
+    assert response.status_code == 302
+    assert response.location.startswith("https://accounts.spotify.com/authorize")
+    with client.session_transaction() as sess:
+        assert "pairing_code" not in sess
