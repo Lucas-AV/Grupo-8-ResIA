@@ -12,3 +12,7 @@ class SpotifyNotAuthenticatedError(SpotifyAuthError):
     def __init__(self, session_id):
         super().__init__(f"sessao '{session_id}' nao autenticada com o Spotify")
         self.session_id = session_id
+
+
+class SpotifyPlaylistError(SpotifyAuthError):
+    """Levantado quando criar a playlist ou adicionar faixas falha na Spotify Web API (ticket 12.1)."""

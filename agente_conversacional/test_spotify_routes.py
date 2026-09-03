@@ -6,18 +6,24 @@ from fastapi.testclient import TestClient
 
 import spotify_auth.routes as routes
 from spotify_auth.client import PendingAuth
-from spotify_auth.errors import SpotifyTokenExchangeError
+from spotify_auth.errors import SpotifyNotAuthenticatedError, SpotifyPlaylistError, SpotifyTokenExchangeError
 
 
 class _FakeTokenStore:
-    def __init__(self):
+    def __init__(self, tokens_by_session=None):
+        self._tokens = dict(tokens_by_session or {})
         self.saved = None
         self.deleted = None
 
+    def get(self, session_id):
+        return self._tokens.get(session_id)
+
     def save(self, session_id, access_token, refresh_token, expires_at):
+        self._tokens[session_id] = {"access_token": access_token, "refresh_token": refresh_token, "expires_at": expires_at}
         self.saved = (session_id, access_token, refresh_token, expires_at)
 
     def delete(self, session_id):
+        self._tokens.pop(session_id, None)
         self.deleted = session_id
 
 
@@ -118,3 +124,78 @@ def test_logout_deletes_session_tokens(client):
     assert response.status_code == 200
     assert response.json() == {"status": "logged_out"}
     assert client.fake_store.deleted == "sess-1"
+
+
+def test_auth_status_true_when_session_has_tokens(client):
+    client.fake_store.save("sess-1", "at", "rt", 9999999999)
+
+    response = client.get("/auth/status?session_id=sess-1")
+
+    assert response.status_code == 200
+    assert response.json() == {"autenticado": True}
+
+
+def test_auth_status_false_when_session_never_logged_in(client):
+    response = client.get("/auth/status?session_id=sess-nunca-logou")
+
+    assert response.status_code == 200
+    assert response.json() == {"autenticado": False}
+
+
+def test_criar_playlist_returns_401_when_session_not_authenticated(client, monkeypatch):
+    def fake_get_valid_access_token(session_id, token_store, timeout=None):
+        raise SpotifyNotAuthenticatedError(session_id)
+
+    monkeypatch.setattr(routes, "get_valid_access_token", fake_get_valid_access_token)
+
+    response = client.post("/playlist/criar", json={"session_id": "sess-anonima", "faixas": ["t1"]})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["codigo"] == "spotify_nao_autenticado"
+
+
+def test_criar_playlist_creates_playlist_with_valid_token(client, monkeypatch):
+    monkeypatch.setattr(routes, "get_valid_access_token", lambda session_id, token_store, timeout=None: "at-valido")
+
+    captured = {}
+
+    def fake_create_playlist_with_tracks(access_token, faixas, nome=None, descricao=None, timeout=None):
+        captured["access_token"] = access_token
+        captured["faixas"] = faixas
+        captured["nome"] = nome
+        return {"playlist_id": "playlist-1", "url": "https://open.spotify.com/playlist/playlist-1", "faixas_adicionadas": 2}
+
+    monkeypatch.setattr(routes, "create_playlist_with_tracks", fake_create_playlist_with_tracks)
+
+    response = client.post(
+        "/playlist/criar",
+        json={"session_id": "sess-1", "faixas": ["t1", "t2"], "nome": "Minhas faixas"},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "playlist_id": "playlist-1",
+        "url": "https://open.spotify.com/playlist/playlist-1",
+        "faixas_adicionadas": 2,
+    }
+    assert captured == {"access_token": "at-valido", "faixas": ["t1", "t2"], "nome": "Minhas faixas"}
+
+
+def test_criar_playlist_returns_502_when_spotify_call_fails(client, monkeypatch):
+    monkeypatch.setattr(routes, "get_valid_access_token", lambda session_id, token_store, timeout=None: "at-valido")
+
+    def fake_create_playlist_with_tracks(*args, **kwargs):
+        raise SpotifyPlaylistError("Spotify respondeu HTTP 500 ao criar a playlist")
+
+    monkeypatch.setattr(routes, "create_playlist_with_tracks", fake_create_playlist_with_tracks)
+
+    response = client.post("/playlist/criar", json={"session_id": "sess-1", "faixas": ["t1"]})
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["codigo"] == "spotify_playlist_falhou"
+
+
+def test_criar_playlist_rejects_empty_faixas(client):
+    response = client.post("/playlist/criar", json={"session_id": "sess-1", "faixas": []})
+
+    assert response.status_code == 422
