@@ -11,7 +11,7 @@ TOKEN_URL = "https://accounts.spotify.com/api/token"
 SCOPES = (
     "user-top-read user-library-read user-read-recently-played "
     "user-read-playback-state user-read-currently-playing "
-    "user-follow-read playlist-read-private"
+    "user-follow-read playlist-read-private user-modify-playback-state"
 )
 
 
