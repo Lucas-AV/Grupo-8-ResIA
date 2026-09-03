@@ -195,7 +195,7 @@ class ErroBackend extends Error {
   }
 }
 
-async function enviarMensagem(sessionId, mensagem) {
+async function enviarMensagem(sessionId, mensagem, extras = {}) {
   const url = `${API_BASE_URL}/chat`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -207,9 +207,15 @@ async function enviarMensagem(sessionId, mensagem) {
       headers: {
         'Content-Type': 'application/json',
       },
+      // Ticket 12.4 (KAN-107): `extras` carrega faixas_ja_mostradas quando o
+      // pedido vem do botão "Gerar outra recomendação" — o backend hoje
+      // ignora chaves que ChatRequest não declara (comportamento padrão do
+      // pydantic), então isso é inofensivo enquanto o schema não abraça o
+      // campo, e já fica pronto pro dia em que abraçar.
       body: JSON.stringify({
         session_id: sessionId,
         mensagem: mensagem,
+        ...extras,
       }),
       signal: controller.signal,
     });
@@ -420,6 +426,18 @@ let isProcessing = false;
 // aparece nos cards de resposta. Começa false (fail-closed): enquanto não
 // confirmamos com o backend, não mostramos ação que exige autenticação.
 let isSpotifyAuthenticated = false;
+// Ticket 12.4 (KAN-107): track_ids de toda faixa já mostrada nesta sessão
+// (acumulado no cliente a partir de msg.faixas de cada resposta do agente),
+// usado pelo botão "Gerar outra recomendação" pra pedir uma busca nova sem
+// repetir o que já apareceu.
+const faixasMostradasSessao = new Set();
+
+function atualizarFaixasMostradas(faixas) {
+  if (!Array.isArray(faixas)) return;
+  faixas.forEach((faixa) => {
+    if (faixa && faixa.track_id) faixasMostradasSessao.add(faixa.track_id);
+  });
+}
 
 // Elementos DOM
 const sessionIdDisplay = document.getElementById('session-id-display');
@@ -497,6 +515,13 @@ async function carregarHistoricoInicial() {
     messages = [];
     clearChatHistory(currentSessionId);
   }
+
+  // Ticket 12.4 (KAN-107): semeia o set de faixas já mostradas a partir do
+  // histórico restaurado — cobre o caso de cache local (localStorage guarda
+  // msg.faixas completo); histórico vindo do backend não traz faixas (ver
+  // mapearHistoricoRemoto), então não contribui aqui, mesma limitação já
+  // documentada pros cards de faixa não reconstruídos.
+  messages.forEach((msg) => atualizarFaixasMostradas(msg.faixas));
 
   // Ticket 4.12 (KAN-79): sessão restaurada já tem histórico -> não mostra onboarding.
   // (a checagem de messages.length abaixo já cobre isso; sem novo fetch local aqui,
@@ -729,19 +754,37 @@ function renderMessageBubble(msg, animar = true) {
       bubble.appendChild(tracksSection);
     }
 
-    // Ticket 12.2 (KAN-105): "Salvar no Spotify" só aparece pra sessão
-    // autenticada — nunca tenta a ação sabendo de antemão que vai dar 401.
-    if (msg.role === 'agent' && isSpotifyAuthenticated) {
+    // Ações logo abaixo dos cards de faixa — só faz sentido pra respostas do
+    // agente (nunca numa mensagem do próprio usuário).
+    if (msg.role === 'agent') {
       const actionsRow = document.createElement('div');
       actionsRow.className = 'response-actions';
 
-      const trackIds = msg.faixas.map((faixa) => faixa && faixa.track_id).filter(Boolean);
-      const btnSalvar = document.createElement('button');
-      btnSalvar.type = 'button';
-      btnSalvar.className = 'btn-response-action btn-salvar-spotify';
-      btnSalvar.textContent = 'Salvar no Spotify';
-      btnSalvar.addEventListener('click', () => handleSalvarSpotify(btnSalvar, trackIds));
-      actionsRow.appendChild(btnSalvar);
+      // Ticket 12.4 (KAN-107): "Gerar outra recomendação" aparece em toda
+      // resposta com faixas, sessão autenticada ou não.
+      const btnOutraRecomendacao = document.createElement('button');
+      btnOutraRecomendacao.type = 'button';
+      btnOutraRecomendacao.className = 'btn-response-action btn-outra-recomendacao';
+      btnOutraRecomendacao.textContent = 'Gerar outra recomendação';
+      btnOutraRecomendacao.addEventListener('click', () => {
+        if (isProcessing) return;
+        enviarMensagemUsuario('Gere outra recomendação, sem repetir as músicas já mostradas.', {
+          extras: { faixas_ja_mostradas: Array.from(faixasMostradasSessao) },
+        });
+      });
+      actionsRow.appendChild(btnOutraRecomendacao);
+
+      // Ticket 12.2 (KAN-105): "Salvar no Spotify" só aparece pra sessão
+      // autenticada — nunca tenta a ação sabendo de antemão que vai dar 401.
+      if (isSpotifyAuthenticated) {
+        const trackIds = msg.faixas.map((faixa) => faixa && faixa.track_id).filter(Boolean);
+        const btnSalvar = document.createElement('button');
+        btnSalvar.type = 'button';
+        btnSalvar.className = 'btn-response-action btn-salvar-spotify';
+        btnSalvar.textContent = 'Salvar no Spotify';
+        btnSalvar.addEventListener('click', () => handleSalvarSpotify(btnSalvar, trackIds));
+        actionsRow.appendChild(btnSalvar);
+      }
 
       bubble.appendChild(actionsRow);
     }
@@ -757,7 +800,7 @@ function renderMessageBubble(msg, animar = true) {
   messagesContainer.appendChild(row);
 }
 
-async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
+async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {}) {
   if (isProcessing) return;
   isProcessing = true;
 
@@ -791,7 +834,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
   }
 
   try {
-    const resposta = await enviarMensagem(currentSessionId, texto);
+    const resposta = await enviarMensagem(currentSessionId, texto, extras);
 
     const agentMsg = {
       id: `agent-${Date.now()}`,
@@ -801,6 +844,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
+    atualizarFaixasMostradas(agentMsg.faixas);
     saveChatHistory(currentSessionId, messages);
 
     if (typingIndicator) typingIndicator.style.display = 'none';
@@ -861,6 +905,7 @@ window.ResIA = {
   showErrorBanner,
   verificarStatusSpotify,
   criarPlaylistSpotify,
+  atualizarFaixasMostradas,
 };
 
 if (document.readyState === 'loading') {
