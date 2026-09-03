@@ -62,7 +62,7 @@ useNavigationTarget("playlist", (id) => {
         <div v-if="tracks.length">
           <h3>Faixas</h3>
           <div v-for="(item, i) in tracks" :key="i">
-            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
           </div>
         </div>
         <p v-else-if="tracksUnavailable" class="status status-error">
