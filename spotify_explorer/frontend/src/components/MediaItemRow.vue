@@ -17,7 +17,7 @@ defineProps({
       <div class="media-item-title">{{ title }}</div>
       <div v-if="subtitle" class="media-item-subtitle">{{ subtitle }}</div>
     </div>
-    <a v-if="url" :href="url" target="_blank" rel="noopener" class="media-item-link" aria-label="Abrir no Spotify">
+    <a v-if="url" :href="url" target="_blank" rel="noopener" class="media-item-link" aria-label="Abrir no Spotify" @click.stop>
       <Icon name="external-link" :size="16" />
     </a>
   </div>
