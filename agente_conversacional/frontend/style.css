@@ -746,6 +746,64 @@ body {
   background: rgba(29, 185, 84, 0.2);
 }
 
+/* Ações da resposta — "Salvar no Spotify" (Ticket 12.2) e "Gerar outra
+   recomendação" (Ticket 12.4), logo abaixo dos cards de faixa. */
+.response-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn-response-action {
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.btn-response-action:hover:not(:disabled) {
+  background: var(--bg-surface-elevated);
+  border-color: rgba(255, 255, 255, 0.2);
+  transform: translateY(-1px);
+}
+
+.btn-response-action:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+
+.btn-salvar-spotify {
+  background: var(--spotify-green-subtle);
+  border-color: rgba(29, 185, 84, 0.35);
+  color: var(--spotify-green);
+}
+
+.btn-salvar-spotify:hover:not(:disabled) {
+  background: var(--spotify-green-subtle);
+  border-color: var(--spotify-green);
+}
+
+/* Feedback visível de que a sessão já está conectada (Ticket 12.2) */
+.btn-spotify-auth.btn-spotify-auth--connected {
+  background: var(--bg-surface-elevated);
+  color: var(--spotify-green);
+  border: 1px solid rgba(29, 185, 84, 0.4);
+  box-shadow: none;
+  cursor: default;
+}
+
+.btn-spotify-auth.btn-spotify-auth--connected:hover {
+  background: var(--bg-surface-elevated);
+  transform: none;
+}
+
 /* 9. Indicador de Processamento / Waveform Animado (Ticket 4.3 & Imagem 1) */
 .processing-indicator {
   display: flex;

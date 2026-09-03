@@ -305,12 +305,121 @@ function mapearHistoricoRemoto(historico) {
   }));
 }
 
+/**
+ * Ticket 12.2 (KAN-105): consulta GET /auth/status pra saber se a sessão
+ * atual está autenticada com o Spotify (ticket 12.1, GET /auth/status).
+ * Falha de rede/timeout resolve pra `false` (fail-closed) — não mostra ação
+ * que exige login sem ter certeza de que ele existe.
+ */
+async function verificarStatusSpotify(sessionId) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${API_BASE_URL}/auth/status?session_id=${encodeURIComponent(sessionId)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) return false;
+    const data = await response.json();
+    return Boolean(data.autenticado);
+  } catch (err) {
+    console.warn('Não foi possível verificar o status de autenticação com o Spotify:', err);
+    return false;
+  }
+}
+
+/**
+ * Lê o parâmetro `?spotify_login=` deixado pelo redirect de
+ * spotify_auth/routes.py (GET /auth/callback) depois do fluxo OAuth (ticket
+ * 4.7 / KAN-74), mostra um toast com o resultado e limpa a URL — sem isso o
+ * parâmetro ficaria preso na barra de endereço após um reload.
+ */
+function tratarRetornoLoginSpotify() {
+  const params = new URLSearchParams(window.location.search);
+  const resultado = params.get('spotify_login');
+  if (!resultado) return;
+
+  const MENSAGENS_POR_RESULTADO = {
+    success: 'Conectado ao Spotify com sucesso!',
+    cancelled: 'Login com o Spotify cancelado.',
+    failed: 'Não foi possível conectar ao Spotify. Tente novamente.',
+    state_mismatch: 'Falha de segurança ao conectar ao Spotify. Tente novamente.',
+  };
+  const mensagem = MENSAGENS_POR_RESULTADO[resultado];
+  if (mensagem) showToast(mensagem);
+
+  params.delete('spotify_login');
+  const query = params.toString();
+  const novaUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', novaUrl);
+}
+
+/**
+ * Ticket 12.1 (KAN-104): chama POST /playlist/criar com as faixas da
+ * sessão atual. Propaga erro (mensagem do backend, quando houver) pro
+ * chamador tratar visivelmente — nunca falha silenciosa em console.log.
+ */
+async function criarPlaylistSpotify(trackIds) {
+  const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: currentSessionId, faixas: trackIds }),
+  });
+
+  if (!response.ok) {
+    let corpo = null;
+    try {
+      corpo = await response.json();
+    } catch (_) {
+      // resposta sem JSON válido — segue com a mensagem genérica abaixo
+    }
+    const mensagem = (corpo && corpo.detail && corpo.detail.mensagem) || 'Não foi possível salvar a playlist no Spotify.';
+    throw new Error(mensagem);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Handler do clique em "Salvar no Spotify" (ticket 12.2): desabilita o
+ * botão durante a chamada, dá feedback visível de sucesso/erro (nunca só
+ * console.log) reaproveitando showToast/showErrorBanner do ticket 4.8.
+ */
+async function handleSalvarSpotify(button, trackIds) {
+  if (!trackIds || trackIds.length === 0 || button.disabled) return;
+
+  button.disabled = true;
+  const textoOriginal = button.textContent;
+  button.textContent = 'Salvando...';
+
+  try {
+    const resultado = await criarPlaylistSpotify(trackIds);
+    showToast('Playlist salva no seu Spotify!');
+    if (resultado && resultado.url) {
+      window.open(resultado.url, '_blank', 'noopener,noreferrer');
+    }
+  } catch (err) {
+    console.error('Erro ao salvar playlist no Spotify:', err);
+    showErrorBanner(err.message || 'Não foi possível salvar a playlist no Spotify.', () =>
+      handleSalvarSpotify(button, trackIds)
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = textoOriginal;
+  }
+}
+
 // ==========================================
 // 3. Controlador da Interface e Estado
 // ==========================================
 let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
+// Ticket 12.2 (KAN-105): reflete se a sessão atual tem login Spotify ativo
+// no backend (GET /auth/status) — controla se o botão "Salvar no Spotify"
+// aparece nos cards de resposta. Começa false (fail-closed): enquanto não
+// confirmamos com o backend, não mostramos ação que exige autenticação.
+let isSpotifyAuthenticated = false;
 
 // Elementos DOM
 const sessionIdDisplay = document.getElementById('session-id-display');
@@ -331,16 +440,41 @@ async function init() {
   currentSessionId = getSessionId();
   updateSessionDisplay();
   setupEventListeners();
+  tratarRetornoLoginSpotify();
 
   // Bloqueia novo input enquanto o histórico é recuperado (Ticket 4.6, critério de aceite:
   // "mensagens anteriores aparecem antes de qualquer novo envio").
   isProcessing = true;
   if (btnSend) btnSend.disabled = true;
 
+  // Ticket 12.2 (KAN-105): resolve o status de autenticação Spotify antes de
+  // renderizar qualquer bolha de mensagem, pra já nascer com o botão
+  // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
+  isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
+  atualizarBotaoSpotifyAuth();
+
   await carregarHistoricoInicial();
 
   isProcessing = false;
   if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
+}
+
+/**
+ * Reflete `isSpotifyAuthenticated` no botão do header (ticket 12.2) — feedback
+ * visível de que a sessão já está conectada, sem precisar clicar de novo.
+ */
+function atualizarBotaoSpotifyAuth() {
+  if (!btnSpotifyAuth) return;
+  const label = btnSpotifyAuth.querySelector('span');
+  if (isSpotifyAuthenticated) {
+    btnSpotifyAuth.classList.add('btn-spotify-auth--connected');
+    btnSpotifyAuth.title = 'Conectado ao Spotify';
+    if (label) label.textContent = 'Spotify conectado';
+  } else {
+    btnSpotifyAuth.classList.remove('btn-spotify-auth--connected');
+    btnSpotifyAuth.title = 'Conectar com o Spotify para recomendações personalizadas';
+    if (label) label.textContent = 'Conectar Spotify';
+  }
 }
 
 /**
@@ -594,6 +728,23 @@ function renderMessageBubble(msg, animar = true) {
     if (tracksSection) {
       bubble.appendChild(tracksSection);
     }
+
+    // Ticket 12.2 (KAN-105): "Salvar no Spotify" só aparece pra sessão
+    // autenticada — nunca tenta a ação sabendo de antemão que vai dar 401.
+    if (msg.role === 'agent' && isSpotifyAuthenticated) {
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'response-actions';
+
+      const trackIds = msg.faixas.map((faixa) => faixa && faixa.track_id).filter(Boolean);
+      const btnSalvar = document.createElement('button');
+      btnSalvar.type = 'button';
+      btnSalvar.className = 'btn-response-action btn-salvar-spotify';
+      btnSalvar.textContent = 'Salvar no Spotify';
+      btnSalvar.addEventListener('click', () => handleSalvarSpotify(btnSalvar, trackIds));
+      actionsRow.appendChild(btnSalvar);
+
+      bubble.appendChild(actionsRow);
+    }
   }
 
   const timeElem = document.createElement('span');
@@ -708,6 +859,8 @@ window.ResIA = {
   buscarHistoricoRemoto,
   ErroBackend,
   showErrorBanner,
+  verificarStatusSpotify,
+  criarPlaylistSpotify,
 };
 
 if (document.readyState === 'loading') {
