@@ -95,6 +95,26 @@ function togglePlayPause() {
                 {{ formatDuration(nowPlaying.duration_ms) }}
               </span>
             </div>
+            <div class="audio-feature-bar">
+              <span>Seek</span>
+              <input
+                type="range"
+                min="0"
+                :max="nowPlaying.duration_ms"
+                :value="result.data.player.progress_ms"
+                @change="callControl('seek', { position_ms: $event.target.value })"
+              >
+            </div>
+            <div v-if="result.data.player.device" class="audio-feature-bar">
+              <span>Volume</span>
+              <input
+                type="range"
+                min="0"
+                max="100"
+                :value="result.data.player.device.volume_percent"
+                @change="callControl('volume', { volume_percent: $event.target.value })"
+              >
+            </div>
             <p v-if="result.data.player.device">
               Dispositivo: {{ result.data.player.device.name }} ({{ result.data.player.device.type }})
               — volume {{ result.data.player.device.volume_percent }}%
