@@ -288,3 +288,20 @@ def test_following_defaults_limit_to_20(client, monkeypatch):
     response = client.get("/api/me/following")
 
     assert response.status_code == 200
+
+
+def test_my_playlists_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/playlists"
+        assert params == {"limit": "20", "offset": "0"}
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/playlists")
+
+    assert response.status_code == 200

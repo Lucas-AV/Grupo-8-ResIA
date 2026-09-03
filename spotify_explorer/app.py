@@ -270,6 +270,16 @@ def register_routes(app):
             },
         )
 
+    @app.route("/api/me/playlists")
+    def my_playlists():
+        return _user_data_route(
+            "/me/playlists",
+            params={
+                "limit": request.args.get("limit", "20"),
+                "offset": request.args.get("offset", "0"),
+            },
+        )
+
 
 if __name__ == "__main__":
     flask_app = create_app()
