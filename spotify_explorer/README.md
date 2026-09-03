@@ -69,6 +69,38 @@ Flask automaticamente. Pra isso funcionar com o login (OAuth), adicione
 `FRONTEND_URL=http://127.0.0.1:5173` no `.env` — sem isso, depois do
 login a Spotify te devolve pra `:5000` (o Flask), não pro Vite.
 
+## Login via QR code (kiosk/demo)
+
+Além do login direto (`/login`, no mesmo dispositivo), dá pra abrir
+`GET /login/qr` numa tela compartilhada (kiosk, TV, PC de demo) — ela
+mostra um QR code que qualquer pessoa pode escanear com o próprio
+celular pra autorizar com a própria conta Spotify. A tela do kiosk
+fica fazendo polling sozinha e destrava automaticamente assim que
+alguém completa o login pelo celular.
+
+> **Cuidado — o código do QR é um "bearer token" temporário:** qualquer
+> pessoa que tiver o código (não só quem escaneou a tela — também vale
+> pra um link encaminhado, um print de tela ou uma captura de vídeo,
+> dentro da janela de 5 minutos) consegue completar ou "roubar" esse
+> pareamento, porque nada além do próprio código amarra a autorização a
+> um dispositivo específico. Em outras palavras: não compartilhe o QR
+> nem o link por baixo dele (`/login?pair=...`) com ninguém em quem você
+> não confia, e numa demo/kiosk com várias pessoas por perto, quem
+> escanear/consumir primeiro "ganha" aquele código. Isso é uma
+> característica conhecida do desenho atual (aceitável pro escopo desta
+> ferramenta — uso local, single-user, sem rede pública), não um bug.
+
+**Pré-requisito:** o celular precisa estar na **mesma rede local** que
+a máquina rodando o `spotify_explorer` — o QR codifica o endereço que
+o navegador do kiosk usou pra abrir a página (`request.host_url`), e
+esse endereço só é alcançável de outro dispositivo se for um IP de
+rede local (ex.: `http://192.168.x.x:5000/`), não `127.0.0.1`. Não há
+suporte a túnel (ngrok ou similar) embutido — pra demo fora da rede
+local, seria preciso configurar isso manualmente.
+
+O código do QR expira em 5 minutos e é de uso único — depois de
+consumido (ou expirado), a tela do kiosk gera um QR novo sozinha.
+
 ## O que cada aba faz
 
 - **Search** — `GET /search` do catálogo (track/artist/album)
@@ -174,3 +206,11 @@ o que já é o comportamento esperado (documentado acima).
 - [ ] Gerar playlist relacionada cria uma playlist privada de verdade
       (ou mostra o erro real do passo que falhou — recommendations,
       create_playlist ou add_items)
+- [ ] `GET /login/qr` mostra um QR code de verdade e escaneável (teste
+      com celular na mesma rede local)
+- [ ] Escanear o QR e autorizar no celular faz a tela do kiosk
+      destravar sozinha (sem recarregar manualmente)
+- [ ] Um QR não escaneado por 5 minutos expira e a tela gera um novo
+      sozinha
+- [ ] Escanear o mesmo QR duas vezes (ou escanear um já usado) não
+      funciona da segunda vez

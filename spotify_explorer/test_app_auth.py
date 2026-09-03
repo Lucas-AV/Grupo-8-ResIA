@@ -1,4 +1,29 @@
+import re
+
 import app as app_module
+
+
+def test_login_qr_returns_html_with_qr_and_poll_code(client):
+    response = client.get("/login/qr")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "data:image/svg+xml" in body
+    assert "/api/pair/" in body
+
+    match = re.search(r'const code = "([^"]+)"', body)
+    assert match is not None
+    assert len(match.group(1)) > 10
+
+
+def test_login_qr_generates_a_fresh_code_each_time(client):
+    first = client.get("/login/qr").get_data(as_text=True)
+    second = client.get("/login/qr").get_data(as_text=True)
+
+    first_code = re.search(r'const code = "([^"]+)"', first).group(1)
+    second_code = re.search(r'const code = "([^"]+)"', second).group(1)
+
+    assert first_code != second_code
 
 
 def test_login_redirects_to_spotify_authorize(client):
@@ -629,3 +654,133 @@ def test_create_related_playlist_requires_login(client, monkeypatch):
     )
 
     assert response.status_code == 401
+
+
+def test_login_with_valid_pair_code_stashes_it_in_session_and_redirects_to_spotify(client):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    response = client.get(f"/login?pair={code}")
+
+    assert response.status_code == 302
+    assert response.location.startswith("https://accounts.spotify.com/authorize")
+    with client.session_transaction() as sess:
+        assert sess["pairing_code"] == code
+
+
+def test_login_with_unknown_pair_code_shows_error_without_redirecting_to_spotify(client):
+    response = client.get("/login?pair=does-not-exist")
+
+    assert response.status_code == 400
+    assert b"login/qr" in response.data
+
+
+def test_login_without_pair_param_behaves_exactly_like_before(client):
+    response = client.get("/login")
+
+    assert response.status_code == 302
+    assert response.location.startswith("https://accounts.spotify.com/authorize")
+    with client.session_transaction() as sess:
+        assert "pairing_code" not in sess
+
+
+def test_pair_status_for_fresh_code_is_pending(client):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    response = client.get(f"/api/pair/{code}/status")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "pending"}
+
+
+def test_pair_status_for_unknown_code_is_not_found(client):
+    response = client.get("/api/pair/does-not-exist/status")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "not_found"}
+
+
+def test_callback_without_pairing_code_behaves_like_before(client, monkeypatch):
+    def fake_exchange_code(code, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    response = client.get("/callback?code=abc&state=xyz")
+
+    assert response.status_code == 302
+    assert response.location.endswith("/")
+
+
+def test_callback_relays_tokens_so_kiosk_status_poll_completes_and_logs_in(monkeypatch):
+    monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client-id")
+    monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:5000/callback")
+    monkeypatch.setenv("FLASK_SECRET_KEY", "test-secret")
+    flask_app = app_module.create_app()
+    flask_app.config["TESTING"] = True
+
+    kiosk = flask_app.test_client()
+    phone = flask_app.test_client()
+
+    qr_response = kiosk.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    phone.get(f"/login?pair={code}")
+
+    def fake_exchange_code(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    phone.get("/callback?code=abc&state=xyz")
+
+    status_response = kiosk.get(f"/api/pair/{code}/status")
+    assert status_response.get_json() == {"status": "completed"}
+
+    with kiosk.session_transaction() as sess:
+        assert sess["user_access_token"] == "at"
+        assert sess["user_refresh_token"] == "rt"
+
+    second_poll = kiosk.get(f"/api/pair/{code}/status")
+    assert second_poll.get_json() == {"status": "not_found"}
+
+
+def test_callback_failure_clears_pairing_code_and_does_not_leak_into_later_login(client, monkeypatch):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+    client.get(f"/login?pair={code}")
+
+    def fake_exchange_code_fails(code_param, state, client_id, client_secret, redirect_uri):
+        raise ValueError("state inválido")
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code_fails)
+    client.get("/callback?code=abc&state=bad")
+
+    with client.session_transaction() as sess:
+        assert "pairing_code" not in sess
+
+    def fake_exchange_code_succeeds(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code_succeeds)
+    client.get("/callback?code=abc&state=xyz")
+
+    status_response = client.get(f"/api/pair/{code}/status")
+    assert status_response.get_json() == {"status": "pending"}
+
+
+def test_callback_shows_auth_error_when_pairing_entry_already_gone(client, monkeypatch):
+    def fake_exchange_code(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    with client.session_transaction() as sess:
+        sess["pairing_code"] = "does-not-exist"
+
+    response = client.get("/callback?code=abc&state=xyz")
+
+    assert response.status_code == 302
+    assert "auth_error=" in response.location
