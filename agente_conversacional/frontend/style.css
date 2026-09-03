@@ -842,17 +842,26 @@ body {
   border-color: var(--spotify-green);
 }
 
-/* Feedback visível de que a sessão já está conectada (Ticket 12.2) */
+/* Feedback visível de que a sessão já está conectada (Ticket 12.2). */
+/* Clicável para desconectar (Ticket 4.5 / KAN-40) — ver handleLogoutSpotify em app.js. */
 .btn-spotify-auth.btn-spotify-auth--connected {
   background: var(--bg-surface-elevated);
   color: var(--spotify-green);
   border: 1px solid rgba(29, 185, 84, 0.4);
   box-shadow: none;
-  cursor: default;
+  cursor: pointer;
 }
 
 .btn-spotify-auth.btn-spotify-auth--connected:hover {
   background: var(--bg-surface-elevated);
+  border-color: var(--spotify-green);
+  transform: none;
+}
+
+/* Ticket 4.5 (KAN-40): botão desabilitado durante a chamada a POST /auth/logout. */
+.btn-spotify-auth:disabled {
+  opacity: 0.6;
+  cursor: default;
   transform: none;
 }
 

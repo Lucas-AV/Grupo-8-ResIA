@@ -335,6 +335,24 @@ async function verificarStatusSpotify(sessionId) {
 }
 
 /**
+ * Ticket 4.5 (KAN-40): chama POST /auth/logout (ticket 5.8,
+ * spotify_auth/routes.py) pra descartar os tokens Spotify da sessão atual.
+ * Não recebe `session_id` no corpo — a rota espera query param, como
+ * /auth/status logo acima.
+ */
+async function logoutSpotify(sessionId) {
+  const response = await fetch(`${API_BASE_URL}/auth/logout?session_id=${encodeURIComponent(sessionId)}`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erro ao desconectar do Spotify: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
  * Lê o parâmetro `?spotify_login=` deixado pelo redirect de
  * spotify_auth/routes.py (GET /auth/callback) depois do fluxo OAuth (ticket
  * 4.7 / KAN-74), mostra um toast com o resultado e limpa a URL — sem isso o
@@ -413,6 +431,51 @@ async function handleSalvarSpotify(button, trackIds) {
     button.disabled = false;
     button.textContent = textoOriginal;
   }
+}
+
+/**
+ * Handler de logout (Ticket 4.5 / KAN-40): acionado ao clicar no botão de
+ * Spotify quando a sessão já está conectada (ver setupEventListeners).
+ * Critérios de aceite: (1) após o logout a UI volta ao estado anônimo —
+ * `isSpotifyAuthenticated` some, o botão e as ações Spotify-gated somem
+ * junto; (2) o histórico da conversa atual permanece intacto — não toca em
+ * `messages` nem re-renderiza os balões, só a UI/estado de autenticação.
+ * Falha na chamada vira showErrorBanner (nunca falha silenciosa), reaproveitando
+ * o mesmo padrão do Ticket 4.8 (KAN-75).
+ */
+async function handleLogoutSpotify() {
+  if (!btnSpotifyAuth || btnSpotifyAuth.disabled) return;
+
+  btnSpotifyAuth.disabled = true;
+  const label = btnSpotifyAuth.querySelector('span');
+  if (label) label.textContent = 'Desconectando...';
+
+  try {
+    await logoutSpotify(currentSessionId);
+    isSpotifyAuthenticated = false;
+    removerAcoesSpotifyGated();
+    showToast('Desconectado do Spotify.');
+  } catch (err) {
+    console.error('Erro ao desconectar do Spotify:', err);
+    showErrorBanner('Não foi possível desconectar do Spotify. Tente novamente.', handleLogoutSpotify);
+  } finally {
+    btnSpotifyAuth.disabled = false;
+    // Ressincroniza label/classe/title com o `isSpotifyAuthenticated` atual —
+    // volta ao estado anônimo em caso de sucesso, ou restaura "conectado" se
+    // a chamada falhou (nada mudou no backend nesse caso).
+    atualizarBotaoSpotifyAuth();
+  }
+}
+
+/**
+ * Remove as ações "Salvar no Spotify" já renderizadas em respostas
+ * anteriores da conversa atual (Ticket 4.5 / KAN-40) — depois do logout elas
+ * dariam 401 se clicadas. O texto e os cards de faixa das mensagens
+ * permanecem intactos; some só essa ação Spotify-gated (critério de aceite
+ * de UI voltar ao estado anônimo, sem apagar a conversa).
+ */
+function removerAcoesSpotifyGated() {
+  document.querySelectorAll('.btn-salvar-spotify').forEach((btn) => btn.remove());
 }
 
 // ==========================================
@@ -542,7 +605,8 @@ function atualizarBotaoSpotifyAuth() {
   const label = btnSpotifyAuth.querySelector('span');
   if (isSpotifyAuthenticated) {
     btnSpotifyAuth.classList.add('btn-spotify-auth--connected');
-    btnSpotifyAuth.title = 'Conectado ao Spotify';
+    // Ticket 4.5 (KAN-40): o botão agora também é a ação de logout.
+    btnSpotifyAuth.title = 'Clique para desconectar do Spotify';
     if (label) label.textContent = 'Spotify conectado';
   } else {
     btnSpotifyAuth.classList.remove('btn-spotify-auth--connected');
@@ -683,6 +747,14 @@ function setupEventListeners() {
   });
 
   btnSpotifyAuth?.addEventListener('click', () => {
+    // Ticket 4.5 (KAN-40): sessão já conectada -> o mesmo botão desconecta
+    // em vez de iniciar um novo fluxo OAuth (evita duplicar todo o padrão
+    // de botão de auth só pra um logout).
+    if (isSpotifyAuthenticated) {
+      handleLogoutSpotify();
+      return;
+    }
+
     // Ticket 4.7 (KAN-74): antes de qualquer redirect real pro Spotify, o
     // usuário passa pela página de consentimento própria do backend
     // (GET /auth/login → spotify_auth/consent.py), que lista os scopes
@@ -963,6 +1035,7 @@ window.ResIA = {
   showErrorBanner,
   verificarStatusSpotify,
   criarPlaylistSpotify,
+  logoutSpotify,
   atualizarFaixasMostradas,
   applyTheme,
   toggleTheme,
