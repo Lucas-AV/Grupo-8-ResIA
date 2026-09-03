@@ -13,10 +13,19 @@ const { status, call } = useApi();
 const result = reactive({ data: null });
 const { items: history, add: addToHistory } = useHistory("playlist");
 
+const tracksContainer = computed(() => result.data?.items ?? result.data?.tracks ?? null);
+
 const tracks = computed(() => {
-  const items = result.data?.tracks?.items;
+  const items = tracksContainer.value?.items;
   if (!Array.isArray(items)) return [];
-  return items.map((item) => trackSummary(item.track)).filter((item) => item !== null);
+  return items
+    .map((entry) => trackSummary(entry.item ?? entry.track))
+    .filter((item) => item !== null);
+});
+
+const tracksUnavailable = computed(() => {
+  if (!result.data?.name) return false;
+  return !Array.isArray(tracksContainer.value?.items);
 });
 
 async function onSubmit() {
@@ -56,6 +65,12 @@ useNavigationTarget("playlist", (id) => {
             <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
           </div>
         </div>
+        <p v-else-if="tracksUnavailable" class="status status-error">
+          Faixas não disponíveis — a Spotify só devolve o campo de faixas pra
+          quem é dono/colaborador da playlist (restrição de fev/2026). Essa
+          aba usa Client Credentials Flow, sem usuário associado, então nunca
+          vai ver faixas de playlist nenhuma por aqui.
+        </p>
       </template>
     </ResultPanel>
   </section>

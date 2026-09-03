@@ -74,10 +74,12 @@ login a Spotify te devolve pra `:5000` (o Flask), não pro Vite.
 - **Search** — `GET /search` do catálogo (track/artist/album)
 - **Track & Audio** — `GET /tracks/{id}`, `/audio-features/{id}`,
   `/audio-analysis/{id}`
-- **Artist** — `GET /artists/{id}` + top-tracks + albums + related-artists
+- **Artist** — `GET /artists/{id}` + top-tracks (removido pela Spotify
+  em fev/2026, ver restrições abaixo) + albums + related-artists
 - **Album** — `GET /albums/{id}` (dados + faixas)
-- **Playlist** — `GET /playlists/{id}` (dados + faixas — só playlists
-  públicas, Client Credentials não vê playlist privada de terceiros)
+- **Playlist** — `GET /playlists/{id}` (dados + metadados sempre;
+  faixas só se a API devolver o campo — ver restrições abaixo, hoje
+  isso nunca acontece via Client Credentials)
 - **New Releases** — `GET /browse/new-releases`
 - **Recommendations** — `GET /recommendations` com seeds e parâmetros alvo
 - **Meus dados** — requer login (Authorization Code Flow): top
@@ -113,6 +115,17 @@ Releases vai mostrar 403 pra qualquer app que não esteja em Extended
 Quota Mode. Mesmo caso dos 403 acima: é a API real, não bug da
 ferramenta.
 
+Na mesma leva de fev/2026, a Spotify também removeu
+`GET /artists/{id}/top-tracks` (sem substituto) e mudou o formato de
+`GET /playlists/{id}`: o campo `tracks` virou `items`, e o campo de
+faixas fica ausente inteiramente quando quem chama não é
+dono/colaborador da playlist. A aba Artist simplesmente não mostra a
+seção "Top tracks" quando isso falha (mesmo tratamento dos outros 403
+já citados). A aba Playlist usa Client Credentials Flow — sem usuário
+associado — então mostra uma nota explícita de "Faixas não
+disponíveis" em vez da lista, já que nunca vai ter permissão de
+dono/colaborador nenhuma.
+
 ## Checklist de smoke test manual
 
 - [ ] App sobe sem `.env` preenchido e mostra o aviso de credenciais faltando
@@ -125,6 +138,10 @@ ferramenta.
 - [ ] Top tracks/artists funciona nas 3 janelas de tempo
 - [ ] Faixas curtidas e tocadas recentemente retornam dado real
 - [ ] Logout funciona e volta ao estado deslogado
+- [ ] Artist não quebra quando top-tracks falha (403/404) — só omite
+      a seção
+- [ ] Playlist mostra a nota "Faixas não disponíveis" pra qualquer
+      playlist pública (Client Credentials nunca é dono/colaborador)
 - [ ] Player mostra "Nada tocando" quando não há reprodução ativa, e
       o estado real (faixa/dispositivo/fila) quando há
 - [ ] Seguindo lista os artistas seguidos; clicar num item abre a aba
