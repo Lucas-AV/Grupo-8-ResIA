@@ -12,6 +12,16 @@
 
 ## Task 1: Adapt `PlaylistTab.vue` to both response shapes
 
+> **Correção pós-execução:** os blocos de código abaixo (tanto o "current
+> file" quanto o "replace with") têm `useNavigationTarget`/
+> `useTabNavigation.js` incluído por engano — copiado sem querer de
+> `feature/spotify-explorer-phase-2` (branch não mergeada), que não se
+> aplica aqui. A `main` não tem esse composable. O código real que foi
+> implementado é igual ao mostrado, só **sem** as 2 linhas de
+> `useNavigationTarget`/import correspondente. Ver
+> `spotify_explorer/frontend/src/tabs/PlaylistTab.vue` no branch pra a
+> versão real.
+
 **Files:**
 - Modify: `spotify_explorer/frontend/src/tabs/PlaylistTab.vue`
 
