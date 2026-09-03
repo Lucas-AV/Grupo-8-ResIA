@@ -2,8 +2,8 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from agente_conversacional.sessions.models import Track, TurnResult
-from agente_conversacional.sessions.store import SessionNotFound, SessionStore
+from sessions.models import Track, TurnResult
+from sessions.store import SessionNotFound, SessionStore
 
 
 class Clock:

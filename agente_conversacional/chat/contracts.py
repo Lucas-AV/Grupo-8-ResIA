@@ -2,7 +2,7 @@
 
 from typing import Protocol
 
-from ..sessions.models import SessionContext, TurnResult
+from sessions.models import SessionContext, TurnResult
 
 
 class PipelineUnavailableError(Exception):

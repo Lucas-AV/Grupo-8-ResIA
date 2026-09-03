@@ -3,11 +3,11 @@ from uuid import UUID
 
 from fastapi.testclient import TestClient
 
-from agente_conversacional.app import create_app
-from agente_conversacional.chat.contracts import PipelineUnavailableError
-from agente_conversacional.sessions.models import Track, TurnResult
-from agente_conversacional.sessions.store import SessionStore
-import agente_conversacional.app as app_module
+from app import create_app
+from chat.contracts import PipelineUnavailableError
+from sessions.models import Track, TurnResult
+from sessions.store import SessionStore
+import app as app_module
 
 
 class Clock:

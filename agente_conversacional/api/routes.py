@@ -4,7 +4,7 @@ import logging
 
 from fastapi import APIRouter, HTTPException, status
 
-from .schemas import (
+from api.schemas import (
     ChatHistoryResponse,
     ChatRequest,
     ChatResponse,
@@ -12,8 +12,8 @@ from .schemas import (
     SessionResponse,
     TrackItem,
 )
-from ..chat.contracts import PipelineUnavailableError, TurnProcessor
-from ..sessions.store import SessionNotFound, SessionStore
+from chat.contracts import PipelineUnavailableError, TurnProcessor
+from sessions.store import SessionNotFound, SessionStore
 
 logger = logging.getLogger("agente.api")
 

@@ -145,10 +145,10 @@ criptografados em SQLite (`cryptography.Fernet`), renovação proativa e
 busca de histórico. Rotas montadas em `app.py`
 (`GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`).
 
-`session_id` é aceito hoje como query param direto (não há cookie de
-sessão ainda — depende do gerenciador de sessão do ticket 3.4, Épico 3).
-Ajustar a assinatura de `/auth/login`/`/auth/logout` quando esse
-gerenciador existir.
+`session_id` é aceito como query param direto (não há cookie de sessão).
+Após o callback, o backend marca a sessão de conversa já existente como
+autenticada; os tokens continuam guardados separadamente pelo OAuth. Nenhuma
+segunda conversa é criada nesse processo.
 
 **Desvio do fluxo descrito na seção 3.2 do pipeline:** `GET /auth/login`
 não redireciona mais direto pro Spotify — devolve a página de
@@ -184,7 +184,7 @@ rede mockada.
 | 8.1 — Scaffold do backend | Já existia como subproduto dos Épicos 0/5 — `app.py` como entrypoint, `requirements.txt` (instala limpo, testado), `.env.example` cobrindo 0.x/5.x/8.x. Backend sobe com `uvicorn app:app --reload`. | Feito |
 | 8.2 — CORS | `app.py` (`CORSMiddleware`), origem(ns) via `FRONTEND_URL` (nunca wildcard). Testado em `test_cors.py`. | Feito |
 | 8.3 — Handler de erro global | `app.py` (`handle_unhandled_exception`) — qualquer exceção não tratada vira HTTP 500 padronizado, nunca stack trace cru; log completo no servidor. Testado em `test_error_handler.py`. | Feito |
-| 8.4 — Rate limiting no `/chat` | `rate_limit.py` (`RateLimiter`) pronto e testado (`test_rate_limit.py`), mas depende de **3.2** (`POST /chat`, Épico 3) pra ter onde ser montado. | **Bloqueado — utilitário pronto, aguardando Épico 3** |
+| 8.4 — Rate limiting no `/chat` | `rate_limit.py` (`RateLimiter`) está pronto e testado (`test_rate_limit.py`). A rota `POST /chat` já existe pelo KAN-8; falta somente ligar o limitador nela no ticket 8.4. | **Pendente — integração específica do ticket 8.4** |
 | 8.5 — CI de testes (pytest) | [`.github/workflows/agente-tests.yml`](../.github/workflows/agente-tests.yml) — roda `pytest` em todo push/PR que toque `agente_conversacional/`. Cobre 1.5/2.9 automaticamente assim que esses testes existirem (descoberta automática do pytest). | Feito |
 | 8.6 — README / guia de setup | Este arquivo — Ollama, `.env`, CORS, erro global, rate limiter, testes, tabelas de status por épico. | Feito |
 | 8.7 — Deploy/hosting real | Depende de **3.2** e **4.1** (Épicos 3 e 4, nenhum implementado ainda) — sem backend orquestrado nem frontend, não há o que publicar. | **Bloqueado — aguardando Épicos 3 e 4** |

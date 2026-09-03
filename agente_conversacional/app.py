@@ -7,15 +7,9 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-if __package__:  # Permite ``import agente_conversacional.app``.
-    from .api.routes import build_api_router
-    from .chat.contracts import TurnProcessor
-    from .sessions.store import SessionStore
-else:  # pragma: no cover - caminho usado por ``uvicorn app:app``.
-    from api.routes import build_api_router
-    from chat.contracts import TurnProcessor
-    from sessions.store import SessionStore
-
+from api.routes import build_api_router
+from chat.contracts import TurnProcessor
+from sessions.store import SessionStore
 from llm.health import check_llm_health
 from spotify_auth.routes import router as spotify_auth_router
 

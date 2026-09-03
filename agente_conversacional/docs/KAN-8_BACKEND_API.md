@@ -106,5 +106,7 @@ as duas mensagens, da pessoa e do agente, serão incluídas no histórico.
 ## Como confirmar a entrega
 
 Os testes do agente verificam criação, consulta e vencimento de sessões;
-mensagens inválidas; histórico; respostas de erro; e a futura ligação com o
-Épico 2. Para executá-los, use `pytest` dentro de `agente_conversacional`.
+mensagens inválidas; histórico; respostas de erro; a futura ligação com o
+Épico 2; e se o comando documentado `uvicorn app:app --reload` consegue
+carregar o servidor. Para executá-los, use `pytest` dentro de
+`agente_conversacional`.
