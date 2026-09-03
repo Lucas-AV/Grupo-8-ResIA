@@ -6,13 +6,21 @@
  * de uma entrada de dados — texto estruturado OU JSON — e monta o form a
  * partir disso, então funciona pra qualquer questionário, não só este.
  *
- * Como usar:
+ * Como usar (primeira vez):
  * 1. Abra https://script.google.com > Novo projeto.
  * 2. Cole este arquivo inteiro.
  * 3. Edite PERGUNTAS_TEXTO (ou PERGUNTAS_JSON, trocando MODO_ENTRADA para
  *    'json') com suas próprias perguntas, seguindo o formato abaixo.
  * 4. Rode a função `gerarFormulario`. Autorize na primeira execução.
  * 5. O log de execução mostra o link de edição e o link público do Form.
+ *
+ * Como usar (já criou o form e quer atualizar as perguntas):
+ * 1. Copie o ID do formulário: é o trecho entre "/d/" e "/edit" no link
+ *    de edição que apareceu no log (docs.google.com/forms/d/ESSE_ID/edit).
+ * 2. Cole o ID na constante FORM_ID abaixo.
+ * 3. Edite PERGUNTAS_TEXTO/PERGUNTAS_JSON.
+ * 4. Rode a função `editarFormulario`. Ela apaga todas as perguntas do
+ *    form existente e recria a partir do código — sem gerar um novo link.
  *
  * ---------------------------------------------------------------------
  * FORMATO DE TEXTO (MODO_ENTRADA = 'texto')
@@ -28,14 +36,31 @@
  * - "*" no fim do texto da pergunta = obrigatória (sem "*" = opcional).
  * - "Alternativas:" + lista numerada = opções (múltipla escolha/caixa).
  *   Perguntas de texto livre ou escala não levam "Alternativas:".
- * - Tag opcional entre colchetes logo após o número, pra escolher o tipo:
- *     [caixa]      → caixa de seleção (múltiplas respostas)
- *     [curta]      → resposta curta (texto livre de 1 linha)
- *     [paragrafo]  → parágrafo (texto livre longo)
+ * - Tag opcional entre colchetes logo após o número, pra escolher o tipo
+ *   e/ou adicionar opção "Outro" com campo de texto livre. Tokens
+ *   separados por vírgula, em qualquer ordem:
+ *     [caixa]        → caixa de seleção (múltiplas respostas)
+ *     [curta]        → resposta curta (texto livre de 1 linha)
+ *     [paragrafo]    → parágrafo (texto livre longo)
  *     [escala 1-5 | Rótulo do mínimo | Rótulo do máximo] → escala linear
- *     sem tag      → múltipla escolha (padrão)
+ *     [outro]        → adiciona opção "Outro:" com texto livre
+ *                       (só vale pra múltipla escolha/caixa; combine com
+ *                       o tipo, ex: "[caixa, outro]")
+ *     sem tag        → múltipla escolha (padrão)
  * - Um bloco começando com "Seção: <título>" (sem número) vira uma
- *   quebra de seção (nova página no Form) em vez de uma pergunta.
+ *   quebra de seção (nova página no Form) em vez de uma pergunta. O
+ *   título também serve de "rótulo" pra navegação condicional (ver
+ *   abaixo) — precisa ser único.
+ * - Navegação condicional (pular pergunta/seção conforme a resposta):
+ *   numa pergunta de múltipla escolha (não vale pra caixa de seleção,
+ *   o Google Forms não permite pular página em perguntas de múltiplas
+ *   respostas), cada alternativa pode terminar em " -> Destino":
+ *     1. Sim -> Seção 2 — Contexto de escuta
+ *     2. Não -> FIM
+ *   "Destino" é o título exato de um bloco "Seção: ...". Use "FIM" para
+ *   enviar o formulário imediatamente (pula tudo que vem depois). Se
+ *   nenhuma alternativa da pergunta tiver "->", ela segue o fluxo normal
+ *   (sem pular nada).
  *
  * Exemplo mínimo:
  *
@@ -65,6 +90,22 @@
  *           "options": ["<18", "18-24"]
  *         },
  *         {
+ *           "type": "multipla_escolha",
+ *           "text": "Você usa streaming?",
+ *           "required": true,
+ *           "options": [
+ *             { "value": "Sim", "goTo": "Contexto" },
+ *             { "value": "Não", "goTo": "FIM" }
+ *           ]
+ *         },
+ *         {
+ *           "type": "caixa_selecao",
+ *           "text": "Quais serviços você usa?",
+ *           "required": true,
+ *           "other": true,
+ *           "options": ["Spotify", "Deezer"]
+ *         },
+ *         {
  *           "type": "escala",
  *           "text": "Gosto de música nova",
  *           "required": false,
@@ -76,6 +117,11 @@
  *     }
  *   ]
  * }
+ *
+ * "other": true adiciona opção "Outro:" com texto livre (multipla_escolha
+ * ou caixa_selecao). Uma opção pode ser string simples ou objeto
+ * { "value": ..., "goTo": "<título da seção>" | "FIM" } pra navegação
+ * condicional — só em multipla_escolha, mesma regra do formato texto.
  *
  * PERGUNTAS_JSON também aceita uma string JSON crua (ela é parseada com
  * JSON.parse antes de usar) — útil se você quiser colar o conteúdo de um
@@ -93,6 +139,10 @@ var FORM_DESCRICAO =
 // 'texto' ou 'json' — qual constante abaixo alimenta o gerador.
 var MODO_ENTRADA = 'texto';
 
+// Cole aqui o ID do formulário já criado (fica vazio até você rodar
+// gerarFormulario() e copiar o ID do link de edição gerado no log).
+var FORM_ID = '';
+
 // ======================= ENTRADA: TEXTO =======================
 
 var PERGUNTAS_TEXTO = `
@@ -107,24 +157,31 @@ Alternativas:
 5. 45–54
 6. 55+
 ---
-2. [caixa] Quais serviços de streaming de música você usa?*
+2. Você usa algum serviço de streaming de música (Spotify, YouTube Music, etc.)?*
+Alternativas:
+1. Sim -> Seção 1 — Detalhe do streaming
+2. Não -> Seção 1 — Frequência de escuta
+---
+Seção: Seção 1 — Detalhe do streaming
+---
+3. [caixa, outro] Quais serviços de streaming de música você usa?*
 Alternativas:
 1. Spotify
 2. YouTube Music
 3. Apple Music
 4. Deezer
 5. Amazon Music
-6. Outro
-7. Não uso streaming
 ---
-3. Com que frequência você escuta música?*
+Seção: Seção 1 — Frequência de escuta
+---
+4. Com que frequência você escuta música?*
 Alternativas:
 1. Várias vezes ao dia
 2. 1x ao dia
 3. Algumas vezes na semana
 4. Raramente
 ---
-4. Em média, quantas horas por dia você passa ouvindo música?
+5. Em média, quantas horas por dia você passa ouvindo música?
 Alternativas:
 1. <1h
 2. 1–2h
@@ -133,7 +190,7 @@ Alternativas:
 ---
 Seção: Seção 2 — Contexto de escuta
 ---
-5. [caixa] Em quais situações você mais ouve música?*
+6. [caixa, outro] Em quais situações você mais ouve música?*
 Alternativas:
 1. Trabalhando/estudando
 2. Se exercitando
@@ -141,9 +198,8 @@ Alternativas:
 4. Relaxando/dormindo
 5. Em festas/eventos sociais
 6. Tarefas domésticas
-7. Outro
 ---
-6. [caixa] O que mais influencia sua escolha de música no momento? (marque até 3)*
+7. [caixa, outro] O que mais influencia sua escolha de música no momento? (marque até 3)*
 Alternativas:
 1. Meu humor
 2. A atividade que estou fazendo
@@ -153,17 +209,23 @@ Alternativas:
 6. Rádio
 7. Playlists prontas que já conheço
 ---
-7. Você costuma ouvir músicas em português, inglês, ou ambos?
+8. [outro] Em qual(is) idioma(s) você mais ouve música?
 Alternativas:
 1. Majoritariamente português
 2. Majoritariamente inglês
-3. Equilibrado entre os dois
-4. Outros idiomas
-5. Não presto atenção ao idioma
+3. Equilibrado entre português e inglês
+4. Não presto atenção ao idioma
+---
+9. Você costuma ouvir playlists prontas (do app/editoriais) ou prefere montar as suas próprias?
+Alternativas:
+1. Só playlists prontas
+2. Mistura playlists prontas e próprias
+3. Só playlists próprias
+4. Não uso playlists
 ---
 Seção: Seção 3 — Preferências musicais
 ---
-8. [caixa] Quais gêneros você mais ouve? (marque até 5)*
+10. [caixa, outro] Quais gêneros você mais ouve? (marque até 5)*
 Alternativas:
 1. Pop
 2. Rock
@@ -173,11 +235,12 @@ Alternativas:
 6. Eletrônica/House
 7. MPB/Samba/Pagode/Forró
 8. R&B/Soul
-9. Outro
 ---
-9. [curta] Dentre os marcados acima, qual é o seu gênero favorito?*
+11. [curta] Dentre os marcados acima, qual é o seu gênero favorito?*
 ---
-10. [caixa] O que mais te atrai em uma música? (marque até 3)*
+12. [paragrafo] Cite até 3 artistas ou bandas que você mais ouve atualmente (opcional)
+---
+13. [caixa, outro] O que mais te atrai em uma música? (marque até 3)*
 Alternativas:
 1. Letra/mensagem
 2. Melodia
@@ -189,7 +252,7 @@ Alternativas:
 8. Clima/sonoridade geral
 9. Fama do artista/hit do momento
 ---
-11. Desses, qual é o MAIS importante pra você gostar de uma música?*
+14. [outro] Desses, qual é o MAIS importante pra você gostar de uma música?*
 Alternativas:
 1. Letra/mensagem
 2. Melodia
@@ -201,30 +264,30 @@ Alternativas:
 8. Clima/sonoridade geral
 9. Fama do artista/hit do momento
 ---
-12. [escala 1-5 | Sempre as mesmas bandas/estilos | Gosto de descobrir algo novo toda semana] Como você descreveria seu gosto musical?*
+15. [escala 1-5 | Sempre as mesmas bandas/estilos | Gosto de descobrir algo novo toda semana] Como você descreveria seu gosto musical?*
 ---
-13. [escala 1-5 | Calmas/acústicas | Agitadas/eletrônicas] Você prefere músicas mais...
+16. [escala 1-5 | Calmas/acústicas | Agitadas/eletrônicas] Você prefere músicas mais calmas/acústicas ou agitadas/eletrônicas?
 ---
-14. [escala 1-5 | Tristes/melancólicas | Alegres/animadas] Você prefere músicas mais...
+17. [escala 1-5 | Tristes/melancólicas | Alegres/animadas] Você prefere músicas mais tristes/melancólicas ou alegres/animadas?
 ---
-15. Você costuma pular músicas com conteúdo explícito (palavrão)?
+18. Você costuma pular músicas com conteúdo explícito (palavrão)?
 Alternativas:
 1. Sim, sempre
 2. Às vezes
 3. Não, indiferente
 4. Prefiro conteúdo explícito
 ---
-16. Você prefere faixas curtas (~2–3 min) ou mais longas (5 min+)?
+19. Você prefere faixas curtas (~2–3 min) ou mais longas (5 min+)?
 Alternativas:
 1. Prefiro curtas
 2. Prefiro longas
 3. Indiferente
 ---
-17. [paragrafo] O que faz você repetir a mesma música várias vezes? (opcional)
+20. [paragrafo] O que faz você repetir a mesma música várias vezes? (opcional)
 ---
 Seção: Seção 4 — Descoberta e recomendação
 ---
-18. [caixa] Como você geralmente descobre músicas novas?*
+21. [caixa, outro] Como você geralmente descobre músicas novas?*
 Alternativas:
 1. Recomendações do app (Discover Weekly, Radio, etc.)
 2. Redes sociais
@@ -233,22 +296,26 @@ Alternativas:
 5. Trilhas de filmes/séries/jogos
 6. Playlists editoriais
 ---
-19. [escala 1-5 | Nunca acerta | Sempre acerta] O quanto você confia nas recomendações automáticas do seu app de streaming?*
+22. [escala 1-5 | Nunca acerta | Sempre acerta] O quanto você confia nas recomendações automáticas do seu app de streaming?*
 ---
-20. [paragrafo] O que mais te frustra nas recomendações atuais? (opcional)
+23. [paragrafo] O que mais te frustra nas recomendações atuais? (opcional)
 ---
-21. Você toparia testar uma versão beta do nosso agente de recomendação e dar feedback?*
+24. Você toparia testar uma versão beta do nosso agente de recomendação e dar feedback?*
 Alternativas:
-1. Sim
-2. Não
-3. Talvez
+1. Sim -> Contato
+2. Talvez -> Contato
+3. Não -> FIM
 ---
-22. [curta] Se sim, deixe seu e-mail para contato (opcional)
+Seção: Contato
+---
+25. [curta] Deixe seu e-mail para contato (opcional)
 `;
 
 // ======================= ENTRADA: JSON =======================
 // Equivalente exato de PERGUNTAS_TEXTO acima, no formato JSON.
 // Troque MODO_ENTRADA para 'json' pra usar esta entrada no lugar.
+
+var ATRACOES = ['Letra/mensagem', 'Melodia', 'Ritmo/batida', 'Voz/interpretação do artista', 'Instrumental/produção', 'Dá pra dançar', 'Dá pra treinar', 'Clima/sonoridade geral', 'Fama do artista/hit do momento'];
 
 var PERGUNTAS_JSON = {
   sections: [
@@ -257,8 +324,23 @@ var PERGUNTAS_JSON = {
       questions: [
         { type: 'multipla_escolha', text: 'Qual sua faixa etária?', required: true,
           options: ['<18', '18–24', '25–34', '35–44', '45–54', '55+'] },
-        { type: 'caixa_selecao', text: 'Quais serviços de streaming de música você usa?', required: true,
-          options: ['Spotify', 'YouTube Music', 'Apple Music', 'Deezer', 'Amazon Music', 'Outro', 'Não uso streaming'] },
+        { type: 'multipla_escolha', text: 'Você usa algum serviço de streaming de música (Spotify, YouTube Music, etc.)?', required: true,
+          options: [
+            { value: 'Sim', goTo: 'Seção 1 — Detalhe do streaming' },
+            { value: 'Não', goTo: 'Seção 1 — Frequência de escuta' }
+          ] }
+      ]
+    },
+    {
+      title: 'Seção 1 — Detalhe do streaming',
+      questions: [
+        { type: 'caixa_selecao', text: 'Quais serviços de streaming de música você usa?', required: true, other: true,
+          options: ['Spotify', 'YouTube Music', 'Apple Music', 'Deezer', 'Amazon Music'] }
+      ]
+    },
+    {
+      title: 'Seção 1 — Frequência de escuta',
+      questions: [
         { type: 'multipla_escolha', text: 'Com que frequência você escuta música?', required: true,
           options: ['Várias vezes ao dia', '1x ao dia', 'Algumas vezes na semana', 'Raramente'] },
         { type: 'multipla_escolha', text: 'Em média, quantas horas por dia você passa ouvindo música?', required: false,
@@ -268,29 +350,32 @@ var PERGUNTAS_JSON = {
     {
       title: 'Seção 2 — Contexto de escuta',
       questions: [
-        { type: 'caixa_selecao', text: 'Em quais situações você mais ouve música?', required: true,
-          options: ['Trabalhando/estudando', 'Se exercitando', 'No transporte', 'Relaxando/dormindo', 'Em festas/eventos sociais', 'Tarefas domésticas', 'Outro'] },
-        { type: 'caixa_selecao', text: 'O que mais influencia sua escolha de música no momento? (marque até 3)', required: true,
+        { type: 'caixa_selecao', text: 'Em quais situações você mais ouve música?', required: true, other: true,
+          options: ['Trabalhando/estudando', 'Se exercitando', 'No transporte', 'Relaxando/dormindo', 'Em festas/eventos sociais', 'Tarefas domésticas'] },
+        { type: 'caixa_selecao', text: 'O que mais influencia sua escolha de música no momento? (marque até 3)', required: true, other: true,
           options: ['Meu humor', 'A atividade que estou fazendo', 'Recomendação do app', 'Indicação de amigos', 'Redes sociais (TikTok, Reels)', 'Rádio', 'Playlists prontas que já conheço'] },
-        { type: 'multipla_escolha', text: 'Você costuma ouvir músicas em português, inglês, ou ambos?', required: false,
-          options: ['Majoritariamente português', 'Majoritariamente inglês', 'Equilibrado entre os dois', 'Outros idiomas', 'Não presto atenção ao idioma'] }
+        { type: 'multipla_escolha', text: 'Em qual(is) idioma(s) você mais ouve música?', required: false, other: true,
+          options: ['Majoritariamente português', 'Majoritariamente inglês', 'Equilibrado entre português e inglês', 'Não presto atenção ao idioma'] },
+        { type: 'multipla_escolha', text: 'Você costuma ouvir playlists prontas (do app/editoriais) ou prefere montar as suas próprias?', required: false,
+          options: ['Só playlists prontas', 'Mistura playlists prontas e próprias', 'Só playlists próprias', 'Não uso playlists'] }
       ]
     },
     {
       title: 'Seção 3 — Preferências musicais',
       questions: [
-        { type: 'caixa_selecao', text: 'Quais gêneros você mais ouve? (marque até 5)', required: true,
-          options: ['Pop', 'Rock', 'Sertanejo', 'Funk', 'Hip-Hop/Rap', 'Eletrônica/House', 'MPB/Samba/Pagode/Forró', 'R&B/Soul', 'Outro'] },
+        { type: 'caixa_selecao', text: 'Quais gêneros você mais ouve? (marque até 5)', required: true, other: true,
+          options: ['Pop', 'Rock', 'Sertanejo', 'Funk', 'Hip-Hop/Rap', 'Eletrônica/House', 'MPB/Samba/Pagode/Forró', 'R&B/Soul'] },
         { type: 'curta', text: 'Dentre os marcados acima, qual é o seu gênero favorito?', required: true },
-        { type: 'caixa_selecao', text: 'O que mais te atrai em uma música? (marque até 3)', required: true,
-          options: ['Letra/mensagem', 'Melodia', 'Ritmo/batida', 'Voz/interpretação do artista', 'Instrumental/produção', 'Dá pra dançar', 'Dá pra treinar', 'Clima/sonoridade geral', 'Fama do artista/hit do momento'] },
-        { type: 'multipla_escolha', text: 'Desses, qual é o MAIS importante pra você gostar de uma música?', required: true,
-          options: ['Letra/mensagem', 'Melodia', 'Ritmo/batida', 'Voz/interpretação do artista', 'Instrumental/produção', 'Dá pra dançar', 'Dá pra treinar', 'Clima/sonoridade geral', 'Fama do artista/hit do momento'] },
+        { type: 'paragrafo', text: 'Cite até 3 artistas ou bandas que você mais ouve atualmente (opcional)', required: false },
+        { type: 'caixa_selecao', text: 'O que mais te atrai em uma música? (marque até 3)', required: true, other: true,
+          options: ATRACOES },
+        { type: 'multipla_escolha', text: 'Desses, qual é o MAIS importante pra você gostar de uma música?', required: true, other: true,
+          options: ATRACOES },
         { type: 'escala', text: 'Como você descreveria seu gosto musical?', required: true,
           min: 1, max: 5, labelMin: 'Sempre as mesmas bandas/estilos', labelMax: 'Gosto de descobrir algo novo toda semana' },
-        { type: 'escala', text: 'Você prefere músicas mais...', required: false,
+        { type: 'escala', text: 'Você prefere músicas mais calmas/acústicas ou agitadas/eletrônicas?', required: false,
           min: 1, max: 5, labelMin: 'Calmas/acústicas', labelMax: 'Agitadas/eletrônicas' },
-        { type: 'escala', text: 'Você prefere músicas mais...', required: false,
+        { type: 'escala', text: 'Você prefere músicas mais tristes/melancólicas ou alegres/animadas?', required: false,
           min: 1, max: 5, labelMin: 'Tristes/melancólicas', labelMax: 'Alegres/animadas' },
         { type: 'multipla_escolha', text: 'Você costuma pular músicas com conteúdo explícito (palavrão)?', required: false,
           options: ['Sim, sempre', 'Às vezes', 'Não, indiferente', 'Prefiro conteúdo explícito'] },
@@ -302,14 +387,23 @@ var PERGUNTAS_JSON = {
     {
       title: 'Seção 4 — Descoberta e recomendação',
       questions: [
-        { type: 'caixa_selecao', text: 'Como você geralmente descobre músicas novas?', required: true,
+        { type: 'caixa_selecao', text: 'Como você geralmente descobre músicas novas?', required: true, other: true,
           options: ['Recomendações do app (Discover Weekly, Radio, etc.)', 'Redes sociais', 'Amigos/família', 'Rádio tradicional', 'Trilhas de filmes/séries/jogos', 'Playlists editoriais'] },
         { type: 'escala', text: 'O quanto você confia nas recomendações automáticas do seu app de streaming?', required: true,
           min: 1, max: 5, labelMin: 'Nunca acerta', labelMax: 'Sempre acerta' },
         { type: 'paragrafo', text: 'O que mais te frustra nas recomendações atuais? (opcional)', required: false },
         { type: 'multipla_escolha', text: 'Você toparia testar uma versão beta do nosso agente de recomendação e dar feedback?', required: true,
-          options: ['Sim', 'Não', 'Talvez'] },
-        { type: 'curta', text: 'Se sim, deixe seu e-mail para contato (opcional)', required: false }
+          options: [
+            { value: 'Sim', goTo: 'Contato' },
+            { value: 'Talvez', goTo: 'Contato' },
+            { value: 'Não', goTo: 'FIM' }
+          ] }
+      ]
+    },
+    {
+      title: 'Contato',
+      questions: [
+        { type: 'curta', text: 'Deixe seu e-mail para contato (opcional)', required: false }
       ]
     }
   ]
@@ -318,15 +412,41 @@ var PERGUNTAS_JSON = {
 // ======================= PONTO DE ENTRADA =======================
 
 function gerarFormulario() {
-  var itens = (MODO_ENTRADA === 'json')
-    ? normalizarJson(PERGUNTAS_JSON)
-    : parseTexto(PERGUNTAS_TEXTO);
-
-  var form = construirForm(FORM_TITLE, FORM_DESCRICAO, itens);
+  var form = FormApp.create(FORM_TITLE);
+  preencherForm(form);
 
   Logger.log('Formulário criado a partir do modo: ' + MODO_ENTRADA);
   Logger.log('Link de edição: ' + form.getEditUrl());
   Logger.log('Link público:   ' + form.getPublishedUrl());
+}
+
+function editarFormulario() {
+  if (!FORM_ID) {
+    throw new Error('Defina FORM_ID no topo do arquivo com o ID do formulário (está na URL de edição, entre "/d/" e "/edit").');
+  }
+
+  var form = FormApp.openById(FORM_ID);
+  form.getItems().forEach(function (item) {
+    form.deleteItem(item);
+  });
+  preencherForm(form);
+
+  Logger.log('Formulário atualizado a partir do modo: ' + MODO_ENTRADA);
+  Logger.log('Link de edição: ' + form.getEditUrl());
+  Logger.log('Link público:   ' + form.getPublishedUrl());
+}
+
+function preencherForm(form) {
+  var itens = (MODO_ENTRADA === 'json')
+    ? normalizarJson(PERGUNTAS_JSON)
+    : parseTexto(PERGUNTAS_TEXTO);
+
+  form.setTitle(FORM_TITLE);
+  form.setDescription(FORM_DESCRICAO);
+  form.setCollectEmail(false);
+  form.setProgressBar(true);
+
+  construirItens(form, itens);
 }
 
 // ======================= PARSER: FORMATO TEXTO =======================
@@ -366,7 +486,7 @@ function parseTexto(texto) {
     var idxAlt = linhas.findIndex(function (l) { return /^Alternativas:?$/i.test(l); });
     if (idxAlt !== -1) {
       pergunta.opcoes = linhas.slice(idxAlt + 1).map(function (l) {
-        return l.replace(/^\d+\.\s*/, '').trim();
+        return parseOpcao(l.replace(/^\d+\.\s*/, '').trim());
       });
     }
 
@@ -376,14 +496,33 @@ function parseTexto(texto) {
   return itens;
 }
 
+function parseOpcao(texto) {
+  var match = texto.match(/^(.+?)\s*->\s*(.+)$/);
+  if (!match) return texto;
+  return { valor: match[1].trim(), destino: match[2].trim() };
+}
+
 function parseTag(tag) {
   tag = tag.trim();
   if (!tag) return { tipo: 'multipla_escolha' };
 
-  var partes = tag.split('|').map(function (p) { return p.trim(); });
+  var tokens = tag.split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+  var outro = false;
+  var tipoToken = null;
+  tokens.forEach(function (t) {
+    if (/^outro$/i.test(t)) {
+      outro = true;
+    } else {
+      tipoToken = t;
+    }
+  });
+
+  if (!tipoToken) return { tipo: 'multipla_escolha', outro: outro };
+
+  var partes = tipoToken.split('|').map(function (p) { return p.trim(); });
   var chave = partes[0].toLowerCase();
 
-  if (chave === 'caixa') return { tipo: 'caixa_selecao' };
+  if (chave === 'caixa') return { tipo: 'caixa_selecao', outro: outro };
   if (chave === 'curta') return { tipo: 'curta' };
   if (chave === 'paragrafo') return { tipo: 'paragrafo' };
   if (chave.indexOf('escala') === 0) {
@@ -396,7 +535,7 @@ function parseTag(tag) {
       rotuloMax: partes[2] || ''
     };
   }
-  return { tipo: 'multipla_escolha' };
+  return { tipo: 'multipla_escolha', outro: outro };
 }
 
 // ======================= PARSER: FORMATO JSON =======================
@@ -415,7 +554,11 @@ function normalizarJson(entrada) {
         tipo: q.type || 'multipla_escolha',
         texto: q.text,
         obrigatoria: !!q.required,
-        opcoes: q.options
+        outro: !!q.other,
+        opcoes: (q.options || []).map(function (op) {
+          if (typeof op === 'string') return op;
+          return { valor: op.value, destino: op.goTo };
+        })
       };
       if (item.tipo === 'escala') {
         item.min = q.min || 1;
@@ -432,22 +575,36 @@ function normalizarJson(entrada) {
 
 // ======================= CONSTRUÇÃO DO FORM =======================
 
-function construirForm(titulo, descricao, itens) {
-  var form = FormApp.create(titulo);
-  form.setDescription(descricao);
-  form.setCollectEmail(false);
-  form.setProgressBar(true);
+function valoresSimples(opcoes) {
+  return (opcoes || []).map(function (op) {
+    return (typeof op === 'string') ? op : op.valor;
+  });
+}
+
+function temDestino(opcoes) {
+  return (opcoes || []).some(function (op) {
+    return typeof op === 'object' && op.destino;
+  });
+}
+
+function construirItens(form, itens) {
+  var labels = {};
+  var pendentesBranch = [];
 
   itens.forEach(function (item) {
     switch (item.tipo) {
       case 'secao':
-        form.addPageBreakItem().setTitle(item.titulo);
+        labels[item.titulo] = form.addPageBreakItem().setTitle(item.titulo);
         break;
       case 'caixa_selecao':
-        form.addCheckboxItem()
+        if (temDestino(item.opcoes)) {
+          throw new Error('Caixa de seleção não suporta navegação condicional (Google Forms só permite pular página em múltipla escolha/dropdown): "' + item.texto + '"');
+        }
+        var caixa = form.addCheckboxItem()
           .setTitle(item.texto)
-          .setChoiceValues(item.opcoes)
+          .setChoiceValues(valoresSimples(item.opcoes))
           .setRequired(item.obrigatoria);
+        if (item.outro) caixa.showOtherOption(true);
         break;
       case 'escala':
         form.addScaleItem()
@@ -468,13 +625,30 @@ function construirForm(titulo, descricao, itens) {
         break;
       case 'multipla_escolha':
       default:
-        form.addMultipleChoiceItem()
+        var multipla = form.addMultipleChoiceItem()
           .setTitle(item.texto)
-          .setChoiceValues(item.opcoes)
           .setRequired(item.obrigatoria);
+        if (item.outro) multipla.showOtherOption(true);
+        if (temDestino(item.opcoes)) {
+          pendentesBranch.push({ item: multipla, opcoes: item.opcoes });
+        } else {
+          multipla.setChoiceValues(valoresSimples(item.opcoes));
+        }
         break;
     }
   });
 
-  return form;
+  pendentesBranch.forEach(function (pendente) {
+    var choices = pendente.opcoes.map(function (op) {
+      if (typeof op === 'string') {
+        return pendente.item.createChoice(op, FormApp.PageNavigationType.CONTINUE);
+      }
+      var destino = /^FIM$/i.test(op.destino) ? FormApp.PageNavigationType.SUBMIT : labels[op.destino];
+      if (!destino) {
+        throw new Error('Seção de destino "' + op.destino + '" não encontrada (pergunta: "' + pendente.item.getTitle() + '"). Confira se existe um bloco "Seção: ' + op.destino + '" com esse título exato.');
+      }
+      return pendente.item.createChoice(op.valor, destino);
+    });
+    pendente.item.setChoices(choices);
+  });
 }

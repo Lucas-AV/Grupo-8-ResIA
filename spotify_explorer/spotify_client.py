@@ -67,6 +67,9 @@ def call_api(path, token, params=None):
     except requests.exceptions.RequestException as exc:
         return {"error": "connection_error", "error_description": str(exc)}, 502
 
+    if response.status_code == 204:
+        return {}, 204
+
     try:
         body = response.json()
     except ValueError:

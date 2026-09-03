@@ -172,14 +172,28 @@ function resolverMockLocal(sessionId, mensagem) {
   };
 }
 
+/**
+ * Erro do backend padronizado pelo Ticket 8.3 (HTTP 5xx com corpo {"erro": "..."}).
+ * Sinalizado com uma classe própria pra não cair no fallback silencioso de mock:
+ * o Ticket 4.8 (KAN-75) exige feedback visível ao usuário nesse caso, não um
+ * console.warn escondido atrás de uma resposta falsa de sucesso.
+ */
+class ErroBackend extends Error {
+  constructor(mensagem, status) {
+    super(mensagem);
+    this.name = 'ErroBackend';
+    this.status = status;
+  }
+}
+
 async function enviarMensagem(sessionId, mensagem) {
   const url = `${API_BASE_URL}/chat`;
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
 
+  let response;
   try {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 8000);
-
-    const response = await fetch(url, {
+    response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -190,19 +204,31 @@ async function enviarMensagem(sessionId, mensagem) {
       }),
       signal: controller.signal,
     });
-
-    clearTimeout(timeoutId);
-
-    if (!response.ok) {
-      throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
-    }
-
-    return await response.json();
   } catch (err) {
+    // Falha de rede/timeout (backend fora do ar): mantém a resiliência existente
+    // e responde com o catálogo offline em vez de travar o chat.
+    clearTimeout(timeoutId);
     console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
     await new Promise((r) => setTimeout(r, 650));
     return resolverMockLocal(sessionId, mensagem);
   }
+  clearTimeout(timeoutId);
+
+  if (response.status >= 500) {
+    let corpo = null;
+    try {
+      corpo = await response.json();
+    } catch (_) {
+      // resposta 500 sem JSON válido — segue com mensagem genérica abaixo
+    }
+    throw new ErroBackend((corpo && corpo.erro) || 'erro interno do servidor', response.status);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
+  }
+
+  return await response.json();
 }
 
 // ==========================================
@@ -266,6 +292,51 @@ function showToast(message, duration = 3000) {
   }, duration);
 }
 window.showToast = showToast;
+
+/**
+ * Banner/toast genérico de erro (Ticket 4.8 / KAN-75).
+ * Reaproveita o container de toasts existente em vez de criar um novo componente.
+ * Diferente de showToast(), não some sozinho: fica visível até o usuário fechar
+ * ou tentar de novo, e nunca bloqueia o restante da tela/chat.
+ */
+function showErrorBanner(message, onRetry) {
+  if (!toastContainer) {
+    window.alert(message);
+    return;
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification toast-error';
+  toast.setAttribute('role', 'alert');
+
+  const textElem = document.createElement('span');
+  textElem.className = 'toast-error-text';
+  textElem.textContent = message;
+  toast.appendChild(textElem);
+
+  if (typeof onRetry === 'function') {
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'toast-retry-btn';
+    retryBtn.textContent = 'Tentar novamente';
+    retryBtn.addEventListener('click', () => {
+      toast.remove();
+      onRetry();
+    });
+    toast.appendChild(retryBtn);
+  }
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'toast-close-btn';
+  closeBtn.setAttribute('aria-label', 'Fechar aviso');
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', () => toast.remove());
+  toast.appendChild(closeBtn);
+
+  toastContainer.appendChild(toast);
+}
+window.showErrorBanner = showErrorBanner;
 
 function setupEventListeners() {
   btnCopySession?.addEventListener('click', async () => {
@@ -422,27 +493,31 @@ function renderMessageBubble(msg, animar = true) {
   messagesContainer.appendChild(row);
 }
 
-async function enviarMensagemUsuario(texto) {
+async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
   if (isProcessing) return;
   isProcessing = true;
 
-  chatInput.value = '';
-  ajustarAlturaInput();
+  if (!isRetry) {
+    chatInput.value = '';
+    ajustarAlturaInput();
+  }
   btnSend.disabled = true;
 
   if (heroEmptyState) {
     heroEmptyState.style.display = 'none';
   }
 
-  const userMsg = {
-    id: `user-${Date.now()}`,
-    role: 'user',
-    conteudo: texto,
-    timestamp: new Date().toISOString(),
-  };
-  messages.push(userMsg);
-  renderMessageBubble(userMsg, true);
-  scrollToBottom();
+  if (!isRetry) {
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      conteudo: texto,
+      timestamp: new Date().toISOString(),
+    };
+    messages.push(userMsg);
+    renderMessageBubble(userMsg, true);
+    scrollToBottom();
+  }
 
   if (typingIndicator) {
     typingIndicator.style.display = 'flex';
@@ -469,15 +544,23 @@ async function enviarMensagemUsuario(texto) {
     console.error('Erro ao processar turno:', error);
     if (typingIndicator) typingIndicator.style.display = 'none';
 
-    const errorMsg = {
-      id: `error-${Date.now()}`,
-      role: 'agent',
-      conteudo: 'Desculpe, ocorreu uma instabilidade temporária. Por favor tente novamente.',
-      timestamp: new Date().toISOString(),
-    };
-    messages.push(errorMsg);
-    renderMessageBubble(errorMsg, true);
-    scrollToBottom();
+    if (error instanceof ErroBackend) {
+      // Ticket 4.8 (KAN-75): erro 500 padronizado do backend (ticket 8.3) vira
+      // banner/toast genérico e recuperável — não trava o chat, não exige reload.
+      showErrorBanner('Ocorreu um erro no servidor. Tente novamente em instantes.', () => {
+        enviarMensagemUsuario(texto, { isRetry: true });
+      });
+    } else {
+      const errorMsg = {
+        id: `error-${Date.now()}`,
+        role: 'agent',
+        conteudo: 'Desculpe, ocorreu uma instabilidade temporária. Por favor tente novamente.',
+        timestamp: new Date().toISOString(),
+      };
+      messages.push(errorMsg);
+      renderMessageBubble(errorMsg, true);
+      scrollToBottom();
+    }
   } finally {
     isProcessing = false;
     btnSend.disabled = chatInput.value.trim().length === 0;
@@ -492,6 +575,8 @@ window.ResIA = {
   resetSession,
   enviarMensagem,
   enviarMensagemUsuario,
+  ErroBackend,
+  showErrorBanner,
 };
 
 if (document.readyState === 'loading') {
