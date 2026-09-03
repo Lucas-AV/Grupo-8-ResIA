@@ -208,6 +208,15 @@ def register_routes(app):
 
         return redirect(app.config["FRONTEND_URL"])
 
+    @app.route("/api/pair/<code>/status")
+    def pair_status(code):
+        status = pairing.get_status(code)
+        if status != "completed":
+            return jsonify({"status": status})
+        tokens = pairing.consume(code)
+        user_auth.apply_tokens_to_session(tokens)
+        return jsonify({"status": "completed"})
+
     @app.route("/logout")
     def logout():
         user_auth.logout()

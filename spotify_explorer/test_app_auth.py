@@ -682,3 +682,20 @@ def test_login_without_pair_param_behaves_exactly_like_before(client):
     assert response.location.startswith("https://accounts.spotify.com/authorize")
     with client.session_transaction() as sess:
         assert "pairing_code" not in sess
+
+
+def test_pair_status_for_fresh_code_is_pending(client):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    response = client.get(f"/api/pair/{code}/status")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "pending"}
+
+
+def test_pair_status_for_unknown_code_is_not_found(client):
+    response = client.get("/api/pair/does-not-exist/status")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "not_found"}
