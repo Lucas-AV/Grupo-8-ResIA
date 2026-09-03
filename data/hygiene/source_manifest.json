@@ -1,0 +1,19 @@
+{
+  "sources": [
+    {
+      "file": "current_dataset_31819.csv",
+      "sha256": "317ce59e53b040c1174dbb9e1da83c5a7c33d94fae41b49eb4b680a127d68f33",
+      "downloaded_on": "2026-09-03"
+    },
+    {
+      "file": "spotify_tracks_114k.csv",
+      "sha256": "b202fa49909b2d5cef71a04b1d21243cfeb36414535f2ca9272aa646721177bd",
+      "downloaded_on": "2026-09-03"
+    },
+    {
+      "file": "spotify_top_10k_2025.csv",
+      "sha256": "c6dcea38607fb89cc5c76967ab9d266cbff7f327e868c8d1c14ae668a81e7ff3",
+      "downloaded_on": "2026-09-03"
+    }
+  ]
+}

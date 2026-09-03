@@ -1,0 +1,11 @@
+column_a,column_b,correlation
+energy,loudness,0.7497088691207089
+energy,acousticness,-0.721159739493201
+loudness,acousticness,-0.5749206359795698
+danceability,valence,0.4786261603483768
+loudness,instrumentalness,-0.4354916008552346
+instrumentalness,valence,-0.3165943834493314
+loudness,valence,0.28547019488291403
+danceability,loudness,0.27197552117732265
+energy,valence,0.26843559105970627
+energy,tempo,0.23613906989394673
