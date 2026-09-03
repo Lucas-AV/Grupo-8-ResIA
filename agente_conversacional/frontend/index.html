@@ -61,7 +61,10 @@
 
     <!-- Área de Mensagens (Chat Stream) -->
     <main id="chat-scroll-area" class="chat-scroll-area">
-      <!-- Hero / Empty State (Visível antes de mensagens serem enviadas) -->
+      <!-- Hero / Empty State — onboarding da primeira conversa (Ticket 4.12 / KAN-79) -->
+      <!-- Critérios de aceite: (1) tela sem histórico mostra sugestões de uso, nunca fica em -->
+      <!-- branco; (2) sugestões somem assim que o usuário envia a primeira mensagem — ver -->
+      <!-- toggle de #hero-empty-state em init()/enviarMensagemUsuario()/btnNewChat em app.js. -->
       <section id="hero-empty-state" class="hero-empty-state">
         <div class="hero-orb">
           <svg viewBox="0 0 24 24">
@@ -74,7 +77,7 @@
           Nossa IA cruza seu pedido com o catálogo de 114 mil faixas do Spotify.
         </p>
 
-        <!-- Chips de Sugestão Rápida (Prompt Pills) -->
+        <!-- Chips de Sugestão Rápida (Prompt Pills) — exemplos de pedidos (KAN-79) -->
         <div class="prompt-chips-container">
           <button class="prompt-pill" data-prompt="Quero um pagode animado para o churrasco de domingo">
             <span>🔥</span> Pagode animado pro churrasco
@@ -87,9 +90,6 @@
           </button>
           <button class="prompt-pill" data-prompt="Músicas pop dançantes com energia alta para treinar">
             <span>⚡</span> Pop dançante pra treinar
-          </button>
-          <button class="prompt-pill" data-prompt="Obras acústicas e tranquilas de MPB no estilo Djavan">
-            <span>🌙</span> MPB acústico relaxante
           </button>
         </div>
 
