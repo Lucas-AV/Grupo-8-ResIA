@@ -36,13 +36,21 @@ def client(monkeypatch):
         yield test_client
 
 
-def _extract_state(login_response):
-    location = login_response.headers["location"]
+def _extract_state(start_response):
+    location = start_response.headers["location"]
     return parse_qs(urlparse(location).query)["state"][0]
 
 
-def test_login_redirects_to_spotify_authorize_url(client):
+def test_login_shows_consent_notice_instead_of_redirecting(client):
     response = client.get("/auth/login?session_id=sess-1", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert "user-top-read" in response.text
+    assert "/auth/login/start?session_id=sess-1" in response.text
+
+
+def test_login_start_redirects_to_spotify_authorize_url(client):
+    response = client.get("/auth/login/start?session_id=sess-1", follow_redirects=False)
 
     assert response.status_code in (302, 307)
     assert urlparse(response.headers["location"]).netloc == "accounts.spotify.com"
@@ -63,7 +71,7 @@ def test_callback_with_unknown_state_redirects_as_mismatch(client):
 
 
 def test_callback_happy_path_saves_tokens_and_redirects_success(client, monkeypatch):
-    login_response = client.get("/auth/login?session_id=sess-1", follow_redirects=False)
+    login_response = client.get("/auth/login/start?session_id=sess-1", follow_redirects=False)
     state = _extract_state(login_response)
 
     monkeypatch.setattr(
@@ -80,7 +88,7 @@ def test_callback_happy_path_saves_tokens_and_redirects_success(client, monkeypa
 
 
 def test_callback_redirects_to_failed_when_token_exchange_fails(client, monkeypatch):
-    login_response = client.get("/auth/login?session_id=sess-1", follow_redirects=False)
+    login_response = client.get("/auth/login/start?session_id=sess-1", follow_redirects=False)
     state = _extract_state(login_response)
 
     def fake_exchange(code, code_verifier):
