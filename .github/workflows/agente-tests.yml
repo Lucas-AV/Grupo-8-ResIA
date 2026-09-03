@@ -20,4 +20,5 @@ jobs:
         with:
           python-version: "3.12"
       - run: pip install -r requirements.txt
-      - run: pytest -q
+      # Mantém o diretório de trabalho no sys.path, como no Uvicorn.
+      - run: python -m pytest -q
