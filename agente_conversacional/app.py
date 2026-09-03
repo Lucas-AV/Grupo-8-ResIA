@@ -10,6 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from api.routes import build_api_router
 from chat.contracts import TurnProcessor
+from chat.pipeline import ChatPipeline
 from sessions.store import SessionStore
 from llm.health import check_llm_health
 from spotify_auth.routes import router as spotify_auth_router
@@ -59,7 +60,11 @@ def create_app(
         allow_headers=["*"],
     )
     app.state.session_store = session_store or SessionStore()
-    app.state.turn_processor = turn_processor
+    # Épico 2: pipeline conversacional real por padrão (KAN-8 usava
+    # turn_processor=None só como placeholder até este módulo existir).
+    # Testes que precisam simular indisponibilidade continuam podendo
+    # injetar seu próprio processor (ver test_api_routes.py).
+    app.state.turn_processor = turn_processor or ChatPipeline()
     app.include_router(
         build_api_router(
             cast(SessionStore, app.state.session_store),
