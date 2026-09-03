@@ -171,3 +171,15 @@ def test_call_api_returns_error_tuple_on_non_json_body(mock_get):
 
     assert status == 200
     assert body["error"] == "invalid_response"
+
+
+@patch("spotify_client.requests.get")
+def test_call_api_returns_empty_body_on_204(mock_get):
+    mock_get.return_value = Mock(
+        status_code=204, json=Mock(side_effect=ValueError("no body")), headers={}
+    )
+
+    body, status = spotify_client.call_api("/me/player", "token")
+
+    assert status == 204
+    assert body == {}

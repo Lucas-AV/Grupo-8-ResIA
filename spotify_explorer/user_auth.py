@@ -8,7 +8,11 @@ from flask import session
 
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
-SCOPES = "user-top-read user-library-read user-read-recently-played"
+SCOPES = (
+    "user-top-read user-library-read user-read-recently-played "
+    "user-read-playback-state user-read-currently-playing "
+    "user-follow-read playlist-read-private"
+)
 
 
 class NotLoggedInError(Exception):
