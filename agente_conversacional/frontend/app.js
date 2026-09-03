@@ -231,6 +231,7 @@ function init() {
   currentSessionId = getSessionId();
   updateSessionDisplay();
 
+  // Ticket 4.12 (KAN-79): sessão restaurada já tem histórico -> não mostra onboarding.
   messages = loadChatHistory(currentSessionId);
   if (messages.length > 0) {
     if (heroEmptyState) heroEmptyState.style.display = 'none';
@@ -282,6 +283,7 @@ function setupEventListeners() {
     currentSessionId = resetSession();
     messages = [];
     messagesContainer.innerHTML = '';
+    // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
     if (heroEmptyState) heroEmptyState.style.display = 'flex';
     updateSessionDisplay();
     showToast('Nova conversa iniciada!');
@@ -424,6 +426,8 @@ async function enviarMensagemUsuario(texto) {
   ajustarAlturaInput();
   btnSend.disabled = true;
 
+  // Ticket 4.12 (KAN-79): sugestões somem assim que o usuário envia a primeira
+  // mensagem — feito aqui, antes da chamada à API, para sumir de imediato.
   if (heroEmptyState) {
     heroEmptyState.style.display = 'none';
   }
