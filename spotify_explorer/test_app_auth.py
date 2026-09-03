@@ -350,3 +350,37 @@ def test_player_pause_calls_correct_path_and_method(client, monkeypatch):
     response = client.post("/api/me/player/pause")
 
     assert response.status_code == 204
+
+
+def test_player_next_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/next"
+        assert method == "POST"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/next")
+
+    assert response.status_code == 204
+
+
+def test_player_previous_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/previous"
+        assert method == "POST"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/previous")
+
+    assert response.status_code == 204

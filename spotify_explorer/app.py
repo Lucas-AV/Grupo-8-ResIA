@@ -293,6 +293,14 @@ def register_routes(app):
     def player_pause():
         return _user_data_route("/me/player/pause", method="PUT")
 
+    @app.route("/api/me/player/next", methods=["POST"])
+    def player_next():
+        return _user_data_route("/me/player/next", method="POST")
+
+    @app.route("/api/me/player/previous", methods=["POST"])
+    def player_previous():
+        return _user_data_route("/me/player/previous", method="POST")
+
 
 if __name__ == "__main__":
     flask_app = create_app()
