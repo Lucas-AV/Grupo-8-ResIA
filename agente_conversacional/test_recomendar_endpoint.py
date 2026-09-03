@@ -44,7 +44,14 @@ def test_recomendar_nunca_toca_llm_e_chama_busca_direto(monkeypatch):
     assert response.status_code == 200
     body = response.json()
     assert body["faixas"] == [
-        {"track_id": "t1", "nome": "Musica 1", "artista": "Artista 1", "album": "Album 1", "genero": "pop"}
+        {
+            "track_id": "t1",
+            "nome": "Musica 1",
+            "artista": "Artista 1",
+            "album": "Album 1",
+            "genero": "pop",
+            "preview_url": None,
+        }
     ]
     assert body["diversidade_generos"] == 1
     assert body["cobertura_sessao"] == 1.0
@@ -111,7 +118,14 @@ def test_recomendar_ignora_campos_extras_de_faixas_do_fallback_spotify(monkeypat
 
     assert response.status_code == 200
     assert response.json()["faixas"] == [
-        {"track_id": "t2", "nome": "Musica Fallback", "artista": "Artista 2", "album": "Album 2", "genero": "pop"}
+        {
+            "track_id": "t2",
+            "nome": "Musica Fallback",
+            "artista": "Artista 2",
+            "album": "Album 2",
+            "genero": "pop",
+            "preview_url": None,
+        }
     ]
 
 

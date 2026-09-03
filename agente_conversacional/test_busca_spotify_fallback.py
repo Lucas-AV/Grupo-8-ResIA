@@ -125,6 +125,24 @@ def _mock_search_ok(monkeypatch, itens):
     )
 
 
+def _mock_token_ok_e_bloqueia_search(monkeypatch):
+    """Ticket KAN-77: `buscar_recomendacoes` agora sempre tenta enriquecer
+    as faixas com `preview_url` via `GET /tracks` (recomendacao/busca.py),
+    mesmo quando o fallback de *busca* (`GET /search`, KAN-95) não
+    dispara — então os testes desta seção não podem mais afirmar "a
+    Spotify nunca é chamada", só "a Spotify Search API nunca é chamada".
+    `GET /tracks` responde vazio (sem preview pra nenhuma faixa), o que
+    não afeta as asserções desses testes (track_id/`_origem`)."""
+    _mock_token_ok(monkeypatch)
+
+    def fake_get(url, *args, **kwargs):
+        if url.endswith("/search"):
+            pytest.fail("nao deveria chamar a Spotify Search API (fallback)")
+        return _FakeResponse(200, {"tracks": []})
+
+    monkeypatch.setattr(requests, "get", fake_get)
+
+
 @pytest.fixture(autouse=True)
 def spotify_env(monkeypatch):
     monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client-123")
@@ -206,8 +224,7 @@ def test_fallback_nao_duplica_track_id_ja_presente_localmente(tmp_path, monkeypa
 def test_fallback_nao_dispara_quando_local_tem_o_suficiente(tmp_path, monkeypatch):
     linhas = [_linha(f"t{i}", "pop", popularity=i) for i in range(5)]
     _preparar(tmp_path, linhas, monkeypatch)
-    monkeypatch.setattr(requests, "post", lambda *a, **kw: pytest.fail("nao deveria chamar a Spotify"))
-    monkeypatch.setattr(requests, "get", lambda *a, **kw: pytest.fail("nao deveria chamar a Spotify"))
+    _mock_token_ok_e_bloqueia_search(monkeypatch)
 
     resultado = buscar_recomendacoes(genero="pop", n_resultados=3)
 
@@ -216,11 +233,13 @@ def test_fallback_nao_dispara_quando_local_tem_o_suficiente(tmp_path, monkeypatc
 
 
 def test_fallback_nao_dispara_sem_genero_e_sem_artista_referencia(tmp_path, monkeypatch):
-    # local escasso, mas sem genero/artista nao ha query pra montar -> nunca
-    # tenta chamar a Spotify (nem token)
+    # local escasso, mas sem genero/artista nao ha query de *busca* pra
+    # montar -> o fallback de busca (GET /search) nunca dispara (o
+    # enriquecimento de preview_url via GET /tracks, ticket KAN-77, e
+    # independente disso e continua acontecendo — ver
+    # _mock_token_ok_e_bloqueia_search)
     _preparar(tmp_path, [_linha("t1", "pop", popularity=90)], monkeypatch)
-    monkeypatch.setattr(requests, "post", lambda *a, **kw: pytest.fail("nao deveria chamar a Spotify"))
-    monkeypatch.setattr(requests, "get", lambda *a, **kw: pytest.fail("nao deveria chamar a Spotify"))
+    _mock_token_ok_e_bloqueia_search(monkeypatch)
 
     resultado = buscar_recomendacoes(n_resultados=5)
 
@@ -341,7 +360,7 @@ def test_faixa_do_fallback_tem_as_mesmas_chaves_da_local_mais_origem(tmp_path, m
     resultado = buscar_recomendacoes(genero="pop", excluir_explicit=True, n_resultados=3)
 
     faixa = resultado["faixas"][0]
-    assert set(faixa) == {"track_id", "nome", "artista", "album", "genero", "_origem"}
+    assert set(faixa) == {"track_id", "nome", "artista", "album", "genero", "_origem", "preview_url"}
     assert faixa["artista"] == "Fulano"
     assert faixa["album"] == "Otimo Album"
     assert faixa["genero"] == "pop"

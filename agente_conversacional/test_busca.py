@@ -108,7 +108,7 @@ def test_faixa_tem_o_schema_documentado(tmp_path, monkeypatch):
 
     faixa = buscar_recomendacoes()["faixas"][0]
 
-    assert set(faixa) == {"track_id", "nome", "artista", "album", "genero"}
+    assert set(faixa) == {"track_id", "nome", "artista", "album", "genero", "preview_url"}
     assert faixa["track_id"] == "t1"
     assert faixa["artista"] == "Alguem"
 
