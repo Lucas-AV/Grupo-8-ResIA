@@ -78,6 +78,18 @@ celular pra autorizar com a própria conta Spotify. A tela do kiosk
 fica fazendo polling sozinha e destrava automaticamente assim que
 alguém completa o login pelo celular.
 
+> **Cuidado — o código do QR é um "bearer token" temporário:** qualquer
+> pessoa que tiver o código (não só quem escaneou a tela — também vale
+> pra um link encaminhado, um print de tela ou uma captura de vídeo,
+> dentro da janela de 5 minutos) consegue completar ou "roubar" esse
+> pareamento, porque nada além do próprio código amarra a autorização a
+> um dispositivo específico. Em outras palavras: não compartilhe o QR
+> nem o link por baixo dele (`/login?pair=...`) com ninguém em quem você
+> não confia, e numa demo/kiosk com várias pessoas por perto, quem
+> escanear/consumir primeiro "ganha" aquele código. Isso é uma
+> característica conhecida do desenho atual (aceitável pro escopo desta
+> ferramenta — uso local, single-user, sem rede pública), não um bug.
+
 **Pré-requisito:** o celular precisa estar na **mesma rede local** que
 a máquina rodando o `spotify_explorer` — o QR codifica o endereço que
 o navegador do kiosk usou pra abrir a página (`request.host_url`), e
@@ -88,18 +100,6 @@ local, seria preciso configurar isso manualmente.
 
 O código do QR expira em 5 minutos e é de uso único — depois de
 consumido (ou expirado), a tela do kiosk gera um QR novo sozinha.
-
-**Cuidado — o código do QR é um "bearer token" temporário:** qualquer
-pessoa que tiver o código (não só quem escaneou a tela — também vale
-pra um link encaminhado, um print de tela ou uma captura de vídeo,
-dentro da janela de 5 minutos) consegue completar ou "roubar" esse
-pareamento, porque nada além do próprio código amarra a autorização a
-um dispositivo específico. Em outras palavras: não compartilhe o QR
-nem o link por baixo dele (`/login?pair=...`) com ninguém em quem você
-não confia, e numa demo/kiosk com várias pessoas por perto, quem
-escanear/consumir primeiro "ganha" aquele código. Isso é uma
-característica conhecida do desenho atual (aceitável pro escopo desta
-ferramenta — uso local, single-user, sem rede pública), não um bug.
 
 ## O que cada aba faz
 
