@@ -230,10 +230,12 @@ Replace the single line:
 with:
 
 ```html
-      <div v-if="(playlist.tracks?.total ?? playlist.items?.total) != null" class="preview-subtitle">
-        {{ playlist.tracks?.total ?? playlist.items?.total }} faixas
+      <div v-if="(playlist.items?.total ?? playlist.tracks?.total) != null" class="preview-subtitle">
+        {{ playlist.items?.total ?? playlist.tracks?.total }} faixas
       </div>
 ```
+
+(`items` — the new field — checked first, `tracks` as fallback, matching `PlaylistTab.vue`'s `tracksContainer` precedence for the same rename.)
 
 No other change to this file.
 

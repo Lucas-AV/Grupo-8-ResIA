@@ -113,13 +113,17 @@ Template: adiciona um `v-else-if` mostrando a nota quando
 ### `PlaylistPreview.vue`
 
 A contagem "N faixas" hoje só lê `playlist.tracks?.total`. Passa a
-cair pra `playlist.items?.total` quando o primeiro não existir — o
-total é metadado e deve sobreviver mesmo quando o array de faixas em
-si estiver ausente:
+ler `playlist.items?.total` (nome novo) primeiro, caindo pra
+`playlist.tracks?.total` (nome antigo) — mesma precedência de
+`PlaylistTab.vue`'s `tracksContainer` (`items` antes de `tracks`),
+já que os dois campos são a mesma renomeação da Spotify e não faz
+sentido os dois arquivos discordarem sobre qual nome é o "de
+verdade". O total é metadado e deve sobreviver mesmo quando o array
+de faixas em si estiver ausente:
 
 ```html
-<div v-if="(playlist.tracks?.total ?? playlist.items?.total) != null" class="preview-subtitle">
-  {{ playlist.tracks?.total ?? playlist.items?.total }} faixas
+<div v-if="(playlist.items?.total ?? playlist.tracks?.total) != null" class="preview-subtitle">
+  {{ playlist.items?.total ?? playlist.tracks?.total }} faixas
 </div>
 ```
 
