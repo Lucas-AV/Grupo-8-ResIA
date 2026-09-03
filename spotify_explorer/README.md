@@ -107,6 +107,12 @@ ranking por frequência calculado pela Spotify, não uma lista cronológica.
 há reprodução ativa — a ferramenta mostra isso como "Nada tocando no
 momento", não como erro.
 
+Desde fev/2026 a Spotify removeu `GET /browse/new-releases` pra apps em
+Development Mode (sem alternativa/endpoint substituto) — a aba New
+Releases vai mostrar 403 pra qualquer app que não esteja em Extended
+Quota Mode. Mesmo caso dos 403 acima: é a API real, não bug da
+ferramenta.
+
 ## Checklist de smoke test manual
 
 - [ ] App sobe sem `.env` preenchido e mostra o aviso de credenciais faltando

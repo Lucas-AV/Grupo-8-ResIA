@@ -5,6 +5,7 @@ __pycache__/
 site/dist/
 .ipynb_checkpoints/
 .mcp.json
+.env
 spotify_explorer/.env
 .worktrees/
 spotify_explorer/frontend/node_modules/
