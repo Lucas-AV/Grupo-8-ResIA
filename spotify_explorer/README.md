@@ -32,6 +32,13 @@ design completo.
    ```
 7. Abra `http://127.0.0.1:5000`
 
+> **Se você já tinha uma sessão logada de antes da Fase 2:** os escopos
+> do OAuth mudaram (`user-read-playback-state`,
+> `user-read-currently-playing`, `user-follow-read`,
+> `playlist-read-private` foram adicionados). Deslogue e logue de novo
+> — a Spotify só pede consentimento dos escopos novos numa nova
+> autorização; um token antigo não os tem.
+
 ## Rodando os testes
 
 ```
@@ -75,6 +82,14 @@ login a Spotify te devolve pra `:5000` (o Flask), não pro Vite.
 - **Recommendations** — `GET /recommendations` com seeds e parâmetros alvo
 - **Meus dados** — requer login (Authorization Code Flow): top
   tracks/artists por `time_range`, faixas curtidas, tocadas recentemente
+- **Player** — `GET /me/player` (o que tá tocando, dispositivo,
+  progresso) + `GET /me/player/queue` (fila) — só leitura, sem
+  controles de reprodução. Requer login.
+- **Seguindo** — `GET /me/following?type=artist` (artistas seguidos).
+  Clicar num artista abre os detalhes na aba Artist. Requer login.
+- **Minhas Playlists** — `GET /me/playlists` (inclui privadas do
+  usuário logado). Clicar numa playlist abre os detalhes na aba
+  Playlist. Requer login.
 
 ## Restrições conhecidas da API (não são bugs da ferramenta)
 
@@ -88,6 +103,10 @@ tocadas — não é um histórico de 6 meses. Pra "mais ouvidas nos últimos ~6
 meses", use a aba Meus dados com `time_range=medium_term`, que é um
 ranking por frequência calculado pela Spotify, não uma lista cronológica.
 
+`/me/player` e `/me/player/queue` devolvem 204 (sem corpo) quando não
+há reprodução ativa — a ferramenta mostra isso como "Nada tocando no
+momento", não como erro.
+
 ## Checklist de smoke test manual
 
 - [ ] App sobe sem `.env` preenchido e mostra o aviso de credenciais faltando
@@ -100,3 +119,9 @@ ranking por frequência calculado pela Spotify, não uma lista cronológica.
 - [ ] Top tracks/artists funciona nas 3 janelas de tempo
 - [ ] Faixas curtidas e tocadas recentemente retornam dado real
 - [ ] Logout funciona e volta ao estado deslogado
+- [ ] Player mostra "Nada tocando" quando não há reprodução ativa, e
+      o estado real (faixa/dispositivo/fila) quando há
+- [ ] Seguindo lista os artistas seguidos; clicar num item abre a aba
+      Artist com os detalhes
+- [ ] Minhas Playlists lista as playlists (inclusive privadas);
+      clicar num item abre a aba Playlist com os detalhes
