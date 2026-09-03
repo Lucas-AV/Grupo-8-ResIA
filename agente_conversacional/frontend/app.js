@@ -65,8 +65,8 @@ function saveSessionId(sessionId) {
   }
 }
 
-function resetSession() {
-  const newSessionId = generateUUID();
+async function resetSession() {
+  const newSessionId = (await criarSessaoRemota()) || generateUUID();
   saveSessionId(newSessionId);
   return newSessionId;
 }
@@ -254,6 +254,31 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
   }
 
   return await response.json();
+}
+
+/**
+ * Cria uma sessão no backend (POST /session) e devolve o `session_id` gerado por ele.
+ * O backend nunca aceita um `session_id` inventado pelo cliente (SessionStore só reconhece
+ * ids que ele mesmo gerou via uuid4) — sem essa chamada, todo POST /chat cai em 404
+ * `sessao_invalida`, mesmo em uma conversa nova. Retorna `null` se o backend estiver
+ * inacessível (rede/timeout); os chamadores decidem o fallback (id local, offline).
+ */
+async function criarSessaoRemota() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${API_BASE_URL}/session`, {
+      method: 'POST',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.session_id || null;
+  } catch (e) {
+    console.warn('Não foi possível criar sessão no backend, mantendo id local:', e);
+    return null;
+  }
 }
 
 /**
@@ -584,13 +609,17 @@ async function init() {
   isProcessing = true;
   if (btnSend) btnSend.disabled = true;
 
+  // Garante que `currentSessionId` existe de verdade no backend antes de qualquer
+  // chamada que dependa dele — um id gerado só no cliente (getSessionId acima)
+  // nunca foi registrado via POST /session, e tanto /auth/status quanto /chat
+  // rejeitam session_id desconhecido.
+  await carregarHistoricoInicial();
+
   // Ticket 12.2 (KAN-105): resolve o status de autenticação Spotify antes de
   // renderizar qualquer bolha de mensagem, pra já nascer com o botão
   // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
   isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
   atualizarBotaoSpotifyAuth();
-
-  await carregarHistoricoInicial();
 
   isProcessing = false;
   if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
@@ -632,8 +661,18 @@ async function carregarHistoricoInicial() {
     messages = resultado.mensagens;
     saveChatHistory(currentSessionId, messages);
   } else {
+    // Sessão local não existe no backend (id gerado pelo cliente, ou expirada) —
+    // registra uma sessão de verdade agora, pra POST /chat não cair em 404
+    // sessao_invalida no primeiro envio.
+    const idAntigo = currentSessionId;
+    const novoId = await criarSessaoRemota();
+    if (novoId) {
+      currentSessionId = novoId;
+      saveSessionId(novoId);
+      updateSessionDisplay();
+    }
     messages = [];
-    clearChatHistory(currentSessionId);
+    clearChatHistory(idAntigo);
   }
 
   // Ticket 12.4 (KAN-107): semeia o set de faixas já mostradas a partir do
@@ -734,9 +773,9 @@ function setupEventListeners() {
     }
   });
 
-  btnNewChat?.addEventListener('click', () => {
+  btnNewChat?.addEventListener('click', async () => {
     if (isProcessing) return;
-    currentSessionId = resetSession();
+    currentSessionId = await resetSession();
     messages = [];
     messagesContainer.innerHTML = '';
     // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
