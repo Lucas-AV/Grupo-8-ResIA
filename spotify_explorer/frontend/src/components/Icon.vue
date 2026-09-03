@@ -21,6 +21,7 @@ const paths = {
   player: "M6 4.5v11l9-5.5-9-5.5z",
   following: "M10 10a4 4 0 100-8 4 4 0 000 8zm0 2c-4.4 0-8 2.2-8 5v1a1 1 0 001 1h14a1 1 0 001-1v-1c0-2.8-3.6-5-8-5z",
   folder: "M3 5a2 2 0 012-2h3l2 2h5a2 2 0 012 2v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5z",
+  pause: "M6 4h3v12H6V4zm5 0h3v12h-3V4z",
 };
 
 const path = paths[props.name] ?? "";
