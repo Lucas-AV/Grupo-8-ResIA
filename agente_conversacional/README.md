@@ -1,6 +1,6 @@
 # Agente Conversacional — backend
 
-Implementacao do backend do agente de recomendacao (Proposta B). Ver
+Implementação do backend do agente de recomendação (Proposta B). Ver
 [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](../docs/PIPELINE_AGENTE_PROPOSTA_B.md)
 pra especificacao completa e
 [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](../docs/BACKLOG_JIRA_PROPOSTA_B.md) pro
@@ -25,15 +25,38 @@ uvicorn app:app --reload
   `{"disponivel": bool, "backend": str, "erro": str|None}`. Nunca derruba o
   processo, mesmo com o LLM fora do ar (ticket 0.4).
 
+## API de sessões — KAN-8
+
+O backend mantém sessões de conversa **em memória** para o MVP. Cada sessão é
+criada com UUID4, expira após `SESSION_TIMEOUT_MINUTES` (30 minutos por padrão)
+e é descartada no restart do processo. A expiração trata somente o histórico de
+chat; a futura camada OAuth mantém os tokens em armazenamento separado.
+
+- `POST /session` cria uma sessão e devolve `{"session_id": "<uuid4>"}`.
+- `POST /chat` recebe `session_id` e `mensagem`; devolve texto, faixas e
+  métricas no contrato consumido pelo frontend.
+- `GET /chat/historico?session_id=...` devolve as mensagens auditáveis, com
+  `role`, `conteudo`, `faixas_citadas` e timestamp UTC.
+
+Sessões inexistentes ou expiradas retornam `404` com
+`detail.codigo = "sessao_invalida"`. Enquanto o pipeline do Épico 2 não for
+integrado, `POST /chat` retorna `503` com
+`detail.codigo = "pipeline_indisponivel"`; ele não usa catálogo demonstrativo
+nem inventa recomendações.
+
+O pipeline será conectado através de `TurnProcessor`. A fábrica
+`create_app(session_store=..., turn_processor=...)` aceita dependências
+opcionais para testes e para a integração com os Épicos 2 e 5.
+
 ## Testes
 
 ```bash
 pytest
 ```
 
-26 testes cobrindo o dispatcher `chamar_llm`, os dois backends (Ollama e
-Claude) e o boot do FastAPI — todos com o LLM mockado, não dependem de
-Ollama rodando de verdade.
+Os testes cobrem o dispatcher `chamar_llm`, os dois backends (Ollama e Claude),
+o boot do FastAPI, sessões, expiração e os contratos HTTP do KAN-8. Todos usam
+o LLM mockado e não dependem de Ollama rodando de verdade.
 
 ## Camada de abstração `chamar_llm`
 
