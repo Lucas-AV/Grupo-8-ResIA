@@ -91,6 +91,15 @@ function loadChatHistory(sessionId) {
   }
 }
 
+function clearChatHistory(sessionId) {
+  if (!sessionId) return;
+  try {
+    localStorage.removeItem(HISTORY_STORAGE_PREFIX + sessionId);
+  } catch (e) {
+    console.warn('Falha ao limpar histórico do localStorage:', e);
+  }
+}
+
 // ==========================================
 // 2. Módulo de API e Catálogo Demo
 // ==========================================
@@ -205,6 +214,61 @@ async function enviarMensagem(sessionId, mensagem) {
   }
 }
 
+/**
+ * Consulta o histórico salvo no backend para a sessão atual (Ticket 4.6, GET /chat/historico).
+ * Retorna `null` quando o backend está inacessível (falha de rede/timeout) — nesse caso o
+ * chamador deve recorrer ao cache local, preservando o comportamento resiliente já existente
+ * em enviarMensagem(). Retorna `{ valida: false }` quando a sessão não existe mais no backend
+ * (HTTP 404), sem lançar erro visível ao usuário.
+ */
+async function buscarHistoricoRemoto(sessionId) {
+  const url = `${API_BASE_URL}/chat/historico?session_id=${encodeURIComponent(sessionId)}`;
+
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 8000);
+
+    const response = await fetch(url, { method: 'GET', signal: controller.signal });
+
+    clearTimeout(timeoutId);
+
+    if (response.status === 404) {
+      // Sessão inválida/expirada: cai pro estado de conversa nova, sem erro visível ao usuário.
+      return { valida: false, mensagens: [] };
+    }
+
+    if (!response.ok) {
+      throw new Error(`Erro ao consultar histórico: HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return { valida: true, mensagens: mapearHistoricoRemoto(data.historico) };
+  } catch (err) {
+    console.warn('Histórico remoto indisponível, utilizando cache local como fallback:', err);
+    return null;
+  }
+}
+
+/**
+ * Converte o formato de histórico devolvido pelo backend (roles 'usuario'/'agente'/'sistema')
+ * para o formato de mensagem usado pela interface de chat (roles 'user'/'agent').
+ * Observação: o histórico remoto devolve apenas os IDs das faixas citadas (faixas_citadas),
+ * sem os metadados completos (nome/artista/álbum) — por isso os cards de faixa não são
+ * reconstruídos para mensagens restauradas do backend, só o texto e a ordem da conversa.
+ */
+function mapearHistoricoRemoto(historico) {
+  const ROLE_MAP = { usuario: 'user', agente: 'agent', sistema: 'agent' };
+  if (!Array.isArray(historico)) return [];
+
+  return historico.map((item, indice) => ({
+    id: `historico-${indice}-${item.timestamp || indice}`,
+    role: ROLE_MAP[item.role] || 'agent',
+    conteudo: item.conteudo,
+    faixas: [],
+    timestamp: item.timestamp,
+  }));
+}
+
 // ==========================================
 // 3. Controlador da Interface e Estado
 // ==========================================
@@ -227,18 +291,48 @@ const btnSend = document.getElementById('btn-send');
 const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
 
-function init() {
+async function init() {
   currentSessionId = getSessionId();
   updateSessionDisplay();
+  setupEventListeners();
 
-  messages = loadChatHistory(currentSessionId);
+  // Bloqueia novo input enquanto o histórico é recuperado (Ticket 4.6, critério de aceite:
+  // "mensagens anteriores aparecem antes de qualquer novo envio").
+  isProcessing = true;
+  if (btnSend) btnSend.disabled = true;
+
+  await carregarHistoricoInicial();
+
+  isProcessing = false;
+  if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
+}
+
+/**
+ * Recupera o histórico ao reabrir a conversa (Ticket 4.6):
+ * 1. Tenta buscar o histórico salvo no backend (GET /chat/historico).
+ * 2. Sessão válida: usa o histórico do backend e sincroniza o cache local.
+ * 3. Sessão inválida/expirada (404): estado de conversa nova, sem erro visível ao usuário.
+ * 4. Backend inacessível (rede/timeout): mantém o comportamento anterior, restaurando do
+ *    localStorage — não regride a experiência quando offline.
+ */
+async function carregarHistoricoInicial() {
+  const resultado = await buscarHistoricoRemoto(currentSessionId);
+
+  if (resultado === null) {
+    messages = loadChatHistory(currentSessionId);
+  } else if (resultado.valida) {
+    messages = resultado.mensagens;
+    saveChatHistory(currentSessionId, messages);
+  } else {
+    messages = [];
+    clearChatHistory(currentSessionId);
+  }
+
   if (messages.length > 0) {
     if (heroEmptyState) heroEmptyState.style.display = 'none';
     messages.forEach((msg) => renderMessageBubble(msg, false));
     scrollToBottom();
   }
-
-  setupEventListeners();
 }
 
 function updateSessionDisplay() {
@@ -486,6 +580,7 @@ window.ResIA = {
   resetSession,
   enviarMensagem,
   enviarMensagemUsuario,
+  buscarHistoricoRemoto,
 };
 
 if (document.readyState === 'loading') {
