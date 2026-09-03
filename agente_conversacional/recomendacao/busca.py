@@ -3,6 +3,7 @@ import numpy as np
 from recomendacao.dataset import FEATURES_AUDIO, FEATURES_AUDIO_NORM, carregar_dataset
 from recomendacao.indice import construir_indice
 from recomendacao.normalizacao import normalizar_texto
+from recomendacao.spotify_fallback import buscar_faixas_spotify
 
 _ENERGIA_DANCABILIDADE_VALORES = {"baixa", "media", "alta"}
 _VALENCIA_VALORES = {"triste", "neutro", "feliz"}
@@ -36,6 +37,13 @@ def buscar_recomendacoes(
     `faixas_ja_mostradas` so afeta `cobertura_sessao` (ticket 1.4) — nao
     filtra faixas repetidas do resultado em si, so mede a proporcao de
     faixas novas nele.
+
+    Quando a busca local volta vazia ou mais escassa que `n_resultados`
+    (cobertura insuficiente no dataset de ~31.8k faixas pro genero/artista
+    pedido), complementa com a Spotify Search API (ticket KAN-95) — ver
+    `_completar_com_spotify`. Faixas assim entram marcadas com
+    `_origem: "spotify_fallback"`; faixas do dataset local nao ganham essa
+    chave (mantem o schema documentado em `_formatar_faixas` intacto).
     """
     df = carregar_dataset()
     consulta = _validar_consulta(
@@ -61,12 +69,39 @@ def buscar_recomendacoes(
     else:
         resultado = _ranquear_por_similaridade(df, mascara, vetor_alvo, consulta["n_resultados"])
 
+    faixas_locais = _formatar_faixas(resultado)
+    faixas_fallback = _completar_com_spotify(consulta, faixas_locais)
+
     return {
-        "faixas": _formatar_faixas(resultado),
-        "diversidade_generos": _calcular_diversidade_generos(resultado),
-        "cobertura_sessao": _calcular_cobertura_sessao(resultado, faixas_ja_mostradas_validas),
+        "faixas": faixas_locais + faixas_fallback,
+        "diversidade_generos": _calcular_diversidade_generos(resultado, faixas_fallback),
+        "cobertura_sessao": _calcular_cobertura_sessao(resultado, faixas_ja_mostradas_validas, faixas_fallback),
         "consulta_efetiva": consulta,
     }
+
+
+def _completar_com_spotify(consulta, faixas_locais):
+    """Escassez = menos faixas locais do que o `n_resultados` (ja validado
+    e limitado a 1..30) pedido — cobre tanto o caso vazio quanto o
+    parcialmente coberto, sem precisar de um piso arbitrario separado (o
+    dataset local tem ~31.8k faixas, entao na pratica so fica escasso
+    quando o filtro de genero/artista restringe demais). So dispara quando
+    ha genero ou artista_referencia validos pra virar uma query de texto —
+    sem nenhum sinal, nao ha o que perguntar pro Spotify (ver
+    `buscar_faixas_spotify`)."""
+    faltam = consulta["n_resultados"] - len(faixas_locais)
+    if faltam <= 0:
+        return []
+
+    faixas_fallback = buscar_faixas_spotify(
+        genero=consulta["genero"],
+        artista_referencia=consulta["artista_referencia"],
+        n_resultados=faltam,
+        excluir_explicit=consulta["excluir_explicit"],
+    )
+
+    ids_locais = {faixa["track_id"] for faixa in faixas_locais}
+    return [faixa for faixa in faixas_fallback if faixa["track_id"] not in ids_locais]
 
 
 def _validar_consulta(df, genero, energia, valencia, dancabilidade, artista_referencia, excluir_explicit, n_resultados):
@@ -195,15 +230,29 @@ def _ranquear_por_similaridade(df, mascara, vetor_alvo, n_resultados):
     return df.iloc[posicoes_validas[ordem]]
 
 
-def _calcular_diversidade_generos(resultado):
-    return int(resultado["track_genre"].nunique())
+def _calcular_diversidade_generos(resultado, faixas_fallback=()):
+    """Ticket 1.4 + KAN-95: faixas do Spotify fallback contam pra
+    diversidade com o genero que a Spotify Search API devolveu (nenhum,
+    nesse caso — ver `_formatar_faixa_spotify`) — mesma logica de "genero
+    distinto visto nesta resposta" que ja valia pro dataset local, so que
+    sem exigir uma segunda chamada (endpoint de audio-features/genero por
+    faixa da Spotify) so pra alimentar essa metrica."""
+    generos_locais = set(resultado["track_genre"].dropna().unique()) if len(resultado) else set()
+    generos_fallback = {faixa["genero"] for faixa in faixas_fallback if faixa.get("genero")}
+    return len(generos_locais | generos_fallback)
 
 
-def _calcular_cobertura_sessao(resultado, faixas_ja_mostradas):
-    if len(resultado) == 0:
+def _calcular_cobertura_sessao(resultado, faixas_ja_mostradas, faixas_fallback=()):
+    """Ticket 1.4 + KAN-95: faixas do Spotify fallback tambem foram
+    mostradas ao usuario nesta sessao, entao contam pra `cobertura_sessao`
+    do mesmo jeito que as locais — a metrica mede "faixas novas na resposta
+    atual", nao "faixas novas do dataset local"."""
+    total = len(resultado) + len(faixas_fallback)
+    if total == 0:
         return 0.0
-    novas = (~resultado["track_id"].isin(faixas_ja_mostradas)).sum()
-    return novas / len(resultado)
+    novas_locais = int((~resultado["track_id"].isin(faixas_ja_mostradas)).sum()) if len(resultado) else 0
+    novas_fallback = sum(1 for faixa in faixas_fallback if faixa["track_id"] not in faixas_ja_mostradas)
+    return (novas_locais + novas_fallback) / total
 
 
 def _formatar_faixas(resultado):
