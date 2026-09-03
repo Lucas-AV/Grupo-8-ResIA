@@ -123,6 +123,9 @@ tests/                         # testes automatizados (pytest)
 requirements.txt               # dependências Python
 .github/workflows/pages.yml    # workflow de deploy do site no GitHub Pages
 analise_mercado_streaming/     # análise de mercado do pitch, em Julia (stack separada, ver abaixo)
+agente_conversacional/         # backend do agente (Proposta B) — Épico 0: infra de LLM (ver seção abaixo)
+docs/PIPELINE_AGENTE_PROPOSTA_B.md  # especificação técnica completa do pipeline conversacional
+docs/BACKLOG_JIRA_PROPOSTA_B.md     # backlog em tickets, 1 seção por épico do Jira
 ```
 
 ## Análise de mercado (Julia)
@@ -213,6 +216,10 @@ Testes: `pytest`
 - [x] Arquitetura do agente conversacional definida (Proposta B) — ver
       [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](docs/PIPELINE_AGENTE_PROPOSTA_B.md)
       e backlog em [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](docs/BACKLOG_JIRA_PROPOSTA_B.md)
+- [x] Épico 0 — Infraestrutura de LLM implementada e testada (Ollama +
+      backend Claude alternativo, health-check, logística de rede da demo) —
+      ver [`agente_conversacional/`](agente_conversacional/)
+- [ ] Motor de recomendação (Épico 1) e pipeline conversacional (Épico 2)
 - [ ] Modelagem do agente de recomendação (conteúdo/colaborativo/híbrido)
 - [ ] Avaliação com dataset complementar de interação/avaliação de usuários
 

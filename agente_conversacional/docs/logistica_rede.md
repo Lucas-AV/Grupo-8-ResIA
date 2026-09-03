@@ -54,6 +54,25 @@ que outras pessoas acessem de dispositivos proprios durante a demo — mas
 so deve ser ensaiado com antecedencia (nunca testado pela primeira vez no
 dia, conforme o plano de testes em PIPELINE_AGENTE_PROPOSTA_B.md secao 10).
 
-**Status:** proposta registrada aqui; falta validar com o hardware real de
-quem vai apresentar e marcar como decidido (criterio de aceite do ticket
-0.5 ainda em aberto).
+## Ensaio real (2026-09-02)
+
+Decisao: **opcao 3 (tudo na mesma maquina)**, usando o hardware do
+apresentador (Lucas). Modelo alvo `qwen2.5:7b-instruct-q4_K_M` baixado e
+testado nessa maquina: `ollama ps` reportou **5.4GB, 83% GPU / 17% CPU**
+(bem melhor que o `glm-4.7-flash` anterior, 79% CPU).
+
+Backend (`uvicorn app:app`) subiu apontando pro Ollama real com esse
+modelo:
+
+- Boot a frio (LLM ainda carregando, >8s): health-check no lifespan
+  expirou o timeout, logou aviso e o servidor **subiu normalmente**
+  mesmo assim (comportamento esperado do ticket 0.4).
+- Apos o "aquecimento" do modelo, `GET /health` respondeu
+  `{"disponivel": true, "backend": "ollama", "erro": null}`.
+
+Confirma a recomendacao: aquecer o modelo (rodar um prompt trivial) antes
+de abrir a demo pro publico, pra nao expor o cold-start de ~46s ao vivo.
+
+**Status:** decidido e testado de ponta a ponta na configuracao real
+(opcao 3, hardware do apresentador). Criterio de aceite do ticket 0.5
+cumprido.

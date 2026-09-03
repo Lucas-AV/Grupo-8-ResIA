@@ -80,14 +80,14 @@ PITCH_CARDS = [
         ),
     },
     {
-        "label": "A solucao — em desenho",
+        "label": "A solucao — arquitetura definida",
         "body": (
-            "O desenho tecnico exato de como o agente vai funcionar ainda "
-            "esta sendo consolidado pelo time. Os principios ja definidos: a "
-            "recomendacao sempre parte de uma faixa que existe de verdade no "
-            "catalogo (nunca uma faixa inventada), e a experiencia precisa "
-            "continuar funcionando mesmo se algum servico externo falhar no "
-            "meio de uma demonstracao."
+            "Arquitetura do agente conversacional definida (Proposta B): LLM "
+            "interage com um motor de busca em Python via pipeline em "
+            "etapas, nunca por tool-calling nativo — a recomendacao sempre "
+            "parte de uma faixa que existe de verdade no catalogo (nunca uma "
+            "faixa inventada). Infraestrutura de LLM (Epico 0) ja "
+            "implementada e testada nesta maquina."
         ),
     },
     {
