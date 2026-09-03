@@ -17,6 +17,9 @@ export function useTabNavigation() {
   return { pending, goTo, consume };
 }
 
+// Both onMounted and watch are needed: onMounted catches first nav to an unloaded tab;
+// watch catches repeat navs (KeepAlive prevents remount). No double-fire: consume()'s
+// pending.value = null re-triggers watch, but the guard returns null (already consumed).
 export function useNavigationTarget(tabId, onId) {
   const { pending, consume } = useTabNavigation();
 
