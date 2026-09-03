@@ -9,10 +9,12 @@ from api.schemas import (
     ChatRequest,
     ChatResponse,
     HistoryMessage,
+    RecomendarResponse,
     SessionResponse,
     TrackItem,
 )
 from chat.contracts import PipelineUnavailableError, TurnProcessor
+from recomendacao.busca import buscar_recomendacoes
 from sessions.store import SessionNotFound, SessionStore
 
 logger = logging.getLogger("agente.api")
@@ -81,6 +83,37 @@ def build_api_router(
             diversidade_generos=result.diversidade_generos,
             cobertura_sessao=result.cobertura_sessao,
             consulta_efetiva=dict(result.consulta_efetiva),
+        )
+
+    @router.get("/recomendar", response_model=RecomendarResponse)
+    def recomendar_direto(
+        genero: str | None = None,
+        energia: str | None = None,
+        valencia: str | None = None,
+        humor: str | None = None,
+        dancabilidade: str | None = None,
+        artista_referencia: str | None = None,
+        excluir_explicit: bool = False,
+        n_resultados: int = 10,
+    ) -> RecomendarResponse:
+        """Ticket 12.3 (KAN-106): recomendacao direta, sem LLM/roteador — chama
+        `buscar_recomendacoes` (ticket 1.3) na hora, util pra demo/debug sem
+        depender do Ollama estar no ar. `humor` e um alias em portugues pra
+        `valencia` (so usado se `valencia` nao vier preenchido)."""
+        resultado = buscar_recomendacoes(
+            genero=genero,
+            energia=energia,
+            valencia=valencia if valencia is not None else humor,
+            dancabilidade=dancabilidade,
+            artista_referencia=artista_referencia,
+            excluir_explicit=excluir_explicit,
+            n_resultados=n_resultados,
+        )
+        return RecomendarResponse(
+            faixas=[TrackItem(**faixa) for faixa in resultado["faixas"]],
+            diversidade_generos=resultado["diversidade_generos"],
+            cobertura_sessao=resultado["cobertura_sessao"],
+            consulta_efetiva=dict(resultado["consulta_efetiva"]),
         )
 
     return router

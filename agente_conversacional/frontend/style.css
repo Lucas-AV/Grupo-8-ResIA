@@ -44,6 +44,18 @@
   --shadow-glow: 0 0 30px rgba(29, 185, 84, 0.22);
   --shadow-dock: 0 -8px 32px rgba(0, 0, 0, 0.65);
 
+  /* Overlays neutros (hover states, scrollbar, bordas sutis sobre --bg-surface) —
+     tokenizados pra poderem inverter de branco-sobre-escuro pra preto-sobre-claro
+     no tema claro (Ticket 12.5 / KAN-108) sem caçar valor hardcoded por hardcoded. */
+  --overlay-weak: rgba(255, 255, 255, 0.08);
+  --overlay-medium: rgba(255, 255, 255, 0.15);
+  --overlay-strong: rgba(255, 255, 255, 0.2);
+  --overlay-strongest: rgba(255, 255, 255, 0.28);
+
+  /* Bolha de mensagem do usuário */
+  --user-bubble-bg: linear-gradient(135deg, #282828 0%, #1f1f1f 100%);
+  --user-bubble-border: rgba(255, 255, 255, 0.1);
+
   /* Raios de Arredondamento */
   --radius-xs: 6px;
   --radius-sm: 10px;
@@ -54,6 +66,46 @@
   /* Transições */
   --transition-fast: 0.18s cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 0.28s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Tema claro (Ticket 12.5 / KAN-108) — ativado via `data-theme="light"` na
+   raiz do documento (ver app.js applyTheme/toggleTheme). O app nasceu 100%
+   escuro (identidade Spotify); este bloco redefine só os tokens semânticos
+   de cor, então qualquer regra abaixo que já usa var(--...) se adapta
+   automaticamente, sem precisar duplicar seletor por seletor. */
+[data-theme='light'] {
+  --bg-base: #f5f6f7;
+  --bg-canvas: #ffffff;
+  --bg-surface: #ffffff;
+  --bg-surface-elevated: #f0f1f3;
+  --bg-surface-hover: #e7e9ec;
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --bg-glass-input: rgba(240, 241, 243, 0.9);
+
+  --spotify-green-subtle: rgba(29, 185, 84, 0.1);
+
+  --glow-emerald: rgba(16, 185, 129, 0.08);
+  --glow-violet: rgba(139, 92, 246, 0.06);
+
+  --error-red-subtle: rgba(241, 94, 94, 0.1);
+
+  --text-primary: #14181a;
+  --text-secondary: #565c60;
+  --text-muted: #7c8286;
+  --text-subtle: #a3a8ab;
+
+  --border-subtle: rgba(0, 0, 0, 0.09);
+  --shadow-sm: 0 4px 12px rgba(20, 24, 26, 0.08);
+  --shadow-md: 0 8px 24px rgba(20, 24, 26, 0.1);
+  --shadow-dock: 0 -8px 28px rgba(20, 24, 26, 0.1);
+
+  --overlay-weak: rgba(0, 0, 0, 0.05);
+  --overlay-medium: rgba(0, 0, 0, 0.1);
+  --overlay-strong: rgba(0, 0, 0, 0.14);
+  --overlay-strongest: rgba(0, 0, 0, 0.2);
+
+  --user-bubble-bg: linear-gradient(135deg, #eef0f2 0%, #e3e6ea 100%);
+  --user-bubble-border: rgba(0, 0, 0, 0.08);
 }
 
 /* 2. Reset e Base */
@@ -179,7 +231,7 @@ body {
 }
 
 .session-pill:hover {
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--overlay-strong);
   color: var(--text-primary);
 }
 
@@ -229,7 +281,7 @@ body {
 
 .btn-new-chat:hover {
   background: var(--bg-surface-elevated);
-  border-color: rgba(255, 255, 255, 0.2);
+  border-color: var(--overlay-strong);
   transform: translateY(-1px);
 }
 
@@ -274,11 +326,11 @@ body {
   background: transparent;
 }
 .chat-scroll-area::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--overlay-medium);
   border-radius: var(--radius-pill);
 }
 .chat-scroll-area::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.28);
+  background: var(--overlay-strongest);
 }
 
 /* 6. Empty State Hero (Inspirado na Imagem 2 Knotes e Imagem 1 Convora) */
@@ -384,7 +436,7 @@ body {
 
 .feature-badge-card:hover {
   background: var(--bg-surface-elevated);
-  border-color: rgba(255, 255, 255, 0.15);
+  border-color: var(--overlay-medium);
 }
 
 .feature-icon-wrapper {
@@ -469,9 +521,9 @@ body {
 }
 
 .message-row.user .message-bubble {
-  background: linear-gradient(135deg, #282828 0%, #1f1f1f 100%);
+  background: var(--user-bubble-bg);
   color: var(--text-primary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--user-bubble-border);
   border-top-right-radius: 4px;
 }
 
@@ -705,7 +757,7 @@ body {
   font-weight: 600;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.07);
+  background: var(--overlay-weak);
   color: var(--text-secondary);
   text-transform: capitalize;
   display: inline-flex;
@@ -738,12 +790,79 @@ body {
 
 .btn-track-action:hover {
   color: var(--spotify-green);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--overlay-weak);
 }
 
 .btn-track-action.copied {
   color: var(--spotify-green);
   background: rgba(29, 185, 84, 0.2);
+}
+
+/* Ações da resposta — "Salvar no Spotify" (Ticket 12.2) e "Gerar outra
+   recomendação" (Ticket 12.4), logo abaixo dos cards de faixa. */
+.response-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn-response-action {
+  padding: 7px 16px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+.btn-response-action:hover:not(:disabled) {
+  background: var(--bg-surface-elevated);
+  border-color: var(--overlay-strong);
+  transform: translateY(-1px);
+}
+
+.btn-response-action:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
+}
+
+.btn-salvar-spotify {
+  background: var(--spotify-green-subtle);
+  border-color: rgba(29, 185, 84, 0.35);
+  color: var(--spotify-green);
+}
+
+.btn-salvar-spotify:hover:not(:disabled) {
+  background: var(--spotify-green-subtle);
+  border-color: var(--spotify-green);
+}
+
+/* Feedback visível de que a sessão já está conectada (Ticket 12.2). */
+/* Clicável para desconectar (Ticket 4.5 / KAN-40) — ver handleLogoutSpotify em app.js. */
+.btn-spotify-auth.btn-spotify-auth--connected {
+  background: var(--bg-surface-elevated);
+  color: var(--spotify-green);
+  border: 1px solid rgba(29, 185, 84, 0.4);
+  box-shadow: none;
+  cursor: pointer;
+}
+
+.btn-spotify-auth.btn-spotify-auth--connected:hover {
+  background: var(--bg-surface-elevated);
+  border-color: var(--spotify-green);
+  transform: none;
+}
+
+/* Ticket 4.5 (KAN-40): botão desabilitado durante a chamada a POST /auth/logout. */
+.btn-spotify-auth:disabled {
+  opacity: 0.6;
+  cursor: default;
+  transform: none;
 }
 
 /* 9. Indicador de Processamento / Waveform Animado (Ticket 4.3 & Imagem 1) */
@@ -861,7 +980,7 @@ body {
 
 .btn-icon-secondary:hover {
   color: var(--text-primary);
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--overlay-weak);
 }
 
 .btn-send {

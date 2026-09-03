@@ -44,6 +44,12 @@ MARKET_PNGS = [
 ]
 MARKET_REPORT_PDF = MARKET_DIR / "relatorio-sinal-do-streaming.pdf"
 
+REPO_URL = "https://github.com/Lucas-AV/Grupo-8-ResIA"
+# Ainda nao ha hospedagem publica do agente (Epico 8, ticket 8.7, bloqueado —
+# ver agente_conversacional/README.md): o CTA "Testar o Agente" do ticket
+# 12.6 linka pro passo a passo de como rodar localmente, nao pra um demo ao vivo.
+AGENTE_DEMO_URL = f"{REPO_URL}/tree/main/agente_conversacional#readme"
+
 TEAM = [
     {"name": "Lucas Alves Vilela", "github": "Lucas-AV"},
     {"name": "Dayane Ferreira", "github": "dayarierref"},
@@ -464,6 +470,19 @@ def build() -> None:
         pitch=PITCH_CARDS,
     )
     (DIST_DIR / "index.html").write_text(index_html, encoding="utf-8")
+
+    pitch_by_label = {card["label"]: card for card in PITCH_CARDS}
+    landing_html = env.get_template("landing.html").render(
+        title="Landing",
+        current_page="landing.html",
+        pitch=PITCH_CARDS,
+        problema=pitch_by_label["Problema"],
+        solucao=pitch_by_label["A solucao — arquitetura definida"],
+        tiles=load_home_tiles(PROFILE_JSON),
+        repo_url=REPO_URL,
+        agente_url=AGENTE_DEMO_URL,
+    )
+    (DIST_DIR / "landing.html").write_text(landing_html, encoding="utf-8")
 
     rows = load_genre_rows(GENRE_CSV)
     genero_html = env.get_template("genero.html").render(
