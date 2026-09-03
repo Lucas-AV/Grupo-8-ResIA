@@ -13,6 +13,7 @@ export function trackSummary(track) {
     title: track.name,
     subtitle: asArray(track.artists).map((a) => a.name).join(", "),
     url: spotifyUrl(track),
+    previewUrl: track.preview_url ?? null,
   };
 }
 
