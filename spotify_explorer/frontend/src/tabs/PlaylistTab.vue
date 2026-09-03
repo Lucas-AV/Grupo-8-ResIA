@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useHistory } from "../composables/useHistory.js";
+import { useNavigationTarget } from "../composables/useTabNavigation.js";
 import { trackSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import PlaylistPreview from "../components/previews/PlaylistPreview.vue";
@@ -12,10 +13,19 @@ const { status, call } = useApi();
 const result = reactive({ data: null });
 const { items: history, add: addToHistory } = useHistory("playlist");
 
+const tracksContainer = computed(() => result.data?.items ?? result.data?.tracks ?? null);
+
 const tracks = computed(() => {
-  const items = result.data?.tracks?.items;
+  const items = tracksContainer.value?.items;
   if (!Array.isArray(items)) return [];
-  return items.map((item) => trackSummary(item.track)).filter((item) => item !== null);
+  return items
+    .map((entry) => trackSummary(entry.item ?? entry.track))
+    .filter((item) => item !== null);
+});
+
+const tracksUnavailable = computed(() => {
+  if (!result.data?.name) return false;
+  return !Array.isArray(tracksContainer.value?.items);
 });
 
 async function onSubmit() {
@@ -23,6 +33,11 @@ async function onSubmit() {
   result.data = data;
   addToHistory(playlistId.value);
 }
+
+useNavigationTarget("playlist", (id) => {
+  playlistId.value = id;
+  onSubmit();
+});
 </script>
 
 <template>
@@ -47,9 +62,15 @@ async function onSubmit() {
         <div v-if="tracks.length">
           <h3>Faixas</h3>
           <div v-for="(item, i) in tracks" :key="i">
-            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
           </div>
         </div>
+        <p v-else-if="tracksUnavailable" class="status status-error">
+          Faixas não disponíveis — a Spotify só devolve o campo de faixas pra
+          quem é dono/colaborador da playlist (restrição de fev/2026). Essa
+          aba usa Client Credentials Flow, sem usuário associado, então nunca
+          vai ver faixas de playlist nenhuma por aqui.
+        </p>
       </template>
     </ResultPanel>
   </section>

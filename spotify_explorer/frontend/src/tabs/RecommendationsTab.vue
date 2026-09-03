@@ -57,7 +57,7 @@ async function onSubmit() {
     >
       <template #preview>
         <div v-for="(item, i) in items" :key="i">
-          <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+          <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
         </div>
       </template>
     </ResultPanel>

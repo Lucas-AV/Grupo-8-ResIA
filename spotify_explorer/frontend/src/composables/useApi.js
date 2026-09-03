@@ -8,6 +8,10 @@ export async function fetchJSON(url, options = {}) {
     return { ok: false, status: 0, data: null, error: String(err) };
   }
 
+  if (response.status === 204) {
+    return { ok: response.ok, status: 204, data: {}, error: null };
+  }
+
   try {
     const data = await response.json();
     return { ok: response.ok, status: response.status, data, error: null };
