@@ -25,6 +25,11 @@
   --glow-emerald: rgba(16, 185, 129, 0.12);
   --glow-violet: rgba(139, 92, 246, 0.1);
 
+  /* Erro / Feedback Negativo (Ticket 4.8 — banner de erro 500) */
+  --error-red: #f15e5e;
+  --error-red-hover: #ff7a7a;
+  --error-red-subtle: rgba(241, 94, 94, 0.14);
+
   /* Tipografia & Texto */
   --text-primary: #ffffff;
   --text-secondary: #b3b3b3;
@@ -888,10 +893,22 @@ body {
 }
 
 /* 11. Toast de Notificação */
-.toast-notification {
+#toast-container {
   position: fixed;
   top: 20px;
   right: 20px;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  max-width: min(380px, calc(100vw - 40px));
+}
+
+.toast-notification {
+  display: flex;
+  align-items: center;
+  gap: 12px;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
   border-left: 4px solid var(--spotify-green);
@@ -900,8 +917,50 @@ body {
   border-radius: var(--radius-sm);
   font-size: 0.85rem;
   box-shadow: var(--shadow-md);
-  z-index: 100;
   animation: slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* Banner de erro genérico (Ticket 4.8 / KAN-75) — erro 500 padronizado do backend */
+.toast-notification.toast-error {
+  border-left-color: var(--error-red);
+}
+
+.toast-error-text {
+  flex: 1;
+  line-height: 1.4;
+}
+
+.toast-retry-btn {
+  flex-shrink: 0;
+  background: var(--error-red-subtle);
+  color: var(--error-red-hover);
+  border: 1px solid var(--error-red);
+  border-radius: var(--radius-pill);
+  padding: 6px 14px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.toast-retry-btn:hover {
+  background: var(--error-red);
+  color: var(--text-primary);
+}
+
+.toast-close-btn {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 2px 4px;
+}
+
+.toast-close-btn:hover {
+  color: var(--text-primary);
 }
 
 @keyframes slideInRight {

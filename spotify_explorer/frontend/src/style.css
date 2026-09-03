@@ -267,6 +267,18 @@ h3 {
   background: var(--bg-elevated);
 }
 
+.media-item-clickable {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
 .media-item-image {
   width: 48px;
   height: 48px;
@@ -438,6 +450,10 @@ h3 {
   align-items: center;
   color: var(--text-secondary);
   flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
 }
 
 .media-item-link:hover {
@@ -465,6 +481,10 @@ h3 {
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
 }
 
 .preview-spotify-link:hover {

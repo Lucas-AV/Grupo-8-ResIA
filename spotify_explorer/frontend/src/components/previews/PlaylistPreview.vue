@@ -17,7 +17,10 @@ const summary = computed(() => playlistSummary(props.playlist));
       <div class="preview-title">{{ summary.title }}</div>
       <div class="preview-subtitle">{{ summary.subtitle }}</div>
       <div v-if="playlist.description" class="preview-subtitle">{{ playlist.description }}</div>
-      <div v-if="playlist.tracks?.total != null" class="preview-subtitle">{{ playlist.tracks.total }} faixas</div>
+      <div v-if="(playlist.items?.total ?? playlist.tracks?.total) != null" class="preview-subtitle">
+        {{ playlist.items?.total ?? playlist.tracks?.total }} faixas
+      </div>
+      <div v-else class="preview-subtitle">Faixas: indisponível (restrição da Spotify)</div>
       <a v-if="summary.url" :href="summary.url" target="_blank" rel="noopener" class="preview-spotify-link">
         <Icon name="external-link" :size="14" />
         Abrir no Spotify

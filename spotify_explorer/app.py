@@ -252,6 +252,34 @@ def register_routes(app):
             params={"limit": request.args.get("limit", "20")},
         )
 
+    @app.route("/api/me/player")
+    def player():
+        return _user_data_route("/me/player")
+
+    @app.route("/api/me/player/queue")
+    def player_queue():
+        return _user_data_route("/me/player/queue")
+
+    @app.route("/api/me/following")
+    def following():
+        return _user_data_route(
+            "/me/following",
+            params={
+                "type": "artist",
+                "limit": request.args.get("limit", "20"),
+            },
+        )
+
+    @app.route("/api/me/playlists")
+    def my_playlists():
+        return _user_data_route(
+            "/me/playlists",
+            params={
+                "limit": request.args.get("limit", "20"),
+                "offset": request.args.get("offset", "0"),
+            },
+        )
+
 
 if __name__ == "__main__":
     flask_app = create_app()
