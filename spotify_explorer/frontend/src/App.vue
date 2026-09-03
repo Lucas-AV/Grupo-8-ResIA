@@ -4,6 +4,7 @@ import { fetchJSON } from "./composables/useApi.js";
 import { useAuthStatus } from "./composables/useAuthStatus.js";
 import { useTabNavigation } from "./composables/useTabNavigation.js";
 import AppSidebar from "./components/AppSidebar.vue";
+import NowPlayingModal from "./components/NowPlayingModal.vue";
 import SearchTab from "./tabs/SearchTab.vue";
 import TrackTab from "./tabs/TrackTab.vue";
 import ArtistTab from "./tabs/ArtistTab.vue";
@@ -66,5 +67,7 @@ onMounted(async () => {
         <component :is="tabs.find((t) => t.id === activeTab).component" />
       </KeepAlive>
     </main>
+
+    <NowPlayingModal />
   </div>
 </template>
