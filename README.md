@@ -25,6 +25,7 @@ faixas — e evolui para as etapas de modelagem e recomendação.
   - [Sugestões de nome do projeto](#sugestões-de-nome-do-projeto)
   - [Base de dados](#base-de-dados)
   - [Estrutura do repositório](#estrutura-do-repositório)
+  - [Arquitetura do agente conversacional (Proposta B)](#arquitetura-do-agente-conversacional-proposta-b)
   - [Análises disponíveis](#análises-disponíveis)
   - [Bibliotecas](#bibliotecas)
   - [Como reproduzir](#como-reproduzir)
@@ -100,20 +101,26 @@ Dataset: [Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya
 ## Estrutura do repositório
 
 ```
-dataset.csv                    # dataset bruto (Kaggle)
 analise_exploratoria.ipynb     # notebook que concentra a EDA (mesma logica dos scripts abaixo, saida inline)
-group_occurrences.py           # agrupa dataset.csv por coluna e por track_genre
-occurrences_by_column.csv      # contagem de valores por coluna (formato longo)
-occurrences_by_genre.csv       # contagem de faixas + médias por gênero
-chart_style.py                 # estilo/cores compartilhados entre os scripts de gráfico
-plot_genre_charts.py           # gera genre_popularity.png e genre_energy_dance.png
-plot_genre_mode.py             # gera genre_mode.png (proporção de escala maior/menor)
-plot_popularity_occurrences.py # gera popularity_occurrences.png (popularidade x nº de faixas do artista)
-profile_dataset.py             # gera dataset_profile.json e distribuições de faixas por artista/álbum
-plot_correlations.py           # gera correlation_heatmap.png e correlations_top_pairs.csv
+data/                           # CSVs/JSON, brutos e gerados
+  dataset.csv                   # dataset bruto (Kaggle)
+  occurrences_by_column.csv     # contagem de valores por coluna (formato longo)
+  occurrences_by_genre.csv      # contagem de faixas + médias por gênero
+  dataset_profile.json          # estatísticas gerais do dataset
+  dataset_multi_genre_tracks.csv# faixas presentes em mais de um gênero
+  correlations_top_pairs.csv    # pares mais correlacionados (Pearson)
+images/                         # PNGs gerados pelos scripts de análise
+scripts/                        # scripts Python de análise
+  chart_style.py                 # estilo/cores compartilhados entre os scripts de gráfico
+  group_occurrences.py           # agrupa dataset.csv por coluna e por track_genre
+  plot_genre_charts.py           # gera genre_popularity.png e genre_energy_dance.png
+  plot_genre_mode.py             # gera genre_mode.png (proporção de escala maior/menor)
+  plot_popularity_occurrences.py # gera popularity_occurrences.png (popularidade x nº de faixas do artista)
+  profile_dataset.py             # gera dataset_profile.json e distribuições de faixas por artista/álbum
+  plot_correlations.py           # gera correlation_heatmap.png e correlations_top_pairs.csv
 site/                          # build do dashboard (build_site.py, templates/, static/)
 tests/                         # testes automatizados (pytest)
-conftest.py                    # config do pytest (path do projeto)
+  conftest.py                  # config do pytest (path do projeto)
 requirements.txt               # dependências Python
 .github/workflows/pages.yml    # workflow de deploy do site no GitHub Pages
 analise_mercado_streaming/     # análise de mercado do pitch, em Julia (stack separada, ver abaixo)
@@ -136,6 +143,24 @@ seu próprio ambiente (`Project.toml`/`Manifest.toml`).
 - Versão no site publicado: [Mercado de Streaming](https://lucas-av.github.io/Grupo-8-ResIA/mercado.html)
 - Como reproduzir: ver [`analise_mercado_streaming/README.md`](analise_mercado_streaming/README.md)
   (resumo: `julia setup.jl && julia analise_mercado.jl`)
+
+## Arquitetura do agente conversacional (Proposta B)
+
+O time decidiu a arquitetura do agente conversacional que vai consumir o
+`dataset.csv`: um pipeline em etapas (roteador determinístico → extração
+estruturada via LLM → busca determinística → geração guiada), com
+integração completa a Spotify OAuth para personalizar recomendações a
+partir do histórico do usuário. Dois documentos de referência cobrem essa
+arquitetura ponta a ponta:
+
+- [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](docs/PIPELINE_AGENTE_PROPOSTA_B.md)
+  — especificação completa: ciclo de vida do agente, fluxo Spotify OAuth
+  (PKCE), contratos de dados entre componentes, pipeline de um turno de
+  conversa passo a passo, casos de uso, edge cases e plano de testes.
+- [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](docs/BACKLOG_JIRA_PROPOSTA_B.md) —
+  o mesmo escopo reorganizado em épicos e tickets prontos para o Kanban
+  do Jira, com prioridade, tamanho, dependências e referência à seção
+  técnica de cada item.
 
 ## Análises disponíveis
 
@@ -160,8 +185,8 @@ seu próprio ambiente (`Project.toml`/`Manifest.toml`).
 
 | Biblioteca | O que é | Para que serve neste projeto |
 |---|---|---|
-| [pandas](https://pandas.pydata.org/) | Biblioteca de manipulação e análise de dados tabulares (DataFrames) | Ler o `dataset.csv`, agrupar por coluna/gênero e calcular médias/contagens (`group_occurrences.py`, `site/build_site.py`) |
-| [matplotlib](https://matplotlib.org/) | Biblioteca de geração de gráficos estáticos | Gerar os PNGs das análises (`plot_genre_charts.py`, `plot_genre_mode.py`, `plot_popularity_occurrences.py`) |
+| [pandas](https://pandas.pydata.org/) | Biblioteca de manipulação e análise de dados tabulares (DataFrames) | Ler o `data/dataset.csv`, agrupar por coluna/gênero e calcular médias/contagens (`scripts/group_occurrences.py`, `site/build_site.py`) |
+| [matplotlib](https://matplotlib.org/) | Biblioteca de geração de gráficos estáticos | Gerar os PNGs das análises (`scripts/plot_genre_charts.py`, `scripts/plot_genre_mode.py`, `scripts/plot_popularity_occurrences.py`) |
 | [adjustText](https://github.com/Phlya/adjustText) | Reposiciona rótulos de texto em gráficos matplotlib para evitar sobreposição | Afastar os rótulos de gênero que se sobrepunham no scatter de energia × dançabilidade (`genre_energy_dance.png`) |
 | [Jinja2](https://jinja.palletsprojects.com/) | Motor de templates para gerar texto/HTML a partir de dados | Renderizar as páginas HTML do site (`site/build_site.py` + `site/templates/`) |
 | [pytest](https://docs.pytest.org/) | Framework de testes automatizados | Rodar os testes do repositório (`tests/`) |
@@ -171,14 +196,14 @@ seu próprio ambiente (`Project.toml`/`Manifest.toml`).
 
 ```bash
 pip install -r requirements.txt
-python group_occurrences.py           # gera os CSVs agregados
-python plot_genre_charts.py           # gera genre_popularity.png e genre_energy_dance.png
-python plot_genre_mode.py             # gera genre_mode.png
-python plot_popularity_occurrences.py # gera popularity_occurrences.png
-python profile_dataset.py             # gera dataset_profile.json e distribuicoes por artista/album
-python plot_correlations.py           # gera correlation_heatmap.png e correlations_top_pairs.csv
-python site/build_site.py             # gera o site em site/dist/ (abrir site/dist/index.html)
-jupyter lab analise_exploratoria.ipynb # abre o notebook de EDA (mesma logica, saida inline)
+python scripts/group_occurrences.py           # gera os CSVs agregados em data/
+python scripts/plot_genre_charts.py           # gera images/genre_popularity.png e images/genre_energy_dance.png
+python scripts/plot_genre_mode.py             # gera images/genre_mode.png
+python scripts/plot_popularity_occurrences.py # gera images/popularity_occurrences.png
+python scripts/profile_dataset.py             # gera data/dataset_profile.json e distribuicoes por artista/album
+python scripts/plot_correlations.py           # gera images/correlation_heatmap.png e data/correlations_top_pairs.csv
+python site/build_site.py                     # gera o site em site/dist/ (abrir site/dist/index.html)
+jupyter lab analise_exploratoria.ipynb        # abre o notebook de EDA (mesma logica, saida inline)
 ```
 
 Testes: `pytest`
@@ -188,6 +213,9 @@ Testes: `pytest`
 - [x] Análise exploratória por gênero (popularidade, energia, dançabilidade, escala)
 - [x] Site GitHub Pages com dashboard interativo das análises publicado em https://lucas-av.github.io/Grupo-8-ResIA/
 - [x] Análise de mercado (Julia) e pitch de investimento
+- [x] Arquitetura do agente conversacional definida (Proposta B) — ver
+      [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](docs/PIPELINE_AGENTE_PROPOSTA_B.md)
+      e backlog em [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](docs/BACKLOG_JIRA_PROPOSTA_B.md)
 - [ ] Modelagem do agente de recomendação (conteúdo/colaborativo/híbrido)
 - [ ] Avaliação com dataset complementar de interação/avaliação de usuários
 

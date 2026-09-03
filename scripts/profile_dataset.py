@@ -12,11 +12,11 @@ import pandas as pd
 
 from chart_style import ACCENT, GRID, INK, INK_SECONDARY, LABEL_SIZE, TITLE_SIZE, apply_style
 
-INPUT_FILE = "dataset.csv"
-PROFILE_FILE = "dataset_profile.json"
-MULTI_GENRE_FILE = "dataset_multi_genre_tracks.csv"
-ARTIST_OUTPUT_FILE = "artist_track_distribution.png"
-ALBUM_OUTPUT_FILE = "album_track_distribution.png"
+INPUT_FILE = "data/dataset.csv"
+PROFILE_FILE = "data/dataset_profile.json"
+MULTI_GENRE_FILE = "data/dataset_multi_genre_tracks.csv"
+ARTIST_OUTPUT_FILE = "images/artist_track_distribution.png"
+ALBUM_OUTPUT_FILE = "images/album_track_distribution.png"
 
 BUCKET_EDGES = [0, 1, 2, 3, 5, 10, 20, 1000]
 BUCKET_LABELS = ["1", "2", "3", "4-5", "6-10", "11-20", "21+"]

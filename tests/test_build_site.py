@@ -76,16 +76,17 @@ def test_load_profile_tiles_formats_counts_and_duplicate_sub(tmp_path):
     tiles = load_profile_tiles(profile_path)
 
     assert tiles == [
-        {"label": "Faixas na base", "value": "31.819"},
+        {"label": "Faixas na base", "value": "31.819", "icon": "music"},
         {
             "label": "Faixas unicas",
             "value": "28.888",
             "sub": "2931 linhas duplicadas (mesma faixa em outro genero)",
+            "icon": "check-badge",
         },
-        {"label": "Artistas", "value": "10.872"},
-        {"label": "Albuns", "value": "15.481"},
-        {"label": "Generos", "value": "32"},
-        {"label": "Valores nulos", "value": "0"},
+        {"label": "Artistas", "value": "10.872", "icon": "users"},
+        {"label": "Albuns", "value": "15.481", "icon": "disc"},
+        {"label": "Generos", "value": "32", "icon": "layers"},
+        {"label": "Valores nulos", "value": "0", "icon": "alert"},
     ]
 
 
@@ -122,10 +123,10 @@ def test_load_home_tiles_combines_dataset_and_market_numbers(tmp_path):
     tiles = load_home_tiles(profile_path)
 
     assert tiles == [
-        {"label": "Faixas analisadas", "value": "31.819"},
-        {"label": "Generos", "value": "32"},
-        {"label": "Crescimento Brasil (2025)", "value": "+14,1%", "sub": "vs +6,4% global"},
-        {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "IFPI 2026"},
+        {"label": "Faixas analisadas", "value": "31.819", "icon": "music"},
+        {"label": "Generos", "value": "32", "icon": "layers"},
+        {"label": "Crescimento Brasil (2025)", "value": "+14,1%", "sub": "vs +6,4% global", "icon": "trending-up"},
+        {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "IFPI 2026", "icon": "globe"},
     ]
 
 

@@ -10,9 +10,9 @@ import pandas as pd
 
 from chart_style import INK, INK_SECONDARY, TICK_SIZE, TITLE_SIZE
 
-INPUT_FILE = "dataset.csv"
-HEATMAP_FILE = "correlation_heatmap.png"
-TOP_PAIRS_FILE = "correlations_top_pairs.csv"
+INPUT_FILE = "data/dataset.csv"
+HEATMAP_FILE = "images/correlation_heatmap.png"
+TOP_PAIRS_FILE = "data/correlations_top_pairs.csv"
 
 CORRELATION_COLUMNS = [
     "popularity",

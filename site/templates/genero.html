@@ -11,7 +11,7 @@
       <code>dataset.csv</code>.</p>
   </header>
 
-  <div class="tiles" id="tiles"></div>
+  <div class="tiles tiles-4" id="tiles"></div>
 
   <section>
     <h2>Popularidade media por genero</h2>
@@ -20,6 +20,12 @@
       <svg id="barChart" width="100%"></svg>
       <div class="tooltip" id="barTooltip"></div>
     </div>
+    <p class="figure-leitura"><span class="pitch-highlight">Leitura.</span> <em>Chill</em> lidera com 53,7 de
+      popularidade media, folga real sobre o segundo colocado (<em>anime</em>, 48,8). No extremo oposto,
+      <em>detroit-techno</em> e o menos popular (11,2), seguido de perto por <em>chicago-house</em> (12,3) — o
+      mesmo genero que lidera em dancabilidade no grafico abaixo, mostrando que "mais dancante" nao significa
+      "mais popular" neste dataset. Passe o mouse numa barra para ver dancabilidade, energia, tempo e valencia
+      daquele genero especifico.</p>
   </section>
 
   <section>
@@ -29,6 +35,11 @@
       <svg id="scatterChart" width="100%" viewBox="0 0 640 460"></svg>
       <div class="tooltip" id="scatterTooltip"></div>
     </div>
+    <p class="figure-leitura"><span class="pitch-highlight">Leitura.</span> <em>Death-metal</em> ocupa o canto de
+      energia maxima (0,93), enquanto <em>classical</em> fica no extremo oposto (0,19 de energia) — a maior
+      distancia do grafico. Ja o genero mais dancante e <em>chicago-house</em> (0,77 de dancabilidade), reforcando
+      que energia alta e dancabilidade alta nao sao a mesma coisa: varios generos energeticos (rock, metal) ficam
+      abaixo da media de dancabilidade, enquanto generos eletronicos concentram o quadrante superior direito.</p>
   </section>
 
   <section>
@@ -72,10 +83,10 @@
   const mostEnergetic = [...data].sort((a, b) => b.energy - a.energy)[0];
 
   document.getElementById("tiles").innerHTML = `
-    <div class="tile"><div class="tile-label">Generos analisados</div><div class="tile-value">${data.length}</div></div>
-    <div class="tile"><div class="tile-label">Faixas no dataset</div><div class="tile-value">${totalTracks.toLocaleString("pt-BR")}</div></div>
-    <div class="tile"><div class="tile-label">Mais popular</div><div class="tile-value" style="font-size:20px">${mostPopular.g}</div><div class="tile-sub">popularidade ${fmt1(mostPopular.pop)}</div></div>
-    <div class="tile"><div class="tile-label">Mais energetico</div><div class="tile-value" style="font-size:20px">${mostEnergetic.g}</div><div class="tile-sub">energia ${fmt2(mostEnergetic.energy)}</div></div>
+    <div class="tile"><svg class="tile-icon" aria-hidden="true"><use href="#icon-layers"></use></svg><div class="tile-label">Generos analisados</div><div class="tile-value">${data.length}</div></div>
+    <div class="tile"><svg class="tile-icon" aria-hidden="true"><use href="#icon-music"></use></svg><div class="tile-label">Faixas no dataset</div><div class="tile-value">${totalTracks.toLocaleString("pt-BR")}</div></div>
+    <div class="tile"><svg class="tile-icon" aria-hidden="true"><use href="#icon-star"></use></svg><div class="tile-label">Mais popular</div><div class="tile-value" style="font-size:20px">${mostPopular.g}</div><div class="tile-sub">popularidade ${fmt1(mostPopular.pop)}</div></div>
+    <div class="tile"><svg class="tile-icon" aria-hidden="true"><use href="#icon-bolt"></use></svg><div class="tile-label">Mais energetico</div><div class="tile-value" style="font-size:20px">${mostEnergetic.g}</div><div class="tile-sub">energia ${fmt2(mostEnergetic.energy)}</div></div>
   `;
 
   (function renderBars() {

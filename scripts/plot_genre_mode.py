@@ -10,8 +10,8 @@ matplotlib.use("Agg")  # headless: no display in CI, and no window needed locall
 import matplotlib.pyplot as plt
 import pandas as pd
 
-INPUT_FILE = "dataset.csv"
-OUTPUT_FILE = "genre_mode.png"
+INPUT_FILE = "data/dataset.csv"
+OUTPUT_FILE = "images/genre_mode.png"
 
 MODE1_COLOR = "#2a78d6"  # escala alta
 MODE0_COLOR = "#eb6834"  # escala baixa
