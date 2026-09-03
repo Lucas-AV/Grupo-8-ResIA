@@ -62,6 +62,12 @@ function createTrackCardElement(faixa, index = 0) {
   const album = faixa.album || '';
   const genero = faixa.genero || 'Geral';
   const theme = getGenreTheme(genero);
+  // Ticket 4.10 (KAN-77): checa preview_url e a variante camelCase
+  // defensivamente — a API sempre devolve snake_case (ver
+  // api/schemas.py:TrackItem), mas o catálogo offline embutido em app.js
+  // e qualquer outra fonte futura de `faixa` podem não seguir a mesma
+  // convenção.
+  const previewUrl = faixa.preview_url || faixa.previewUrl || null;
 
   const card = document.createElement('div');
   card.className = 'track-card';
@@ -102,8 +108,18 @@ function createTrackCardElement(faixa, index = 0) {
       </div>
     </div>
 
-    <!-- Ações Rápidas: Abrir e Copiar Link -->
+    <!-- Ações Rápidas: Prévia, Abrir e Copiar Link -->
     <div class="track-actions-group">
+      ${previewUrl ? `
+      <button type="button" class="btn-track-action btn-preview-track" title="Tocar prévia (30s)" aria-label="Tocar prévia (30s)">
+        <svg class="icon-preview-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="7 4 19 12 7 20 7 4"></polygon>
+        </svg>
+        <svg class="icon-preview-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display: none;">
+          <rect x="6" y="4" width="4" height="16"></rect>
+          <rect x="14" y="4" width="4" height="16"></rect>
+        </svg>
+      </button>` : ''}
       <button type="button" class="btn-track-action btn-copy-track-link" title="Copiar link do Spotify" data-url="${spotifyUrl}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -119,6 +135,22 @@ function createTrackCardElement(faixa, index = 0) {
       </a>
     </div>
   `;
+
+  // Ouvinte de play/pause da prévia de 30s (Ticket 4.10 / KAN-77) — só
+  // existe no DOM quando previewUrl está presente (ver template acima),
+  // então este bloco simplesmente não faz nada pra faixas sem preview
+  // (critério de aceite: nenhum controle quebrado exibido).
+  const previewBtn = card.querySelector('.btn-preview-track');
+  if (previewBtn) {
+    previewBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (window.ResIAPreviewPlayer && typeof window.ResIAPreviewPlayer.togglePreview === 'function') {
+        window.ResIAPreviewPlayer.togglePreview(previewUrl, previewBtn);
+      } else {
+        console.warn('ResIAPreviewPlayer indisponível — botão de prévia sem efeito.');
+      }
+    });
+  }
 
   // Ouvinte para cópia do link do Spotify
   const copyBtn = card.querySelector('.btn-copy-track-link');

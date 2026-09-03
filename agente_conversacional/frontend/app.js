@@ -479,6 +479,84 @@ function removerAcoesSpotifyGated() {
 }
 
 // ==========================================
+// 2.2 Módulo de Preview de Áudio (Ticket 4.10 / KAN-77)
+// ==========================================
+// Porta o padrão de spotify_explorer/frontend/src/composables/usePreviewPlayer.js
+// (module-scoped singleton) pra vanilla JS: um único <audio> real
+// compartilhado pela página inteira, garantindo que só uma prévia de 30s
+// toca por vez em qualquer card — mesmo entre mensagens diferentes da
+// mesma conversa. Sem framework aqui, então o "estado reativo" do
+// composable vira só uma closure de módulo + atualização manual do botão
+// DOM que estava tocando antes.
+const previewAudio = new Audio();
+let previewPlayingUrl = null;
+let previewPlayingButton = null;
+
+function _refletirEstadoBotaoPreview(button, tocando) {
+  if (!button) return;
+  button.classList.toggle('btn-preview-track--playing', tocando);
+  const rotulo = tocando ? 'Pausar prévia' : 'Tocar prévia (30s)';
+  button.setAttribute('aria-label', rotulo);
+  button.title = rotulo;
+  const iconPlay = button.querySelector('.icon-preview-play');
+  const iconPause = button.querySelector('.icon-preview-pause');
+  if (iconPlay) iconPlay.style.display = tocando ? 'none' : '';
+  if (iconPause) iconPause.style.display = tocando ? '' : 'none';
+}
+
+function pararPreview() {
+  previewAudio.pause();
+  _refletirEstadoBotaoPreview(previewPlayingButton, false);
+  previewPlayingUrl = null;
+  previewPlayingButton = null;
+}
+
+previewAudio.addEventListener('ended', pararPreview);
+
+/**
+ * Alterna play/pause da prévia de 30s de uma faixa (Ticket 4.10 / KAN-77).
+ * Critério de aceite: só uma prévia toca por vez em toda a página —
+ * chamar de novo com uma URL diferente pausa automaticamente a que já
+ * estava tocando, mesmo que o botão dela esteja num card de uma mensagem
+ * anterior da conversa (`previewPlayingButton` guarda a referência direta
+ * do elemento DOM, então isso funciona independente de em qual
+ * mensagem/render o botão está).
+ */
+function togglePreview(url, button) {
+  if (!url) return;
+
+  if (previewPlayingUrl === url) {
+    pararPreview();
+    return;
+  }
+
+  if (previewPlayingButton) {
+    _refletirEstadoBotaoPreview(previewPlayingButton, false);
+  }
+
+  previewAudio.src = url;
+  previewPlayingUrl = url;
+  previewPlayingButton = button;
+  _refletirEstadoBotaoPreview(button, true);
+
+  previewAudio.play().catch((err) => {
+    // Troca rápida entre faixas dispara AbortError quando um play()
+    // anterior é interrompido por um novo antes de resolver — ruído de
+    // console, não um bug funcional (mesmo tratamento do composable
+    // original em spotify_explorer/frontend). Qualquer outro erro (URL
+    // de preview expirada/inválida etc.) também não propaga pra UI:
+    // reverte esse botão pro estado de "pausado" silenciosamente.
+    if (err && err.name === 'AbortError') return;
+    console.warn('Não foi possível tocar a prévia da faixa:', err);
+    if (previewPlayingButton === button) {
+      pararPreview();
+    }
+  });
+}
+
+window.ResIAPreviewPlayer = { togglePreview };
+
+// ==========================================
 // 3. Controlador da Interface e Estado
 // ==========================================
 let currentSessionId = null;

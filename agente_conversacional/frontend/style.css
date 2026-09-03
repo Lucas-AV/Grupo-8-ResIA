@@ -798,6 +798,17 @@ body {
   background: rgba(29, 185, 84, 0.2);
 }
 
+/* Botão de prévia de 30s (Ticket 4.10 / KAN-77) — mesma base visual dos
+   demais btn-track-action; só ganha um estado extra "tocando". */
+.btn-preview-track--playing {
+  color: var(--spotify-green);
+  background: var(--spotify-green-subtle);
+}
+
+.btn-preview-track--playing:hover {
+  background: rgba(29, 185, 84, 0.2);
+}
+
 /* Ações da resposta — "Salvar no Spotify" (Ticket 12.2) e "Gerar outra
    recomendação" (Ticket 12.4), logo abaixo dos cards de faixa. */
 .response-actions {
