@@ -14,6 +14,7 @@ export function trackSummary(track) {
     subtitle: asArray(track.artists).map((a) => a.name).join(", "),
     url: spotifyUrl(track),
     previewUrl: track.preview_url ?? null,
+    durationMs: track.duration_ms ?? null,
   };
 }
 
