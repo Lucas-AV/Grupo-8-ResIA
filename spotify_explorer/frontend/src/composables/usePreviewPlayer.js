@@ -16,7 +16,7 @@ export function usePreviewPlayer() {
       return;
     }
     audio.src = url;
-    audio.play();
+    audio.play().catch(() => {});
     playingUrl.value = url;
   }
 
