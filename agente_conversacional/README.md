@@ -5,10 +5,10 @@ Implementação do backend do agente de recomendação (Proposta B). Ver
 pra especificacao completa e
 [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](../docs/BACKLOG_JIRA_PROPOSTA_B.md) pro
 backlog em tickets. Este README cobre o que já existe: infraestrutura de
-LLM (Épico 0), sessões e API (KAN-8), integração Spotify OAuth (Épico 5) e
-infra/qualidade do projeto (Épico 8). O motor de recomendação (Épico 1), o
-pipeline conversacional (Épico 2) e o frontend (Épico 4) ainda não foram
-implementados. Para uma visão simples da entrega do KAN-8, veja
+LLM (Épico 0), motor de recomendação (Épico 1), pipeline conversacional
+(Épico 2), sessões e API (KAN-8), integração Spotify OAuth (Épico 5) e
+infra/qualidade do projeto (Épico 8). Só o frontend (Épico 4) ainda não
+foi implementado. Para uma visão simples da entrega do KAN-8, veja
 [`docs/KAN-8_BACKEND_API.md`](docs/KAN-8_BACKEND_API.md).
 
 ## Setup
@@ -88,14 +88,17 @@ chat; a futura camada OAuth mantém os tokens em armazenamento separado.
   `role`, `conteudo`, `faixas_citadas` e timestamp UTC.
 
 Sessões inexistentes ou expiradas retornam `404` com
-`detail.codigo = "sessao_invalida"`. Enquanto o pipeline do Épico 2 não for
-integrado, `POST /chat` retorna `503` com
-`detail.codigo = "pipeline_indisponivel"`; ele não usa catálogo demonstrativo
-nem inventa recomendações.
+`detail.codigo = "sessao_invalida"`. `POST /chat` está ligado ao pipeline
+conversacional real (Épico 2, `chat/pipeline.py`) por padrão — só retorna
+`503` com `detail.codigo = "pipeline_indisponivel"` se alguém injetar
+explicitamente um `turn_processor` que sinalize indisponibilidade (ver
+`chat.contracts.PipelineUnavailableError`), não é mais o comportamento
+default.
 
-O pipeline será conectado através de `TurnProcessor`. A fábrica
-`create_app(session_store=..., turn_processor=...)` aceita dependências
-opcionais para testes e para a integração com os Épicos 2 e 5.
+O pipeline é conectado através de `TurnProcessor`
+(`chat/contracts.py`). A fábrica `create_app(session_store=...,
+turn_processor=...)` aceita dependências opcionais pra testes; sem
+argumentos, usa `SessionStore()` e `ChatPipeline()` de verdade.
 
 ## Testes
 
@@ -218,6 +221,54 @@ Jira tinha esse nível de detalhe). Vale o time confirmar:
 
 Testes: `pytest` — 109 testes (103 anteriores + 6 do ticket 1.5), todos
 sem depender de rede ou de serviços externos. Épico 1 completo.
+
+## Épico 2 — Pipeline conversacional (status por ticket)
+
+Módulo `chat/` — roteador determinístico, extração e geração via LLM,
+validação de schema, template determinístico, auditoria mecânica de
+citações e o orquestrador (`chat/pipeline.py::ChatPipeline`) que
+implementa `TurnProcessor` e está ligado em `app.py` por padrão.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 2.1 — Roteador determinístico por regex | `chat/roteador.py` — reconhece os 32 gêneros reais de `track_genre` do dataset (sinônimos PT/EN), humor/energia/valência/dançabilidade e intensificadores ("mais animado", "mais calmo"...), além de saudações e pedidos fora de escopo (letra de música, compor música) como padrões próprios. Só resolve "pedidos simples" (até 6 palavras) — frases livres/longas (caso de uso 2) são deixadas de propósito pra extração via LLM. | Feito |
+| 2.2 — Extração via LLM | `chat/extrator.py` — prompt de sistema versionado (`SYSTEM_PROMPT_EXTRACAO_V1`), usa o timeout padrão de `chamar_llm` (~8s), parser tolerante a texto/markdown ao redor do JSON (`chat/json_extrator.py`). | Feito |
+| 2.3 — Validador de schema | `chat/validador.py` — campo fora do domínio vira `null` sem rejeitar a consulta inteira; `genero` validado contra `track_genre` real; `artista_referencia` normalizado com a mesma `normalizar_texto` do matching OAuth (5.6); `n_resultados` sempre em `[1, 30]`. | Feito |
+| 2.4 — Resposta por template determinístico | `chat/template.py` — texto fixo pro resultado com faixas e pro resultado vazio, sem LLM; também cobre saudação, fora de escopo e a pergunta de esclarecimento do fallback total. | Feito |
+| 2.5 — Geração via LLM | `chat/gerador.py` — segunda chamada ao LLM (prompt `SYSTEM_PROMPT_GERACAO_V1`) pede JSON `{"texto", "faixas_citadas"}`; resultado vazio nunca aciona o LLM; qualquer falha (timeout, indisponibilidade, JSON inválido/sem texto) cai pro template (2.4) sem quebrar o turno. | Feito |
+| 2.6 — Auditoria mecânica de `faixas_citadas` | `chat/auditoria.py` — compara `faixas_citadas` com os `track_id`s reais do resultado da busca daquele turno; citação divergente é filtrada do resultado final e logada como warning (`agente.chat.auditoria`). | Feito |
+| 2.7 — Fallback total | Implementado dentro de `chat/pipeline.py::ChatPipeline.process` — roteador sem match + extração retornando `None` cai direto na pergunta de esclarecimento (2.4), sem chamar `buscar_recomendacoes`. | Feito |
+| 2.8 — Truncamento do histórico enviado ao LLM | `chat/historico_llm.py` (`LIMITE_HISTORICO_LLM = 6`) — usado pela extração (2.2) e pela geração (2.5); `GET /chat/historico` continua devolvendo o histórico completo da sessão. | Feito |
+
+**Gaps conhecidos, fora do escopo estrito dos critérios de aceite dos
+tickets 2.1–2.8:**
+
+- Caso de uso 8 ("por que vocês recomendaram isso?") não tem tratamento
+  especial — `consulta_efetiva` não é persistida por mensagem no
+  histórico da sessão (`sessions/models.py::Message` só guarda
+  `faixas_citadas`), então não há hoje como reconstruir os filtros do
+  turno anterior pra responder essa pergunta sem uma nova busca. Ficaria
+  pra uma iteração futura que estenda `Message`/`SessionStore`.
+- Caso de uso 6 (artista pedido não existe no dataset): o comportamento
+  técnico é correto (`busca.py` degrada pra `None`/outros filtros/
+  popularidade, nunca inventa faixa), mas a resposta não menciona
+  explicitamente "esse artista não está na nossa base" — usa o mesmo
+  texto genérico de resultado vazio/com resultado do template (2.4) ou o
+  texto livre da geração (2.5), que pode ou não mencionar isso dependendo
+  do que o LLM escrever.
+- O roteador (2.1) cobre os gêneros **reais** do dataset carregado neste
+  repositório (`data/dataset.csv`, 32 gêneros de `acoustic` a `electro` —
+  um recorte alfabético do dataset completo do Kaggle). Exemplos do
+  próprio backlog como "pagode"/"sertanejo" não existem nesse recorte;
+  o roteador não tem sinônimo pra eles (cai pra extração via LLM, que
+  também não vai achar o gênero — `buscar_recomendacoes` degrada pra
+  filtros/popularidade sem esse gênero, não quebra).
+
+Testes: `pytest` — 74 testes novos (roteador, extração, validador,
+template, geração, auditoria, orquestrador do pipeline e o turno
+completo via API real em `test_chat_endpoint.py`), todos com LLM e
+dataset mockados. Suíte completa do backend: 242 testes.
+
 ## Épico 8 — Infraestrutura de projeto, qualidade e deploy (status por ticket)
 
 | Ticket | O que cobre | Status |
