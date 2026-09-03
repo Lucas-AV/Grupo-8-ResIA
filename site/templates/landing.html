@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="hero">
+  <p class="hero-meta">Grupo 8 &middot; Residencia em IA (UnB / LabLivre / Instituto Eldorado) &middot; Agosto 2026</p>
+  <h1>Um Agente que Conversa Sobre Musica</h1>
+  <div class="hero-rule"></div>
+  <p>ResIA e um agente conversacional que recomenda musicas de verdade a
+    partir de um catalogo de 31.819 faixas do Spotify — sem inventar faixa
+    nenhuma, sempre medindo diversidade e cobertura da recomendacao.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="{{ agente_url }}">Testar o Agente &#8599;</a>
+    <a class="btn btn-secondary" href="index.html">Ver Dashboard de Analises</a>
+    <a class="btn btn-secondary" href="{{ repo_url }}">Ver no GitHub &#8599;</a>
+  </div>
+</div>
+
+<div class="section-heading home-tiles">
+  <span class="section-number">01</span>
+  <h2>Problema &amp; Solucao</h2>
+</div>
+<div class="card-grid home-tiles landing-problem-solution">
+  <div class="card landing-static-card">
+    <h2>{{ problema.label }}</h2>
+    <p>{{ problema.body }}</p>
+  </div>
+  <div class="card landing-static-card">
+    <h2>{{ solucao.label }}</h2>
+    <p>{{ solucao.body }}</p>
+  </div>
+</div>
+
+<div class="section-heading home-tiles">
+  <span class="section-number">02</span>
+  <h2>Como Funciona</h2>
+</div>
+<div class="landing-demo home-tiles">
+  <div class="landing-demo-preview" role="img" aria-label="Pre-visualizacao de uma conversa com o agente: usuario pede um pagode animado, o agente responde com duas faixas recomendadas.">
+    <div class="landing-chat-bubble landing-chat-bubble--user">
+      Quero um pagode animado para o churrasco de domingo
+    </div>
+    <div class="landing-chat-bubble landing-chat-bubble--agent">
+      <p>Selecionei classicos do pagode com energia la em cima para animar o seu churrasco!</p>
+      <div class="landing-track-chip">
+        <span class="landing-track-dot"></span>
+        <span>Deixa Acontecer &middot; Grupo Revelacao</span>
+      </div>
+      <div class="landing-track-chip">
+        <span class="landing-track-dot"></span>
+        <span>Pe Na Areia &middot; Diogo Nogueira</span>
+      </div>
+    </div>
+  </div>
+  <ul class="landing-demo-points">
+    <li><strong>Faixa real, sempre.</strong> O LLM nunca inventa uma musica — toda recomendacao parte de uma faixa que existe de fato no catalogo.</li>
+    <li><strong>Roteador + extracao guiada.</strong> Pedidos diretos ("quero pagode") sao respondidos sem chamar o LLM; pedidos em linguagem livre passam por extracao estruturada (Proposta B).</li>
+    <li><strong>Login opcional com Spotify.</strong> Conectar a conta refina a recomendacao com o historico real de escuta — sem login, a experiencia continua funcionando.</li>
+  </ul>
+</div>
+
+<div class="tiles home-tiles tiles-4">
+  {% for tile in tiles %}
+  <div class="tile">
+    {% if tile.icon %}<svg class="tile-icon" aria-hidden="true"><use href="#icon-{{ tile.icon }}"></use></svg>{% endif %}
+    <div class="tile-label">{{ tile.label }}</div>
+    <div class="tile-value">{{ tile.value }}</div>
+    {% if tile.sub %}<div class="tile-sub">{{ tile.sub }}</div>{% endif %}
+  </div>
+  {% endfor %}
+</div>
+
+<div class="section-heading home-tiles">
+  <span class="section-number">03</span>
+  <h2>O Pitch Completo</h2>
+</div>
+<div class="pitch-text">
+  {% for card in pitch %}
+  <p><span class="pitch-highlight">{{ card.label }}.</span> {{ card.body }}</p>
+  {% endfor %}
+  <p><a class="btn btn-secondary" href="mercado.html">Ler relatorio completo &#8599;</a></p>
+</div>
+
+<div class="landing-cta home-tiles">
+  <h2>Pronto para ver o agente respondendo de verdade?</h2>
+  <p>O agente roda localmente por enquanto (sem hospedagem publica ainda —
+    ver Epico 8 no backlog) — o link abaixo leva direto pro passo a passo
+    de como subir o backend e o chat na sua maquina.</p>
+  <div class="hero-actions">
+    <a class="btn btn-primary" href="{{ agente_url }}">Testar o Agente &#8599;</a>
+    <a class="btn btn-secondary" href="index.html">Ver Dashboard de Analises</a>
+  </div>
+</div>
+{% endblock %}

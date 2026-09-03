@@ -839,3 +839,117 @@ tbody tr:hover td { background: var(--row-hover); }
   font-size: 11px;
   color: var(--ink-2);
 }
+
+/* Landing page (Ticket 12.6 / KAN-109) */
+.landing-problem-solution { margin-bottom: 8px; }
+.landing-static-card h2 { color: var(--accent-450); }
+
+.landing-demo {
+  display: grid;
+  grid-template-columns: minmax(260px, 420px) 1fr;
+  gap: 28px;
+  align-items: center;
+  margin: 20px auto 32px;
+}
+
+@media (max-width: 760px) {
+  .landing-demo { grid-template-columns: 1fr; }
+}
+
+.landing-demo-preview {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.landing-chat-bubble {
+  border-radius: 12px;
+  padding: 12px 14px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.landing-chat-bubble--user {
+  align-self: flex-end;
+  max-width: 80%;
+  background: var(--surface-2);
+  color: var(--ink);
+  border-bottom-right-radius: 4px;
+}
+
+.landing-chat-bubble--agent {
+  background: var(--row-hover);
+  border: 1px solid var(--border);
+  border-bottom-left-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.landing-chat-bubble--agent p { margin: 0; color: var(--ink); }
+
+.landing-track-chip {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  font-size: 12.5px;
+  color: var(--ink-2);
+  width: fit-content;
+}
+
+.landing-track-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #1db954;
+  flex-shrink: 0;
+}
+
+.landing-demo-points {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.landing-demo-points li {
+  font-size: 15px;
+  line-height: 1.6;
+  color: var(--ink-2);
+}
+
+.landing-demo-points strong { color: var(--ink); }
+
+.landing-cta {
+  max-width: 1080px;
+  margin: 24px auto 72px;
+  padding: 32px 24px;
+  border-top: 1px solid var(--border);
+}
+
+.landing-cta h2 {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+
+.landing-cta p {
+  max-width: 62ch;
+  margin: 0;
+  color: var(--ink-2);
+  font-size: 15px;
+  line-height: 1.6;
+}
+
+.landing-cta .hero-actions { margin-top: 20px; }
