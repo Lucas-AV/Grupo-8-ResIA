@@ -183,3 +183,37 @@ def test_call_api_returns_empty_body_on_204(mock_get):
 
     assert status == 204
     assert body == {}
+
+
+@patch("spotify_client.requests.request")
+def test_call_api_uses_requests_request_for_non_get_methods(mock_request):
+    mock_request.return_value = Mock(status_code=201, json=lambda: {"id": "playlist1"}, headers={})
+
+    body, status = spotify_client.call_api(
+        "/me/playlists", "token", method="POST", json_body={"name": "Test"}
+    )
+
+    assert status == 201
+    assert body == {"id": "playlist1"}
+    args, kwargs = mock_request.call_args
+    assert args[0] == "POST"
+    assert kwargs["json"] == {"name": "Test"}
+    assert kwargs["headers"]["Authorization"] == "Bearer token"
+
+
+@patch("spotify_client.requests.get")
+def test_call_api_still_uses_requests_get_for_default_get_method(mock_get):
+    mock_get.return_value = Mock(status_code=200, json=lambda: {"id": "track1"}, headers={})
+
+    body, status = spotify_client.call_api("/tracks/track1", "token")
+
+    assert status == 200
+    mock_get.assert_called_once()
+
+
+@patch("spotify_client.requests.request", side_effect=requests.exceptions.ConnectionError("boom"))
+def test_call_api_returns_error_tuple_on_connection_error_for_non_get(mock_request):
+    body, status = spotify_client.call_api("/me/playlists", "token", method="POST", json_body={})
+
+    assert status == 502
+    assert body["error"] == "connection_error"
