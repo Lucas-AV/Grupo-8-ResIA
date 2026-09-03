@@ -75,6 +75,7 @@
     </button>
     <div class="site-nav-links" id="site-nav-links">
       <a class="site-nav-link{{ ' active' if current_page == 'index.html' else '' }}" href="index.html"{% if current_page == 'index.html' %} aria-current="page"{% endif %}>Inicio</a>
+      <a class="site-nav-link{{ ' active' if current_page == 'landing.html' else '' }}" href="landing.html"{% if current_page == 'landing.html' %} aria-current="page"{% endif %}>Landing</a>
       {% for item in nav_items %}
       <a class="site-nav-link{{ ' active' if current_page == item.href else '' }}" href="{{ item.href }}"{% if current_page == item.href %} aria-current="page"{% endif %}>{{ item.nav }}</a>
       {% endfor %}
