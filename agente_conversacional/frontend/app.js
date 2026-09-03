@@ -195,7 +195,7 @@ class ErroBackend extends Error {
   }
 }
 
-async function enviarMensagem(sessionId, mensagem) {
+async function enviarMensagem(sessionId, mensagem, extras = {}) {
   const url = `${API_BASE_URL}/chat`;
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 8000);
@@ -207,9 +207,15 @@ async function enviarMensagem(sessionId, mensagem) {
       headers: {
         'Content-Type': 'application/json',
       },
+      // Ticket 12.4 (KAN-107): `extras` carrega faixas_ja_mostradas quando o
+      // pedido vem do botão "Gerar outra recomendação" — o backend hoje
+      // ignora chaves que ChatRequest não declara (comportamento padrão do
+      // pydantic), então isso é inofensivo enquanto o schema não abraça o
+      // campo, e já fica pronto pro dia em que abraçar.
       body: JSON.stringify({
         session_id: sessionId,
         mensagem: mensagem,
+        ...extras,
       }),
       signal: controller.signal,
     });
@@ -305,12 +311,133 @@ function mapearHistoricoRemoto(historico) {
   }));
 }
 
+/**
+ * Ticket 12.2 (KAN-105): consulta GET /auth/status pra saber se a sessão
+ * atual está autenticada com o Spotify (ticket 12.1, GET /auth/status).
+ * Falha de rede/timeout resolve pra `false` (fail-closed) — não mostra ação
+ * que exige login sem ter certeza de que ele existe.
+ */
+async function verificarStatusSpotify(sessionId) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${API_BASE_URL}/auth/status?session_id=${encodeURIComponent(sessionId)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) return false;
+    const data = await response.json();
+    return Boolean(data.autenticado);
+  } catch (err) {
+    console.warn('Não foi possível verificar o status de autenticação com o Spotify:', err);
+    return false;
+  }
+}
+
+/**
+ * Lê o parâmetro `?spotify_login=` deixado pelo redirect de
+ * spotify_auth/routes.py (GET /auth/callback) depois do fluxo OAuth (ticket
+ * 4.7 / KAN-74), mostra um toast com o resultado e limpa a URL — sem isso o
+ * parâmetro ficaria preso na barra de endereço após um reload.
+ */
+function tratarRetornoLoginSpotify() {
+  const params = new URLSearchParams(window.location.search);
+  const resultado = params.get('spotify_login');
+  if (!resultado) return;
+
+  const MENSAGENS_POR_RESULTADO = {
+    success: 'Conectado ao Spotify com sucesso!',
+    cancelled: 'Login com o Spotify cancelado.',
+    failed: 'Não foi possível conectar ao Spotify. Tente novamente.',
+    state_mismatch: 'Falha de segurança ao conectar ao Spotify. Tente novamente.',
+  };
+  const mensagem = MENSAGENS_POR_RESULTADO[resultado];
+  if (mensagem) showToast(mensagem);
+
+  params.delete('spotify_login');
+  const query = params.toString();
+  const novaUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', novaUrl);
+}
+
+/**
+ * Ticket 12.1 (KAN-104): chama POST /playlist/criar com as faixas da
+ * sessão atual. Propaga erro (mensagem do backend, quando houver) pro
+ * chamador tratar visivelmente — nunca falha silenciosa em console.log.
+ */
+async function criarPlaylistSpotify(trackIds) {
+  const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: currentSessionId, faixas: trackIds }),
+  });
+
+  if (!response.ok) {
+    let corpo = null;
+    try {
+      corpo = await response.json();
+    } catch (_) {
+      // resposta sem JSON válido — segue com a mensagem genérica abaixo
+    }
+    const mensagem = (corpo && corpo.detail && corpo.detail.mensagem) || 'Não foi possível salvar a playlist no Spotify.';
+    throw new Error(mensagem);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Handler do clique em "Salvar no Spotify" (ticket 12.2): desabilita o
+ * botão durante a chamada, dá feedback visível de sucesso/erro (nunca só
+ * console.log) reaproveitando showToast/showErrorBanner do ticket 4.8.
+ */
+async function handleSalvarSpotify(button, trackIds) {
+  if (!trackIds || trackIds.length === 0 || button.disabled) return;
+
+  button.disabled = true;
+  const textoOriginal = button.textContent;
+  button.textContent = 'Salvando...';
+
+  try {
+    const resultado = await criarPlaylistSpotify(trackIds);
+    showToast('Playlist salva no seu Spotify!');
+    if (resultado && resultado.url) {
+      window.open(resultado.url, '_blank', 'noopener,noreferrer');
+    }
+  } catch (err) {
+    console.error('Erro ao salvar playlist no Spotify:', err);
+    showErrorBanner(err.message || 'Não foi possível salvar a playlist no Spotify.', () =>
+      handleSalvarSpotify(button, trackIds)
+    );
+  } finally {
+    button.disabled = false;
+    button.textContent = textoOriginal;
+  }
+}
+
 // ==========================================
 // 3. Controlador da Interface e Estado
 // ==========================================
 let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
+// Ticket 12.2 (KAN-105): reflete se a sessão atual tem login Spotify ativo
+// no backend (GET /auth/status) — controla se o botão "Salvar no Spotify"
+// aparece nos cards de resposta. Começa false (fail-closed): enquanto não
+// confirmamos com o backend, não mostramos ação que exige autenticação.
+let isSpotifyAuthenticated = false;
+// Ticket 12.4 (KAN-107): track_ids de toda faixa já mostrada nesta sessão
+// (acumulado no cliente a partir de msg.faixas de cada resposta do agente),
+// usado pelo botão "Gerar outra recomendação" pra pedir uma busca nova sem
+// repetir o que já apareceu.
+const faixasMostradasSessao = new Set();
+
+function atualizarFaixasMostradas(faixas) {
+  if (!Array.isArray(faixas)) return;
+  faixas.forEach((faixa) => {
+    if (faixa && faixa.track_id) faixasMostradasSessao.add(faixa.track_id);
+  });
+}
 
 // Elementos DOM
 const sessionIdDisplay = document.getElementById('session-id-display');
@@ -326,21 +453,102 @@ const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
 const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
+const btnThemeToggle = document.getElementById('btn-theme-toggle');
+const iconThemeDark = document.getElementById('icon-theme-dark');
+const iconThemeLight = document.getElementById('icon-theme-light');
+
+// ==========================================
+// 2.1 Módulo de Tema Claro/Escuro (Ticket 12.5 / KAN-108)
+// ==========================================
+const THEME_STORAGE_KEY = 'resia_theme';
+
+function getStoredTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (e) {
+    console.warn('Falha ao ler preferência de tema do localStorage:', e);
+    return null;
+  }
+}
+
+function saveStoredTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (e) {
+    console.warn('Falha ao salvar preferência de tema no localStorage:', e);
+  }
+}
+
+/**
+ * Aplica o tema imediatamente (sem reload — critério de aceite do ticket
+ * 12.5) alternando `data-theme` na raiz do documento; style.css cuida do
+ * resto via `[data-theme="light"]` sobrescrevendo os tokens de cor.
+ */
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  if (iconThemeDark) iconThemeDark.style.display = theme === 'light' ? 'none' : '';
+  if (iconThemeLight) iconThemeLight.style.display = theme === 'light' ? '' : 'none';
+  if (btnThemeToggle) {
+    btnThemeToggle.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+    btnThemeToggle.title = theme === 'light' ? 'Mudar para tema escuro' : 'Mudar para tema claro';
+  }
+}
+
+function toggleTheme() {
+  const temaAtual = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const novoTema = temaAtual === 'light' ? 'dark' : 'light';
+  applyTheme(novoTema);
+  saveStoredTheme(novoTema);
+}
 
 async function init() {
+  // Ticket 12.5 (KAN-108): sincroniza os ícones/estado do botão com o
+  // `data-theme` que o script inline no <head> já aplicou na raiz do
+  // documento antes da primeira pintura (evita flash de tema errado).
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
   currentSessionId = getSessionId();
   updateSessionDisplay();
   setupEventListeners();
+  tratarRetornoLoginSpotify();
 
   // Bloqueia novo input enquanto o histórico é recuperado (Ticket 4.6, critério de aceite:
   // "mensagens anteriores aparecem antes de qualquer novo envio").
   isProcessing = true;
   if (btnSend) btnSend.disabled = true;
 
+  // Ticket 12.2 (KAN-105): resolve o status de autenticação Spotify antes de
+  // renderizar qualquer bolha de mensagem, pra já nascer com o botão
+  // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
+  isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
+  atualizarBotaoSpotifyAuth();
+
   await carregarHistoricoInicial();
 
   isProcessing = false;
   if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
+}
+
+/**
+ * Reflete `isSpotifyAuthenticated` no botão do header (ticket 12.2) — feedback
+ * visível de que a sessão já está conectada, sem precisar clicar de novo.
+ */
+function atualizarBotaoSpotifyAuth() {
+  if (!btnSpotifyAuth) return;
+  const label = btnSpotifyAuth.querySelector('span');
+  if (isSpotifyAuthenticated) {
+    btnSpotifyAuth.classList.add('btn-spotify-auth--connected');
+    btnSpotifyAuth.title = 'Conectado ao Spotify';
+    if (label) label.textContent = 'Spotify conectado';
+  } else {
+    btnSpotifyAuth.classList.remove('btn-spotify-auth--connected');
+    btnSpotifyAuth.title = 'Conectar com o Spotify para recomendações personalizadas';
+    if (label) label.textContent = 'Conectar Spotify';
+  }
 }
 
 /**
@@ -363,6 +571,13 @@ async function carregarHistoricoInicial() {
     messages = [];
     clearChatHistory(currentSessionId);
   }
+
+  // Ticket 12.4 (KAN-107): semeia o set de faixas já mostradas a partir do
+  // histórico restaurado — cobre o caso de cache local (localStorage guarda
+  // msg.faixas completo); histórico vindo do backend não traz faixas (ver
+  // mapearHistoricoRemoto), então não contribui aqui, mesma limitação já
+  // documentada pros cards de faixa não reconstruídos.
+  messages.forEach((msg) => atualizarFaixasMostradas(msg.faixas));
 
   // Ticket 4.12 (KAN-79): sessão restaurada já tem histórico -> não mostra onboarding.
   // (a checagem de messages.length abaixo já cobre isso; sem novo fetch local aqui,
@@ -476,6 +691,8 @@ function setupEventListeners() {
     // de replicar o texto aqui pra não divergir do que o backend descreve.
     window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
   });
+
+  btnThemeToggle?.addEventListener('click', toggleTheme);
 
   btnMic?.addEventListener('click', () => {
     showToast('Entrada de voz Convora: gravação ativada (modo demo).');
@@ -594,6 +811,41 @@ function renderMessageBubble(msg, animar = true) {
     if (tracksSection) {
       bubble.appendChild(tracksSection);
     }
+
+    // Ações logo abaixo dos cards de faixa — só faz sentido pra respostas do
+    // agente (nunca numa mensagem do próprio usuário).
+    if (msg.role === 'agent') {
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'response-actions';
+
+      // Ticket 12.4 (KAN-107): "Gerar outra recomendação" aparece em toda
+      // resposta com faixas, sessão autenticada ou não.
+      const btnOutraRecomendacao = document.createElement('button');
+      btnOutraRecomendacao.type = 'button';
+      btnOutraRecomendacao.className = 'btn-response-action btn-outra-recomendacao';
+      btnOutraRecomendacao.textContent = 'Gerar outra recomendação';
+      btnOutraRecomendacao.addEventListener('click', () => {
+        if (isProcessing) return;
+        enviarMensagemUsuario('Gere outra recomendação, sem repetir as músicas já mostradas.', {
+          extras: { faixas_ja_mostradas: Array.from(faixasMostradasSessao) },
+        });
+      });
+      actionsRow.appendChild(btnOutraRecomendacao);
+
+      // Ticket 12.2 (KAN-105): "Salvar no Spotify" só aparece pra sessão
+      // autenticada — nunca tenta a ação sabendo de antemão que vai dar 401.
+      if (isSpotifyAuthenticated) {
+        const trackIds = msg.faixas.map((faixa) => faixa && faixa.track_id).filter(Boolean);
+        const btnSalvar = document.createElement('button');
+        btnSalvar.type = 'button';
+        btnSalvar.className = 'btn-response-action btn-salvar-spotify';
+        btnSalvar.textContent = 'Salvar no Spotify';
+        btnSalvar.addEventListener('click', () => handleSalvarSpotify(btnSalvar, trackIds));
+        actionsRow.appendChild(btnSalvar);
+      }
+
+      bubble.appendChild(actionsRow);
+    }
   }
 
   const timeElem = document.createElement('span');
@@ -606,7 +858,7 @@ function renderMessageBubble(msg, animar = true) {
   messagesContainer.appendChild(row);
 }
 
-async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
+async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {}) {
   if (isProcessing) return;
   isProcessing = true;
 
@@ -640,7 +892,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
   }
 
   try {
-    const resposta = await enviarMensagem(currentSessionId, texto);
+    const resposta = await enviarMensagem(currentSessionId, texto, extras);
 
     const agentMsg = {
       id: `agent-${Date.now()}`,
@@ -650,6 +902,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false } = {}) {
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
+    atualizarFaixasMostradas(agentMsg.faixas);
     saveChatHistory(currentSessionId, messages);
 
     if (typingIndicator) typingIndicator.style.display = 'none';
@@ -708,6 +961,11 @@ window.ResIA = {
   buscarHistoricoRemoto,
   ErroBackend,
   showErrorBanner,
+  verificarStatusSpotify,
+  criarPlaylistSpotify,
+  atualizarFaixasMostradas,
+  applyTheme,
+  toggleTheme,
 };
 
 if (document.readyState === 'loading') {

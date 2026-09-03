@@ -2,12 +2,14 @@ import logging
 import time
 from typing import Optional
 
-from fastapi import APIRouter, Query, Request
+from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
+from pydantic import BaseModel, Field
 
-from spotify_auth.client import PendingAuth, build_authorize_url, exchange_code_for_tokens
+from spotify_auth.client import PendingAuth, build_authorize_url, exchange_code_for_tokens, get_valid_access_token
 from spotify_auth.consent import render_consent_page
-from spotify_auth.errors import SpotifyTokenExchangeError
+from spotify_auth.errors import SpotifyNotAuthenticatedError, SpotifyPlaylistError, SpotifyTokenExchangeError
+from spotify_auth.playlist import create_playlist_with_tracks
 from spotify_auth.token_store import TokenStore
 from sessions.store import SessionNotFound
 
@@ -16,6 +18,15 @@ logger = logging.getLogger("agente.spotify_auth")
 router = APIRouter()
 _pending_auth = PendingAuth()
 _token_store = None
+
+
+class CriarPlaylistRequest(BaseModel):
+    """Corpo do POST /playlist/criar (ticket 12.1)."""
+
+    session_id: str = Field(min_length=1)
+    faixas: list[str] = Field(min_length=1, description="track_ids do Spotify a adicionar na playlist")
+    nome: Optional[str] = None
+    descricao: Optional[str] = None
 
 
 def _get_token_store():
@@ -73,3 +84,44 @@ def callback(
 def logout(session_id: str = Query(...)):
     _get_token_store().delete(session_id)
     return {"status": "logged_out"}
+
+
+@router.get("/auth/status")
+def auth_status(session_id: str = Query(...)):
+    """Ticket 12.2: o frontend usa isso pra saber se mostra acoes que exigem
+    login com o Spotify (ex.: botao "Salvar no Spotify") sem precisar
+    depender so do parametro `spotify_login` do redirect do callback."""
+    return {"autenticado": _get_token_store().get(session_id) is not None}
+
+
+@router.post("/playlist/criar")
+def criar_playlist(body: CriarPlaylistRequest):
+    """Ticket 12.1 (KAN-104): cria uma playlist de verdade na conta Spotify
+    da sessao autenticada com as faixas recomendadas, usando o access_token
+    valido de spotify_auth/client.py (ticket 5.4, renova sozinho quando
+    necessario). Sessao sem login no Spotify nunca chega a tentar criar
+    playlist nenhuma — falha cedo com 401 e um codigo de erro claro."""
+    try:
+        access_token = get_valid_access_token(body.session_id, _get_token_store())
+    except SpotifyNotAuthenticatedError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={
+                "codigo": "spotify_nao_autenticado",
+                "mensagem": "Faça login com o Spotify antes de salvar uma playlist.",
+            },
+        )
+
+    try:
+        resultado = create_playlist_with_tracks(access_token, body.faixas, nome=body.nome, descricao=body.descricao)
+    except SpotifyPlaylistError as exc:
+        logger.warning("falha ao criar playlist no Spotify: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "codigo": "spotify_playlist_falhou",
+                "mensagem": "Não foi possível criar a playlist no Spotify agora. Tente novamente em instantes.",
+            },
+        )
+
+    return resultado
