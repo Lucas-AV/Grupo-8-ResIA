@@ -499,18 +499,28 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 10px;
+  margin-bottom: 12px;
 }
 
 .tracks-header span.tracks-title {
-  font-size: 0.78rem;
+  font-size: 0.8rem;
   text-transform: uppercase;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.06em;
   font-weight: 700;
   color: var(--spotify-green);
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 8px;
+}
+
+.tracks-count-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  background: rgba(29, 185, 84, 0.15);
+  color: var(--spotify-green);
+  border: 1px solid rgba(29, 185, 84, 0.3);
+  padding: 1px 7px;
+  border-radius: var(--radius-pill);
 }
 
 .tracks-grid {
@@ -523,48 +533,68 @@ body {
   display: flex;
   align-items: center;
   gap: 12px;
-  padding: 10px 12px;
+  padding: 10px 14px;
   background: var(--bg-surface-elevated);
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
-  transition: var(--transition-fast);
-  text-decoration: none;
-  color: inherit;
+  border-radius: var(--radius-md);
+  transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
   position: relative;
   overflow: hidden;
+  animation: trackCardIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) backwards;
+}
+
+@keyframes trackCardIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 .track-card:hover {
   background: var(--bg-surface-hover);
-  border-color: rgba(29, 185, 84, 0.4);
-  transform: translateY(-2px);
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.5);
+  border-color: rgba(29, 185, 84, 0.45);
+  transform: translateY(-3px) scale(1.01);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.55), 0 0 16px rgba(29, 185, 84, 0.12);
+}
+
+/* Capa com Gradiente Temático do Gênero */
+.track-cover-link {
+  text-decoration: none;
+  flex-shrink: 0;
 }
 
 .track-cover-art {
-  width: 48px;
-  height: 48px;
+  width: 52px;
+  height: 52px;
   border-radius: var(--radius-xs);
-  background: linear-gradient(135deg, #2b2b2b 0%, #151515 100%);
   display: flex;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   position: relative;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+  overflow: hidden;
 }
 
 .track-cover-art svg.vinyl-icon {
-  width: 24px;
-  height: 24px;
-  fill: var(--spotify-green);
+  width: 26px;
+  height: 26px;
+  fill: rgba(255, 255, 255, 0.85);
+  transition: transform var(--transition-fast);
 }
 
+.track-card:hover svg.vinyl-icon {
+  transform: scale(0.9);
+}
+
+/* Botão Circular de Play Verde estilo Spotify */
 .track-play-badge {
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.65);
-  border-radius: var(--radius-xs);
+  background: rgba(0, 0, 0, 0.55);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -572,38 +602,84 @@ body {
   transition: opacity var(--transition-fast);
 }
 
+.play-circle {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--spotify-green);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.6);
+  transform: scale(0.85);
+  transition: transform var(--transition-fast), background var(--transition-fast);
+}
+
 .track-card:hover .track-play-badge {
   opacity: 1;
 }
 
-.track-play-badge svg {
-  width: 20px;
-  height: 20px;
-  fill: var(--spotify-green);
+.track-card:hover .play-circle {
+  transform: scale(1);
 }
 
+.play-circle:hover {
+  background: var(--spotify-green-hover);
+  transform: scale(1.1) !important;
+}
+
+.play-circle svg {
+  width: 14px;
+  height: 14px;
+  fill: #000000;
+  margin-left: 2px;
+}
+
+/* Detalhes de Texto da Faixa */
 .track-details {
   flex: 1;
   min-width: 0;
 }
 
+.track-name-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
 .track-name {
-  font-size: 0.88rem;
+  font-size: 0.9rem;
   font-weight: 700;
   color: var(--text-primary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   margin-bottom: 3px;
+  transition: color var(--transition-fast);
+}
+
+.track-name-link:hover .track-name {
+  color: var(--spotify-green);
 }
 
 .track-artist {
-  font-size: 0.78rem;
+  font-size: 0.76rem;
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  margin-bottom: 5px;
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.track-artist .album-separator {
+  opacity: 0.45;
+}
+
+.track-artist .album-name {
+  opacity: 0.8;
 }
 
 .track-tags {
@@ -617,18 +693,45 @@ body {
   font-weight: 600;
   padding: 2px 8px;
   border-radius: var(--radius-pill);
-  background: rgba(255, 255, 255, 0.08);
+  background: rgba(255, 255, 255, 0.07);
   color: var(--text-secondary);
   text-transform: capitalize;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
 }
 
-.track-action-icon {
+/* Grupo de Ações do Card */
+.track-actions-group {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.btn-track-action {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
   color: var(--text-muted);
-  transition: color var(--transition-fast);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+  text-decoration: none;
 }
 
-.track-card:hover .track-action-icon {
+.btn-track-action:hover {
   color: var(--spotify-green);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.btn-track-action.copied {
+  color: var(--spotify-green);
+  background: rgba(29, 185, 84, 0.2);
 }
 
 /* 9. Indicador de Processamento / Waveform Animado (Ticket 4.3 & Imagem 1) */

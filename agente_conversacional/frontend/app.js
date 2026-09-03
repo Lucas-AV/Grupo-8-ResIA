@@ -265,6 +265,7 @@ function showToast(message, duration = 3000) {
     setTimeout(() => toast.remove(), 300);
   }, duration);
 }
+window.showToast = showToast;
 
 function setupEventListeners() {
   btnCopySession?.addEventListener('click', async () => {
@@ -359,66 +360,6 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
-function renderTracksSection(faixas) {
-  const section = document.createElement('div');
-  section.className = 'tracks-section';
-
-  const header = document.createElement('div');
-  header.className = 'tracks-header';
-  header.innerHTML = `
-    <span class="tracks-title">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
-      </svg>
-      Faixas Recomendadas (${faixas.length})
-    </span>
-  `;
-  section.appendChild(header);
-
-  const grid = document.createElement('div');
-  grid.className = 'tracks-grid';
-
-  faixas.forEach((faixa) => {
-    const card = document.createElement('a');
-    card.className = 'track-card';
-    card.href = `https://open.spotify.com/track/${faixa.track_id}`;
-    card.target = '_blank';
-    card.rel = 'noopener noreferrer';
-    card.title = `Ouvir "${faixa.nome}" no Spotify`;
-
-    card.innerHTML = `
-      <div class="track-cover-art">
-        <svg class="vinyl-icon" viewBox="0 0 24 24">
-          <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
-        </svg>
-        <div class="track-play-badge">
-          <svg viewBox="0 0 24 24">
-            <polygon points="8 5 19 12 8 19 8 5"/>
-          </svg>
-        </div>
-      </div>
-      <div class="track-details">
-        <div class="track-name">${escapeHtml(faixa.nome)}</div>
-        <div class="track-artist">${escapeHtml(faixa.artista)} · <span style="opacity:0.7">${escapeHtml(faixa.album || '')}</span></div>
-        <div class="track-tags">
-          <span class="genre-pill">${escapeHtml(faixa.genero || 'spotify')}</span>
-        </div>
-      </div>
-      <div class="track-action-icon">
-        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-          <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
-          <polyline points="15 3 21 3 21 9"></polyline>
-          <line x1="10" y1="14" x2="21" y2="3"></line>
-        </svg>
-      </div>
-    `;
-    grid.appendChild(card);
-  });
-
-  section.appendChild(grid);
-  return section;
-}
-
 function renderMessageBubble(msg, animar = true) {
   if (!messagesContainer) return;
 
@@ -452,9 +393,17 @@ function renderMessageBubble(msg, animar = true) {
   textElem.textContent = msg.conteudo;
   bubble.appendChild(textElem);
 
+  // CRITÉRIO DE ACEITE TICKET 4.2:
+  // "Cards montados a partir do campo faixas da resposta, não fazendo parsing do texto livre."
   if (msg.faixas && Array.isArray(msg.faixas) && msg.faixas.length > 0) {
-    const tracksSection = renderTracksSection(msg.faixas);
-    bubble.appendChild(tracksSection);
+    const tracksSection =
+      window.ResIATrackCard && typeof window.ResIATrackCard.renderTrackCards === 'function'
+        ? window.ResIATrackCard.renderTrackCards(msg.faixas)
+        : null;
+
+    if (tracksSection) {
+      bubble.appendChild(tracksSection);
+    }
   }
 
   const timeElem = document.createElement('span');
