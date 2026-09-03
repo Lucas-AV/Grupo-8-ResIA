@@ -201,3 +201,57 @@ def test_logout_redirects_to_configured_frontend_url(client, monkeypatch):
 
     assert response.status_code == 302
     assert response.location == "http://127.0.0.1:5173"
+
+
+def test_player_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/player"
+        return {"is_playing": True}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/player")
+
+    assert response.status_code == 200
+
+
+def test_player_returns_204_when_nothing_playing(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+    monkeypatch.setattr(app_module.spotify_client, "call_api", lambda path, token, params=None: ({}, 204))
+
+    response = client.get("/api/me/player")
+
+    assert response.status_code == 204
+
+
+def test_player_requires_login(client, monkeypatch):
+    def fake_get_valid_user_token(client_id, client_secret):
+        raise app_module.user_auth.NotLoggedInError("faça login primeiro em /login")
+
+    monkeypatch.setattr(app_module.user_auth, "get_valid_user_token", fake_get_valid_user_token)
+
+    response = client.get("/api/me/player")
+
+    assert response.status_code == 401
+
+
+def test_player_queue_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/player/queue"
+        return {"currently_playing": None, "queue": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/player/queue")
+
+    assert response.status_code == 200

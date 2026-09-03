@@ -252,6 +252,14 @@ def register_routes(app):
             params={"limit": request.args.get("limit", "20")},
         )
 
+    @app.route("/api/me/player")
+    def player():
+        return _user_data_route("/me/player")
+
+    @app.route("/api/me/player/queue")
+    def player_queue():
+        return _user_data_route("/me/player/queue")
+
 
 if __name__ == "__main__":
     flask_app = create_app()
