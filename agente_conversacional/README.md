@@ -100,7 +100,7 @@ opcionais para testes e para a integração com os Épicos 2 e 5.
 ## Testes
 
 ```bash
-pytest
+python -m pytest
 ```
 
 Os testes cobrem o dispatcher `chamar_llm`, os backends, o boot do FastAPI,
