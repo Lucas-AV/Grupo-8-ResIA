@@ -699,3 +699,49 @@ def test_pair_status_for_unknown_code_is_not_found(client):
 
     assert response.status_code == 200
     assert response.get_json() == {"status": "not_found"}
+
+
+def test_callback_without_pairing_code_behaves_like_before(client, monkeypatch):
+    def fake_exchange_code(code, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    response = client.get("/callback?code=abc&state=xyz")
+
+    assert response.status_code == 302
+    assert response.location.endswith("/")
+
+
+def test_callback_relays_tokens_so_kiosk_status_poll_completes_and_logs_in(monkeypatch):
+    monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client-id")
+    monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:5000/callback")
+    monkeypatch.setenv("FLASK_SECRET_KEY", "test-secret")
+    flask_app = app_module.create_app()
+    flask_app.config["TESTING"] = True
+
+    kiosk = flask_app.test_client()
+    phone = flask_app.test_client()
+
+    qr_response = kiosk.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    phone.get(f"/login?pair={code}")
+
+    def fake_exchange_code(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    phone.get("/callback?code=abc&state=xyz")
+
+    status_response = kiosk.get(f"/api/pair/{code}/status")
+    assert status_response.get_json() == {"status": "completed"}
+
+    with kiosk.session_transaction() as sess:
+        assert sess["user_access_token"] == "at"
+        assert sess["user_refresh_token"] == "rt"
+
+    second_poll = kiosk.get(f"/api/pair/{code}/status")
+    assert second_poll.get_json() == {"status": "not_found"}

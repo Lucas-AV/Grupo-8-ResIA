@@ -196,7 +196,7 @@ def register_routes(app):
             return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': error})}")
 
         try:
-            user_auth.exchange_code(
+            tokens = user_auth.exchange_code(
                 request.args.get("code"),
                 request.args.get("state"),
                 app.config["SPOTIFY_CLIENT_ID"],
@@ -205,6 +205,10 @@ def register_routes(app):
             )
         except ValueError as exc:
             return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': str(exc)})}")
+
+        pair_code = session.pop("pairing_code", None)
+        if pair_code is not None:
+            pairing.mark_completed(pair_code, tokens)
 
         return redirect(app.config["FRONTEND_URL"])
 
