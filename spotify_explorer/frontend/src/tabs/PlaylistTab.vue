@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useHistory } from "../composables/useHistory.js";
+import { useNavigationTarget } from "../composables/useTabNavigation.js";
 import { trackSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import PlaylistPreview from "../components/previews/PlaylistPreview.vue";
@@ -32,6 +33,11 @@ async function onSubmit() {
   result.data = data;
   addToHistory(playlistId.value);
 }
+
+useNavigationTarget("playlist", (id) => {
+  playlistId.value = id;
+  onSubmit();
+});
 </script>
 
 <template>

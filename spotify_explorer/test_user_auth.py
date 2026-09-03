@@ -23,6 +23,10 @@ def test_get_login_url_contains_client_id_scope_redirect_and_state(app):
         assert "user-top-read" in url
         assert "user-library-read" in url
         assert "user-read-recently-played" in url
+        assert "user-read-playback-state" in url
+        assert "user-read-currently-playing" in url
+        assert "user-follow-read" in url
+        assert "playlist-read-private" in url
         assert "redirect_uri=" in url
         assert "state=" in url
         assert session["oauth_state"] in url
