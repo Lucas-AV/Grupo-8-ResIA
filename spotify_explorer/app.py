@@ -301,6 +301,22 @@ def register_routes(app):
     def player_previous():
         return _user_data_route("/me/player/previous", method="POST")
 
+    @app.route("/api/me/player/seek", methods=["POST"])
+    def player_seek():
+        return _user_data_route(
+            "/me/player/seek",
+            params={"position_ms": request.args.get("position_ms", "0")},
+            method="PUT",
+        )
+
+    @app.route("/api/me/player/volume", methods=["POST"])
+    def player_volume():
+        return _user_data_route(
+            "/me/player/volume",
+            params={"volume_percent": request.args.get("volume_percent", "50")},
+            method="PUT",
+        )
+
 
 if __name__ == "__main__":
     flask_app = create_app()

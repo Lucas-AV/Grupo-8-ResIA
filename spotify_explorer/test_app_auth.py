@@ -384,3 +384,39 @@ def test_player_previous_calls_correct_path_and_method(client, monkeypatch):
     response = client.post("/api/me/player/previous")
 
     assert response.status_code == 204
+
+
+def test_player_seek_uses_position_ms_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/seek"
+        assert method == "PUT"
+        assert params == {"position_ms": "30000"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/seek?position_ms=30000")
+
+    assert response.status_code == 204
+
+
+def test_player_volume_uses_volume_percent_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/volume"
+        assert method == "PUT"
+        assert params == {"volume_percent": "80"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/volume?volume_percent=80")
+
+    assert response.status_code == 204
