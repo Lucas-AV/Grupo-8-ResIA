@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from llm.health import check_llm_health
+from spotify_auth.routes import router as spotify_auth_router
 
 logger = logging.getLogger("agente")
 
@@ -25,6 +26,7 @@ async def _lifespan(app: FastAPI):
 
 def create_app() -> FastAPI:
     app = FastAPI(title="Agente Conversacional", lifespan=_lifespan)
+    app.include_router(spotify_auth_router)
 
     @app.get("/health")
     def health():

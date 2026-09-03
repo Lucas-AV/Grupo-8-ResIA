@@ -7,6 +7,7 @@ site/dist/
 .mcp.json
 .env
 spotify_explorer/.env
+agente_conversacional/spotify_tokens.db
 .worktrees/
 spotify_explorer/frontend/node_modules/
 spotify_explorer/static/frontend/

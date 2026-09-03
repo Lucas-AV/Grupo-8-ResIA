@@ -61,3 +61,30 @@ resposta = chamar_llm([{"role": "user", "content": "quero pagode"}])
 | 0.3 — Backend hospedado alternativo | Implementado (`llm/backends/claude_backend.py`), troca via `LLM_BACKEND=claude`, chave lida de `ANTHROPIC_API_KEY`. Não testado contra a API real (precisa de chave válida). | Feito (não testado contra API real) |
 | 0.4 — Health-check no boot | `app.py` usa `lifespan` do FastAPI pra logar disponibilidade no boot sem bloquear a subida; endpoint `GET /health` exposto. | Feito |
 | 0.5 — Logística de rede da demo | Ver [`docs/logistica_rede.md`](docs/logistica_rede.md) — opção recomendada documentada, falta ensaiar no hardware real de quem apresenta. | Parcial — decisão proposta, falta validar/ensaiar |
+
+## Épico 5 — Integração Spotify OAuth (status por ticket)
+
+Módulo `spotify_auth/` — fluxo Authorization Code + PKCE, tokens
+criptografados em SQLite (`cryptography.Fernet`), renovação proativa e
+busca de histórico. Rotas montadas em `app.py`
+(`GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`).
+
+`session_id` é aceito hoje como query param direto (não há cookie de
+sessão ainda — depende do gerenciador de sessão do ticket 3.4, Épico 3).
+Ajustar a assinatura de `/auth/login`/`/auth/logout` quando esse
+gerenciador existir.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 5.1 — Registro do app | Variáveis `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`/`SPOTIFY_REDIRECT_URI` no `.env.example`, nunca hardcoded. Cadastro do app no Spotify Developer Dashboard ainda não feito (ação manual, fora do código). | Parcial — código pronto, falta cadastrar o app de verdade |
+| 5.2 — `GET /auth/login` (PKCE) | `spotify_auth/pkce.py` + `spotify_auth/client.py` (`build_authorize_url`) — `state` e `code_challenge` (S256) gerados e correlacionados via `PendingAuth`. | Feito |
+| 5.3 — `GET /auth/callback` | `spotify_auth/routes.py` — valida `state`, troca código por tokens, trata `?error=access_denied` (login cancelado) sem erro visível ao usuário. | Feito |
+| 5.4 — Armazenamento/renovação de tokens | `spotify_auth/token_store.py` (SQLite + Fernet) e `client.get_valid_access_token` (renova quando falta <60s; se o refresh falhar, sessão cai pra anônima). | Feito |
+| 5.5 — Busca do histórico | `spotify_auth/history.py` — top tracks, recently played, saved tracks (paginado). 429/timeout tratados como histórico parcial, não bloqueiam o login. | Feito |
+| 5.6 — Matching com dataset local | Depende de **1.1** (dataset carregado em memória, Épico 1). | **Bloqueado — aguardando Épico 1** |
+| 5.7 — Perfil de gosto (centróide) | Depende de **1.3** (`buscar_recomendacoes`, Épico 1). | **Bloqueado — aguardando Épico 1** |
+| 5.8 — `POST /auth/logout` | `spotify_auth/routes.py` — descarta os tokens da sessão. | Feito |
+| 5.9 — Casos de falha do OAuth | Tabela da seção 3.7 do pipeline coberta: `state` inválido, `error=access_denied`, refresh revogado, 429, timeout — todos testados com mocks (`test_spotify_client.py`, `test_spotify_history.py`, `test_spotify_routes.py`). | Feito |
+
+Testes: `pytest` — 56 testes (26 do Épico 0 + 30 do Épico 5), todos com
+rede mockada.
