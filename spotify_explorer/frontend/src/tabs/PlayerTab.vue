@@ -58,6 +58,15 @@ async function callControl(action, params = {}) {
 function togglePlayPause() {
   callControl(isPlaying.value ? "pause" : "play");
 }
+
+const REPEAT_STATES = ["off", "context", "track"];
+
+function cycleRepeat() {
+  const current = result.data.player.repeat_state;
+  const currentIndex = REPEAT_STATES.indexOf(current);
+  const next = REPEAT_STATES[(currentIndex + 1) % REPEAT_STATES.length];
+  callControl("repeat", { state: next });
+}
 </script>
 
 <template>
@@ -119,10 +128,16 @@ function togglePlayPause() {
               Dispositivo: {{ result.data.player.device.name }} ({{ result.data.player.device.type }})
               — volume {{ result.data.player.device.volume_percent }}%
             </p>
-            <p>
+            <button
+              type="button"
+              class="btn btn-secondary"
+              @click="callControl('shuffle', { state: !result.data.player.shuffle_state })"
+            >
               Shuffle: {{ result.data.player.shuffle_state ? "ligado" : "desligado" }}
-              — Repeat: {{ result.data.player.repeat_state }}
-            </p>
+            </button>
+            <button type="button" class="btn btn-secondary" @click="cycleRepeat">
+              Repeat: {{ result.data.player.repeat_state }}
+            </button>
           </div>
           <p v-else>Nada tocando no momento.</p>
           <div v-if="queueItems.length">
