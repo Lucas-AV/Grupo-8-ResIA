@@ -453,8 +453,64 @@ const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
 const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
+const btnThemeToggle = document.getElementById('btn-theme-toggle');
+const iconThemeDark = document.getElementById('icon-theme-dark');
+const iconThemeLight = document.getElementById('icon-theme-light');
+
+// ==========================================
+// 2.1 Módulo de Tema Claro/Escuro (Ticket 12.5 / KAN-108)
+// ==========================================
+const THEME_STORAGE_KEY = 'resia_theme';
+
+function getStoredTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (e) {
+    console.warn('Falha ao ler preferência de tema do localStorage:', e);
+    return null;
+  }
+}
+
+function saveStoredTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (e) {
+    console.warn('Falha ao salvar preferência de tema no localStorage:', e);
+  }
+}
+
+/**
+ * Aplica o tema imediatamente (sem reload — critério de aceite do ticket
+ * 12.5) alternando `data-theme` na raiz do documento; style.css cuida do
+ * resto via `[data-theme="light"]` sobrescrevendo os tokens de cor.
+ */
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  if (iconThemeDark) iconThemeDark.style.display = theme === 'light' ? 'none' : '';
+  if (iconThemeLight) iconThemeLight.style.display = theme === 'light' ? '' : 'none';
+  if (btnThemeToggle) {
+    btnThemeToggle.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+    btnThemeToggle.title = theme === 'light' ? 'Mudar para tema escuro' : 'Mudar para tema claro';
+  }
+}
+
+function toggleTheme() {
+  const temaAtual = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const novoTema = temaAtual === 'light' ? 'dark' : 'light';
+  applyTheme(novoTema);
+  saveStoredTheme(novoTema);
+}
 
 async function init() {
+  // Ticket 12.5 (KAN-108): sincroniza os ícones/estado do botão com o
+  // `data-theme` que o script inline no <head> já aplicou na raiz do
+  // documento antes da primeira pintura (evita flash de tema errado).
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
   currentSessionId = getSessionId();
   updateSessionDisplay();
   setupEventListeners();
@@ -635,6 +691,8 @@ function setupEventListeners() {
     // de replicar o texto aqui pra não divergir do que o backend descreve.
     window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
   });
+
+  btnThemeToggle?.addEventListener('click', toggleTheme);
 
   btnMic?.addEventListener('click', () => {
     showToast('Entrada de voz Convora: gravação ativada (modo demo).');
@@ -906,6 +964,8 @@ window.ResIA = {
   verificarStatusSpotify,
   criarPlaylistSpotify,
   atualizarFaixasMostradas,
+  applyTheme,
+  toggleTheme,
 };
 
 if (document.readyState === 'loading') {
