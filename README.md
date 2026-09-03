@@ -101,6 +101,7 @@ Dataset: [Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya
 ## Estrutura do repositório
 
 ```
+analise_exploratoria.ipynb     # notebook que concentra a EDA (mesma logica dos scripts abaixo, saida inline)
 data/                           # CSVs/JSON, brutos e gerados
   dataset.csv                   # dataset bruto (Kaggle)
   occurrences_by_column.csv     # contagem de valores por coluna (formato longo)
@@ -192,6 +193,7 @@ arquitetura ponta a ponta:
 | [adjustText](https://github.com/Phlya/adjustText) | Reposiciona rótulos de texto em gráficos matplotlib para evitar sobreposição | Afastar os rótulos de gênero que se sobrepunham no scatter de energia × dançabilidade (`genre_energy_dance.png`) |
 | [Jinja2](https://jinja.palletsprojects.com/) | Motor de templates para gerar texto/HTML a partir de dados | Renderizar as páginas HTML do site (`site/build_site.py` + `site/templates/`) |
 | [pytest](https://docs.pytest.org/) | Framework de testes automatizados | Rodar os testes do repositório (`tests/`) |
+| [JupyterLab](https://jupyterlab.readthedocs.io/) | Ambiente de notebooks interativos | Rodar `analise_exploratoria.ipynb`, o notebook que concentra a EDA |
 
 ## Como reproduzir
 
@@ -204,6 +206,7 @@ python scripts/plot_popularity_occurrences.py # gera images/popularity_occurrenc
 python scripts/profile_dataset.py             # gera data/dataset_profile.json e distribuicoes por artista/album
 python scripts/plot_correlations.py           # gera images/correlation_heatmap.png e data/correlations_top_pairs.csv
 python site/build_site.py                     # gera o site em site/dist/ (abrir site/dist/index.html)
+jupyter lab analise_exploratoria.ipynb        # abre o notebook de EDA (mesma logica, saida inline)
 ```
 
 Testes: `pytest`

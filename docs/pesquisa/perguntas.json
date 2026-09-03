@@ -1,0 +1,164 @@
+{
+  "sections": [
+    {
+      "title": "Seção 1 — Perfil rápido",
+      "questions": [
+        {
+          "type": "multipla_escolha",
+          "text": "Qual sua faixa etária?",
+          "required": true,
+          "options": ["<18", "18–24", "25–34", "35–44", "45–54", "55+"]
+        },
+        {
+          "type": "caixa_selecao",
+          "text": "Quais serviços de streaming de música você usa?",
+          "required": true,
+          "options": ["Spotify", "YouTube Music", "Apple Music", "Deezer", "Amazon Music", "Outro", "Não uso streaming"]
+        },
+        {
+          "type": "multipla_escolha",
+          "text": "Com que frequência você escuta música?",
+          "required": true,
+          "options": ["Várias vezes ao dia", "1x ao dia", "Algumas vezes na semana", "Raramente"]
+        },
+        {
+          "type": "multipla_escolha",
+          "text": "Em média, quantas horas por dia você passa ouvindo música?",
+          "required": false,
+          "options": ["<1h", "1–2h", "2–4h", "4h+"]
+        }
+      ]
+    },
+    {
+      "title": "Seção 2 — Contexto de escuta",
+      "questions": [
+        {
+          "type": "caixa_selecao",
+          "text": "Em quais situações você mais ouve música?",
+          "required": true,
+          "options": ["Trabalhando/estudando", "Se exercitando", "No transporte", "Relaxando/dormindo", "Em festas/eventos sociais", "Tarefas domésticas", "Outro"]
+        },
+        {
+          "type": "caixa_selecao",
+          "text": "O que mais influencia sua escolha de música no momento? (marque até 3)",
+          "required": true,
+          "options": ["Meu humor", "A atividade que estou fazendo", "Recomendação do app", "Indicação de amigos", "Redes sociais (TikTok, Reels)", "Rádio", "Playlists prontas que já conheço"]
+        },
+        {
+          "type": "multipla_escolha",
+          "text": "Você costuma ouvir músicas em português, inglês, ou ambos?",
+          "required": false,
+          "options": ["Majoritariamente português", "Majoritariamente inglês", "Equilibrado entre os dois", "Outros idiomas", "Não presto atenção ao idioma"]
+        }
+      ]
+    },
+    {
+      "title": "Seção 3 — Preferências musicais",
+      "questions": [
+        {
+          "type": "caixa_selecao",
+          "text": "Quais gêneros você mais ouve? (marque até 5)",
+          "required": true,
+          "options": ["Pop", "Rock", "Sertanejo", "Funk", "Hip-Hop/Rap", "Eletrônica/House", "MPB/Samba/Pagode/Forró", "R&B/Soul", "Outro"]
+        },
+        {
+          "type": "curta",
+          "text": "Dentre os marcados acima, qual é o seu gênero favorito?",
+          "required": true
+        },
+        {
+          "type": "caixa_selecao",
+          "text": "O que mais te atrai em uma música? (marque até 3)",
+          "required": true,
+          "options": ["Letra/mensagem", "Melodia", "Ritmo/batida", "Voz/interpretação do artista", "Instrumental/produção", "Dá pra dançar", "Dá pra treinar", "Clima/sonoridade geral", "Fama do artista/hit do momento"]
+        },
+        {
+          "type": "multipla_escolha",
+          "text": "Desses, qual é o MAIS importante pra você gostar de uma música?",
+          "required": true,
+          "options": ["Letra/mensagem", "Melodia", "Ritmo/batida", "Voz/interpretação do artista", "Instrumental/produção", "Dá pra dançar", "Dá pra treinar", "Clima/sonoridade geral", "Fama do artista/hit do momento"]
+        },
+        {
+          "type": "escala",
+          "text": "Como você descreveria seu gosto musical?",
+          "required": true,
+          "min": 1,
+          "max": 5,
+          "labelMin": "Sempre as mesmas bandas/estilos",
+          "labelMax": "Gosto de descobrir algo novo toda semana"
+        },
+        {
+          "type": "escala",
+          "text": "Você prefere músicas mais...",
+          "required": false,
+          "min": 1,
+          "max": 5,
+          "labelMin": "Calmas/acústicas",
+          "labelMax": "Agitadas/eletrônicas"
+        },
+        {
+          "type": "escala",
+          "text": "Você prefere músicas mais...",
+          "required": false,
+          "min": 1,
+          "max": 5,
+          "labelMin": "Tristes/melancólicas",
+          "labelMax": "Alegres/animadas"
+        },
+        {
+          "type": "multipla_escolha",
+          "text": "Você costuma pular músicas com conteúdo explícito (palavrão)?",
+          "required": false,
+          "options": ["Sim, sempre", "Às vezes", "Não, indiferente", "Prefiro conteúdo explícito"]
+        },
+        {
+          "type": "multipla_escolha",
+          "text": "Você prefere faixas curtas (~2–3 min) ou mais longas (5 min+)?",
+          "required": false,
+          "options": ["Prefiro curtas", "Prefiro longas", "Indiferente"]
+        },
+        {
+          "type": "paragrafo",
+          "text": "O que faz você repetir a mesma música várias vezes? (opcional)",
+          "required": false
+        }
+      ]
+    },
+    {
+      "title": "Seção 4 — Descoberta e recomendação",
+      "questions": [
+        {
+          "type": "caixa_selecao",
+          "text": "Como você geralmente descobre músicas novas?",
+          "required": true,
+          "options": ["Recomendações do app (Discover Weekly, Radio, etc.)", "Redes sociais", "Amigos/família", "Rádio tradicional", "Trilhas de filmes/séries/jogos", "Playlists editoriais"]
+        },
+        {
+          "type": "escala",
+          "text": "O quanto você confia nas recomendações automáticas do seu app de streaming?",
+          "required": true,
+          "min": 1,
+          "max": 5,
+          "labelMin": "Nunca acerta",
+          "labelMax": "Sempre acerta"
+        },
+        {
+          "type": "paragrafo",
+          "text": "O que mais te frustra nas recomendações atuais? (opcional)",
+          "required": false
+        },
+        {
+          "type": "multipla_escolha",
+          "text": "Você toparia testar uma versão beta do nosso agente de recomendação e dar feedback?",
+          "required": true,
+          "options": ["Sim", "Não", "Talvez"]
+        },
+        {
+          "type": "curta",
+          "text": "Se sim, deixe seu e-mail para contato (opcional)",
+          "required": false
+        }
+      ]
+    }
+  ]
+}

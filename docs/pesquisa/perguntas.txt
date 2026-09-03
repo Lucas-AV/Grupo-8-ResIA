@@ -1,0 +1,148 @@
+Seção: Seção 1 — Perfil rápido
+---
+1. Qual sua faixa etária?*
+Alternativas:
+1. <18
+2. 18–24
+3. 25–34
+4. 35–44
+5. 45–54
+6. 55+
+---
+2. [caixa] Quais serviços de streaming de música você usa?*
+Alternativas:
+1. Spotify
+2. YouTube Music
+3. Apple Music
+4. Deezer
+5. Amazon Music
+6. Outro
+7. Não uso streaming
+---
+3. Com que frequência você escuta música?*
+Alternativas:
+1. Várias vezes ao dia
+2. 1x ao dia
+3. Algumas vezes na semana
+4. Raramente
+---
+4. Em média, quantas horas por dia você passa ouvindo música?
+Alternativas:
+1. <1h
+2. 1–2h
+3. 2–4h
+4. 4h+
+---
+Seção: Seção 2 — Contexto de escuta
+---
+5. [caixa] Em quais situações você mais ouve música?*
+Alternativas:
+1. Trabalhando/estudando
+2. Se exercitando
+3. No transporte
+4. Relaxando/dormindo
+5. Em festas/eventos sociais
+6. Tarefas domésticas
+7. Outro
+---
+6. [caixa] O que mais influencia sua escolha de música no momento? (marque até 3)*
+Alternativas:
+1. Meu humor
+2. A atividade que estou fazendo
+3. Recomendação do app
+4. Indicação de amigos
+5. Redes sociais (TikTok, Reels)
+6. Rádio
+7. Playlists prontas que já conheço
+---
+7. Você costuma ouvir músicas em português, inglês, ou ambos?
+Alternativas:
+1. Majoritariamente português
+2. Majoritariamente inglês
+3. Equilibrado entre os dois
+4. Outros idiomas
+5. Não presto atenção ao idioma
+---
+Seção: Seção 3 — Preferências musicais
+---
+8. [caixa] Quais gêneros você mais ouve? (marque até 5)*
+Alternativas:
+1. Pop
+2. Rock
+3. Sertanejo
+4. Funk
+5. Hip-Hop/Rap
+6. Eletrônica/House
+7. MPB/Samba/Pagode/Forró
+8. R&B/Soul
+9. Outro
+---
+9. [curta] Dentre os marcados acima, qual é o seu gênero favorito?*
+---
+10. [caixa] O que mais te atrai em uma música? (marque até 3)*
+Alternativas:
+1. Letra/mensagem
+2. Melodia
+3. Ritmo/batida
+4. Voz/interpretação do artista
+5. Instrumental/produção
+6. Dá pra dançar
+7. Dá pra treinar
+8. Clima/sonoridade geral
+9. Fama do artista/hit do momento
+---
+11. Desses, qual é o MAIS importante pra você gostar de uma música?*
+Alternativas:
+1. Letra/mensagem
+2. Melodia
+3. Ritmo/batida
+4. Voz/interpretação do artista
+5. Instrumental/produção
+6. Dá pra dançar
+7. Dá pra treinar
+8. Clima/sonoridade geral
+9. Fama do artista/hit do momento
+---
+12. [escala 1-5 | Sempre as mesmas bandas/estilos | Gosto de descobrir algo novo toda semana] Como você descreveria seu gosto musical?*
+---
+13. [escala 1-5 | Calmas/acústicas | Agitadas/eletrônicas] Você prefere músicas mais...
+---
+14. [escala 1-5 | Tristes/melancólicas | Alegres/animadas] Você prefere músicas mais...
+---
+15. Você costuma pular músicas com conteúdo explícito (palavrão)?
+Alternativas:
+1. Sim, sempre
+2. Às vezes
+3. Não, indiferente
+4. Prefiro conteúdo explícito
+---
+16. Você prefere faixas curtas (~2–3 min) ou mais longas (5 min+)?
+Alternativas:
+1. Prefiro curtas
+2. Prefiro longas
+3. Indiferente
+---
+17. [paragrafo] O que faz você repetir a mesma música várias vezes? (opcional)
+---
+Seção: Seção 4 — Descoberta e recomendação
+---
+18. [caixa] Como você geralmente descobre músicas novas?*
+Alternativas:
+1. Recomendações do app (Discover Weekly, Radio, etc.)
+2. Redes sociais
+3. Amigos/família
+4. Rádio tradicional
+5. Trilhas de filmes/séries/jogos
+6. Playlists editoriais
+---
+19. [escala 1-5 | Nunca acerta | Sempre acerta] O quanto você confia nas recomendações automáticas do seu app de streaming?*
+---
+20. [paragrafo] O que mais te frustra nas recomendações atuais? (opcional)
+---
+21. Você toparia testar uma versão beta do nosso agente de recomendação e dar feedback?*
+Alternativas:
+1. Sim
+2. Não
+3. Talvez
+---
+22. [curta] Se sim, deixe seu e-mail para contato (opcional)
