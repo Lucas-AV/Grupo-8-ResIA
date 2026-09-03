@@ -3,9 +3,10 @@ import time
 from typing import Optional
 
 from fastapi import APIRouter, Query
-from fastapi.responses import RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 
 from spotify_auth.client import PendingAuth, build_authorize_url, exchange_code_for_tokens
+from spotify_auth.consent import render_consent_page
 from spotify_auth.errors import SpotifyTokenExchangeError
 from spotify_auth.token_store import TokenStore
 
@@ -25,6 +26,12 @@ def _get_token_store():
 
 @router.get("/auth/login")
 def login(session_id: str = Query(...)):
+    """Aviso de consentimento (ticket 5.10) antes do redirect real pro Spotify."""
+    return HTMLResponse(render_consent_page(session_id))
+
+
+@router.get("/auth/login/start")
+def login_start(session_id: str = Query(...)):
     return RedirectResponse(build_authorize_url(session_id, _pending_auth))
 
 
