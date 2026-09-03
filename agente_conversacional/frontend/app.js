@@ -193,12 +193,27 @@ async function enviarMensagem(sessionId, mensagem) {
 
     clearTimeout(timeoutId);
 
+    // Ticket 4.9 (KAN-76): limite de mensagens atingido (rate limiting do
+    // ticket 8.4, quando ligado no backend). Tratado à parte do fallback
+    // offline abaixo — mascarar um 429 com dados mockados esconderia do
+    // usuário que ele precisa esperar antes de tentar de novo.
+    if (response.status === 429) {
+      const rateLimitError = new Error('Limite de mensagens atingido (HTTP 429).');
+      rateLimitError.isRateLimit = true;
+      throw rateLimitError;
+    }
+
     if (!response.ok) {
       throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
     }
 
     return await response.json();
   } catch (err) {
+    if (err && err.isRateLimit) {
+      // Não cai no fallback offline: precisa chegar até a UI como um erro
+      // específico e diferente do erro genérico (ticket 4.8 / KAN-75).
+      throw err;
+    }
     console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
     await new Promise((r) => setTimeout(r, 650));
     return resolverMockLocal(sessionId, mensagem);
@@ -387,6 +402,11 @@ function renderMessageBubble(msg, animar = true) {
 
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
+  // Ticket 4.9 (KAN-76): marca visualmente a mensagem de limite de taxa
+  // (HTTP 429) como distinta de uma resposta normal do agente.
+  if (msg.isRateLimitError) {
+    bubble.classList.add('message-bubble--rate-limit');
+  }
 
   const textElem = document.createElement('div');
   textElem.className = 'message-text';
@@ -463,16 +483,29 @@ async function enviarMensagemUsuario(texto) {
     console.error('Erro ao processar turno:', error);
     if (typingIndicator) typingIndicator.style.display = 'none';
 
+    // Ticket 4.9 (KAN-76): HTTP 429 recebe mensagem própria, clara sobre o
+    // limite de mensagens, em vez do erro genérico do ticket 4.8 (KAN-75).
+    // Essa checagem é aditiva: quando o banner genérico do KAN-75 existir,
+    // basta ele também respeitar/checar `error.isRateLimit` para não
+    // sobrepor esta mensagem específica.
+    const isRateLimit = Boolean(error && error.isRateLimit);
+    const conteudoErro = isRateLimit
+      ? 'Você atingiu o limite de mensagens. Aguarde um instante e tente novamente.'
+      : 'Desculpe, ocorreu uma instabilidade temporária. Por favor tente novamente.';
+
     const errorMsg = {
       id: `error-${Date.now()}`,
       role: 'agent',
-      conteudo: 'Desculpe, ocorreu uma instabilidade temporária. Por favor tente novamente.',
+      conteudo: conteudoErro,
+      isRateLimitError: isRateLimit,
       timestamp: new Date().toISOString(),
     };
     messages.push(errorMsg);
     renderMessageBubble(errorMsg, true);
     scrollToBottom();
   } finally {
+    // Critério de aceite (KAN-76): o input do chat continua disponível para
+    // uma nova tentativa, mesmo após um 429 — nada aqui desabilita o campo.
     isProcessing = false;
     btnSend.disabled = chatInput.value.trim().length === 0;
     chatInput.focus();
