@@ -103,9 +103,9 @@ rede mockada.
 
 ## Épico 1 — Motor de recomendação (status por ticket)
 
-Módulo `recomendacao/` — carregamento/normalização, índice de
-similaridade, busca completa e métricas de diversidade/cobertura
-prontos; só falta a suíte formal de testes do backlog (1.5).
+Módulo `recomendacao/` — Épico 1 completo: carregamento/normalização,
+índice de similaridade, busca completa, métricas de diversidade/
+cobertura e a suíte formal de testes de edge cases.
 
 | Ticket | O que cobre | Status |
 |---|---|---|
@@ -113,7 +113,7 @@ prontos; só falta a suíte formal de testes do backlog (1.5).
 | 1.2 — Índice de similaridade (k-NN / cosseno) | `recomendacao/indice.py` — `construir_indice()` monta, uma única vez (cacheado), a matriz de features normalizada linha a linha (norma L2); `IndiceSimilaridade.mais_similares(vetor_alvo, n)` devolve as `n` faixas mais próximas por cosseno via produto escalar vetorizado (numpy puro, sem nova dependência). Busca no dataset real (~31,8 mil faixas) roda em milissegundos, bem abaixo do limite de ~1s. | Feito |
 | 1.3 — `buscar_recomendacoes(...)` completa | `recomendacao/busca.py` — assinatura completa (`genero`, `energia`, `valencia`, `dancabilidade`, `artista_referencia`, `excluir_explicit`, `n_resultados`, `perfil_usuario`, `faixas_ja_mostradas`); validação defensiva de cada campo (nunca levanta exceção); filtros rígidos (gênero, `excluir_explicit`, dedup de `track_id`) antes da similaridade; vetor-alvo pelos 3 casos (artista de referência → centróide, buckets categóricos, blend 70/30 com `perfil_usuario`); fallback por popularidade quando não há sinal nenhum; `n_resultados` sempre em `[1, 30]`. Ver decisões assumidas abaixo. | Feito |
 | 1.4 — Cálculo de diversidade e cobertura | `diversidade_generos` (nº de gêneros distintos no resultado) e `cobertura_sessao` (proporção de faixas cujo `track_id` não está em `faixas_ja_mostradas`) calculados dentro de `buscar_recomendacoes` e sempre presentes na resposta — inclusive no fallback de popularidade e no caso de resultado vazio (`0` e `0.0`, respectivamente). | Feito |
-| 1.5 — Testes unitários de `buscar_recomendacoes` | Depende de **1.4**. | Não iniciado |
+| 1.5 — Testes unitários de `buscar_recomendacoes` | `test_recomendacoes_edge_cases.py` fecha as combinações que faltavam contra a tabela de edge cases (§7 do pipeline) e os critérios do ticket: atributo só (dançabilidade, valência — energia já estava em 1.3), gênero/artista inválido em combinação, dedup na busca por similaridade (não só no fallback), e resultado vazio nos dois caminhos (fallback e similaridade). O resto dos critérios (combinação de sinal, `n_resultados` fora da faixa, gênero/artista inválido isolado, dedup no fallback) já tinha saído coberto organicamente em 1.3/1.4. | Feito |
 
 **Decisões assumidas no 1.3** (a especificação detalhada referenciada
 pelo ticket — filtros/buckets/blend — não está mais no
@@ -140,5 +140,5 @@ Jira tinha esse nível de detalhe). Vale o time confirmar:
   zero sem esconder que não há faixas novas nem antigas, simplesmente
   não há faixas.
 
-Testes: `pytest` — 103 testes (93 anteriores + 10 do ticket 1.4), todos
-sem depender de rede ou de serviços externos.
+Testes: `pytest` — 109 testes (103 anteriores + 6 do ticket 1.5), todos
+sem depender de rede ou de serviços externos. Épico 1 completo.
