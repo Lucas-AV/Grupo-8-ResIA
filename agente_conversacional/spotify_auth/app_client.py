@@ -63,3 +63,41 @@ def search_tracks(query, limit=10, timeout=None):
 
     body = response.json()
     return body.get("tracks", {}).get("items", []) or []
+
+
+def get_tracks(track_ids, timeout=None):
+    """`GET /tracks?ids=...` — devolve os objetos `track` brutos da Spotify
+    pros ids pedidos (inclui `preview_url`), pra enriquecer faixas do
+    dataset local (KAN-77), que só tem audio features, nunca preview. O
+    endpoint aceita ate 50 ids por chamada; ids alem disso viram lotes
+    adicionais (`GET /tracks` sucessivos) — hoje quem chama
+    (`recomendacao/busca.py`) nunca manda mais que 30 ids (mesmo teto de
+    `_validar_n_resultados`), entao na pratica isso e sempre uma unica
+    chamada HTTP por resposta. Ids falsy (None/"") sao descartados antes
+    de montar os lotes; lista de entrada vazia/só-de-falsy devolve `[]`
+    sem chamar a Spotify.
+
+    Propaga qualquer excecao, mesma convencao de `search_tracks` — quem
+    decide degradar graciosamente e `recomendacao/busca.py`, nao este
+    modulo."""
+    ids_validos = [track_id for track_id in track_ids if track_id]
+    if not ids_validos:
+        return []
+
+    token = get_app_access_token(timeout=timeout)
+    faixas = []
+    for inicio in range(0, len(ids_validos), 50):
+        lote = ids_validos[inicio : inicio + 50]
+        response = requests.get(
+            f"{API_BASE}/tracks",
+            headers={"Authorization": f"Bearer {token}"},
+            params={"ids": ",".join(lote)},
+            timeout=timeout or _DEFAULT_TIMEOUT_SEGUNDOS,
+        )
+        if response.status_code != 200:
+            raise RuntimeError(f"Spotify respondeu HTTP {response.status_code} em {API_BASE}/tracks")
+
+        body = response.json()
+        faixas.extend(body.get("tracks", []) or [])
+
+    return faixas
