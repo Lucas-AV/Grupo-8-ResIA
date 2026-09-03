@@ -31,18 +31,31 @@ logado.
 
 ## Backend — `spotify_client.call_api` ganha método HTTP configurável
 
-Hoje `call_api` só faz GET. Vira:
+Hoje `call_api` só faz GET, via `requests.get(...)`. Todo teste em
+`test_spotify_client.py` já mocka `spotify_client.requests.get`
+diretamente — trocar isso por `requests.request(method, ...)`
+incondicional quebraria esses mocks (o código pararia de chamar
+`.get()` de verdade). Fix: mantém `requests.get` pro caso GET (o
+default, sem mudança nenhuma pros testes existentes), e só usa
+`requests.request` quando o método for outro:
 
 ```python
 def call_api(path, token, params=None, method="GET", json_body=None):
     try:
-        response = requests.request(
-            method,
-            f"{API_BASE}{path}",
-            headers={"Authorization": f"Bearer {token}"},
-            params=params or {},
-            json=json_body,
-        )
+        if method == "GET":
+            response = requests.get(
+                f"{API_BASE}{path}",
+                headers={"Authorization": f"Bearer {token}"},
+                params=params or {},
+            )
+        else:
+            response = requests.request(
+                method,
+                f"{API_BASE}{path}",
+                headers={"Authorization": f"Bearer {token}"},
+                params=params or {},
+                json=json_body,
+            )
     except requests.exceptions.RequestException as exc:
         return {"error": "connection_error", "error_description": str(exc)}, 502
 
@@ -64,12 +77,24 @@ def call_api(path, token, params=None, method="GET", json_body=None):
 ```
 
 100% retrocompatível — todo call site atual usa só `path`/`token`/
-`params`, que continuam funcionando exatamente igual (`method="GET"`
-por padrão, `json=None` no `requests.request` equivale a não mandar
-corpo).
+`params`, que continuam funcionando exatamente igual e continuam
+batendo em `requests.get` (nada muda no runtime nem nos testes já
+existentes).
 
 `_user_data_route` em `app.py` ganha os mesmos dois parâmetros
-opcionais, repassados pra `call_api`:
+opcionais — mas só repassa `method`/`json_body` pra `call_api` quando
+eles fogem do padrão (`method != "GET"` ou `json_body is not None`).
+Isso importa de verdade: se `_user_data_route` sempre passasse os dois
+kwargs novos incondicionalmente, todo teste já existente que faz mock
+de `spotify_client.call_api` com a assinatura antiga
+(`fake_call_api(path, token, params=None)`, sem `method`/`json_body`)
+quebraria com `TypeError` — são uns 11 testes em `test_app_auth.py`
+(top_tracks, saved_tracks, recently_played, following, my_playlists,
+player, player_queue, etc.). Passando os kwargs só condicionalmente,
+toda rota antiga (GET puro) continua chamando `call_api` exatamente
+como antes, e só as rotas novas (que passam `method="PUT"` etc.
+explicitamente) acionam os kwargs extras — zero teste existente
+precisa mudar:
 
 ```python
 def _user_data_route(path, params=None, method="GET", json_body=None):
@@ -80,7 +105,12 @@ def _user_data_route(path, params=None, method="GET", json_body=None):
     except user_auth.NotLoggedInError as exc:
         return jsonify({"error": str(exc)}), 401
 
-    body, status = spotify_client.call_api(path, token, params=params, method=method, json_body=json_body)
+    kwargs = {"params": params}
+    if method != "GET":
+        kwargs["method"] = method
+    if json_body is not None:
+        kwargs["json_body"] = json_body
+    body, status = spotify_client.call_api(path, token, **kwargs)
     return jsonify(body), status
 ```
 
