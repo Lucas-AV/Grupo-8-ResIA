@@ -342,6 +342,8 @@ def register_routes(app):
         if not track_id:
             return jsonify({"error": "missing_track_id"}), 400
 
+        # duplicated from _user_data_route: this route branches between 3 sequential
+        # calls, so it can't reuse the single-call helper
         try:
             token = user_auth.get_valid_user_token(
                 app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_CLIENT_SECRET"]
@@ -352,8 +354,10 @@ def register_routes(app):
         rec_body, rec_status = spotify_client.call_api(
             "/recommendations", token, params={"seed_tracks": track_id, "limit": "20"}
         )
-        if rec_status != 200 or not rec_body.get("tracks"):
+        if rec_status != 200:
             return jsonify({"step": "recommendations", "error": rec_body}), rec_status
+        if not rec_body.get("tracks"):
+            return jsonify({"step": "recommendations", "error": rec_body}), 502
 
         uris = [t["uri"] for t in rec_body["tracks"]]
         playlist_name = f"Relacionadas com {track_name} — {date.today().isoformat()}"

@@ -500,6 +500,62 @@ def test_create_related_playlist_happy_path(client, monkeypatch):
     assert calls == ["/recommendations", "/me/playlists", "/playlists/playlist1/items"]
 
 
+def test_create_related_playlist_stops_if_add_items_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        if path == "/recommendations":
+            return {"tracks": [{"uri": "spotify:track:a"}]}, 200
+        if path == "/me/playlists":
+            return {
+                "id": "playlist1",
+                "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist1"},
+            }, 201
+        if path == "/playlists/playlist1/items":
+            return {"error": {"status": 403, "message": "forbidden"}}, 403
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["step"] == "add_items"
+    assert data["playlist"]["id"] == "playlist1"
+
+
+def test_create_related_playlist_treats_empty_recommendations_as_upstream_error(
+    client, monkeypatch
+):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        return {"tracks": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 502
+    data = response.get_json()
+    assert data["step"] == "recommendations"
+    assert calls == ["/recommendations"]
+
+
 def test_create_related_playlist_stops_if_recommendations_fails(client, monkeypatch):
     monkeypatch.setattr(
         app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
