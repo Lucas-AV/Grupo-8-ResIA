@@ -4,8 +4,9 @@ Implementação do backend do agente de recomendação (Proposta B). Ver
 [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](../docs/PIPELINE_AGENTE_PROPOSTA_B.md)
 pra especificacao completa e
 [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](../docs/BACKLOG_JIRA_PROPOSTA_B.md) pro
-backlog em tickets. Este README cobre só o que já existe: Épico 0
-(infraestrutura de LLM).
+backlog em tickets. Este README cobre o que já existe no agente: Épico 0
+(infraestrutura de LLM) e KAN-8 (sessões e API). Para uma visão simples da
+entrega do KAN-8, veja [`docs/KAN-8_BACKEND_API.md`](docs/KAN-8_BACKEND_API.md).
 
 ## Setup
 
