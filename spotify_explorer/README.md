@@ -88,6 +88,12 @@ tocadas — não é um histórico de 6 meses. Pra "mais ouvidas nos últimos ~6
 meses", use a aba Meus dados com `time_range=medium_term`, que é um
 ranking por frequência calculado pela Spotify, não uma lista cronológica.
 
+Desde fev/2026 a Spotify removeu `GET /browse/new-releases` pra apps em
+Development Mode (sem alternativa/endpoint substituto) — a aba New
+Releases vai mostrar 403 pra qualquer app que não esteja em Extended
+Quota Mode. Mesmo caso dos 403 acima: é a API real, não bug da
+ferramenta.
+
 ## Checklist de smoke test manual
 
 - [ ] App sobe sem `.env` preenchido e mostra o aviso de credenciais faltando
