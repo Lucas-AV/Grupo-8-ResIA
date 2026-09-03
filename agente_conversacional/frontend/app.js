@@ -289,7 +289,13 @@ function setupEventListeners() {
   });
 
   btnSpotifyAuth?.addEventListener('click', () => {
-    showToast('Autenticação Spotify OAuth pronta para integração (Épico 5).');
+    // Ticket 4.7 (KAN-74): antes de qualquer redirect real pro Spotify, o
+    // usuário passa pela página de consentimento própria do backend
+    // (GET /auth/login → spotify_auth/consent.py), que lista os scopes
+    // lidos e a política de dados (ticket 5.10) e só depois linka pro
+    // redirect de fato (GET /auth/login/start). Abrimos essa página em vez
+    // de replicar o texto aqui pra não divergir do que o backend descreve.
+    window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
   });
 
   btnMic?.addEventListener('click', () => {
