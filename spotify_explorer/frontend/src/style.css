@@ -267,6 +267,18 @@ h3 {
   background: var(--bg-elevated);
 }
 
+.media-item-clickable {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
 .media-item-image {
   width: 48px;
   height: 48px;
