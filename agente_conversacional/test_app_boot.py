@@ -1,6 +1,6 @@
 from fastapi.testclient import TestClient
 
-from app import create_app
+from agente_conversacional.app import create_app
 from llm.errors import LLMCallError
 
 
