@@ -456,3 +456,120 @@ def test_player_repeat_uses_state_param(client, monkeypatch):
     response = client.post("/api/me/player/repeat?state=track")
 
     assert response.status_code == 204
+
+
+def test_create_related_playlist_happy_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        if path == "/recommendations":
+            assert params == {"seed_tracks": "track123", "limit": "20"}
+            return {"tracks": [{"uri": "spotify:track:a"}, {"uri": "spotify:track:b"}]}, 200
+        if path == "/me/playlists":
+            assert method == "POST"
+            assert json_body["public"] is False
+            return (
+                {
+                    "id": "playlist1",
+                    "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist1"},
+                },
+                201,
+            )
+        if path == "/playlists/playlist1/items":
+            assert method == "POST"
+            assert json_body == {"uris": ["spotify:track:a", "spotify:track:b"]}
+            return {"snapshot_id": "abc"}, 201
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["added_tracks"] == 2
+    assert data["playlist"]["id"] == "playlist1"
+    assert calls == ["/recommendations", "/me/playlists", "/playlists/playlist1/items"]
+
+
+def test_create_related_playlist_stops_if_recommendations_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        return {"error": {"status": 403, "message": "forbidden"}}, 403
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["step"] == "recommendations"
+    assert calls == ["/recommendations"]
+
+
+def test_create_related_playlist_stops_if_playlist_creation_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        if path == "/recommendations":
+            return {"tracks": [{"uri": "spotify:track:a"}]}, 200
+        if path == "/me/playlists":
+            return {"error": {"status": 403, "message": "forbidden"}}, 403
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["step"] == "create_playlist"
+    assert calls == ["/recommendations", "/me/playlists"]
+
+
+def test_create_related_playlist_requires_track_id(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    response = client.post("/api/me/playlists/related", json={})
+
+    assert response.status_code == 400
+
+
+def test_create_related_playlist_requires_login(client, monkeypatch):
+    def fake_get_valid_user_token(client_id, client_secret):
+        raise app_module.user_auth.NotLoggedInError("faça login primeiro em /login")
+
+    monkeypatch.setattr(app_module.user_auth, "get_valid_user_token", fake_get_valid_user_token)
+
+    response = client.post(
+        "/api/me/playlists/related", json={"track_id": "track123", "track_name": "Test"}
+    )
+
+    assert response.status_code == 401

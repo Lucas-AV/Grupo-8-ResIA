@@ -1,4 +1,5 @@
 import os
+from datetime import date
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
@@ -332,6 +333,52 @@ def register_routes(app):
             params={"state": request.args.get("state", "off")},
             method="PUT",
         )
+
+    @app.route("/api/me/playlists/related", methods=["POST"])
+    def create_related_playlist():
+        data = request.get_json(silent=True) or {}
+        track_id = data.get("track_id")
+        track_name = data.get("track_name", "")
+        if not track_id:
+            return jsonify({"error": "missing_track_id"}), 400
+
+        try:
+            token = user_auth.get_valid_user_token(
+                app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_CLIENT_SECRET"]
+            )
+        except user_auth.NotLoggedInError as exc:
+            return jsonify({"error": str(exc)}), 401
+
+        rec_body, rec_status = spotify_client.call_api(
+            "/recommendations", token, params={"seed_tracks": track_id, "limit": "20"}
+        )
+        if rec_status != 200 or not rec_body.get("tracks"):
+            return jsonify({"step": "recommendations", "error": rec_body}), rec_status
+
+        uris = [t["uri"] for t in rec_body["tracks"]]
+        playlist_name = f"Relacionadas com {track_name} — {date.today().isoformat()}"
+
+        create_body, create_status = spotify_client.call_api(
+            "/me/playlists",
+            token,
+            method="POST",
+            json_body={
+                "name": playlist_name,
+                "public": False,
+                "description": "Gerado automaticamente pelo Spotify Explorer",
+            },
+        )
+        if create_status not in (200, 201):
+            return jsonify({"step": "create_playlist", "error": create_body}), create_status
+
+        playlist_id = create_body["id"]
+        add_body, add_status = spotify_client.call_api(
+            f"/playlists/{playlist_id}/items", token, method="POST", json_body={"uris": uris}
+        )
+        if add_status not in (200, 201):
+            return jsonify({"step": "add_items", "playlist": create_body, "error": add_body}), add_status
+
+        return jsonify({"playlist": create_body, "added_tracks": len(uris)}), 200
 
 
 if __name__ == "__main__":
