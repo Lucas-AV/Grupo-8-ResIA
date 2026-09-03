@@ -2,6 +2,7 @@
 import { computed, reactive, ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useHistory } from "../composables/useHistory.js";
+import { useNowPlaying } from "../composables/useNowPlaying.js";
 import { trackSummary, artistSummary, albumSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import MediaItemRow from "../components/MediaItemRow.vue";
@@ -11,6 +12,7 @@ const { status, call } = useApi();
 const result = reactive({ data: null });
 const { items: history, add: addToHistory } = useHistory("search");
 const submittedType = ref(form.type);
+const { open } = useNowPlaying();
 
 const summaryFn = { track: trackSummary, artist: artistSummary, album: albumSummary };
 
@@ -60,7 +62,10 @@ async function onSubmit() {
     >
       <template #preview>
         <div v-for="(item, i) in items" :key="i">
-          <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
+          <button v-if="submittedType === 'track'" type="button" class="media-item-clickable" @click="open(item)">
+            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+          </button>
+          <MediaItemRow v-else :image="item.image" :title="item.title" :subtitle="item.subtitle" />
         </div>
       </template>
     </ResultPanel>
