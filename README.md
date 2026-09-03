@@ -188,7 +188,7 @@ arquitetura ponta a ponta:
 
 | Biblioteca | O que é | Para que serve neste projeto |
 |---|---|---|
-| [pandas](https://pandas.pydata.org/) | Biblioteca de manipulação e análise de dados tabulares (DataFrames) | Ler o `data/dataset.csv`, agrupar por coluna/gênero e calcular médias/contagens (`scripts/group_occurrences.py`, `site/build_site.py`) |
+| [pandas](https://pandas.pydata.org/) | Biblioteca de manipulação e análise de dados tabulares (DataFrames) | Ler o `data/dataset.csv`, agrupar por coluna/gênero e calcular médias/contagens (`scripts/group_occurrences.py`, `site/build_site.py`); carregar e normalizar o dataset pro motor de recomendação (`agente_conversacional/recomendacao/dataset.py`) |
 | [matplotlib](https://matplotlib.org/) | Biblioteca de geração de gráficos estáticos | Gerar os PNGs das análises (`scripts/plot_genre_charts.py`, `scripts/plot_genre_mode.py`, `scripts/plot_popularity_occurrences.py`) |
 | [adjustText](https://github.com/Phlya/adjustText) | Reposiciona rótulos de texto em gráficos matplotlib para evitar sobreposição | Afastar os rótulos de gênero que se sobrepunham no scatter de energia × dançabilidade (`genre_energy_dance.png`) |
 | [Jinja2](https://jinja.palletsprojects.com/) | Motor de templates para gerar texto/HTML a partir de dados | Renderizar as páginas HTML do site (`site/build_site.py` + `site/templates/`) |
