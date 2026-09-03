@@ -1,3 +1,6 @@
+import json
+
+
 def render_qr_page(svg_data_uri, code, frontend_url):
     return f"""<!doctype html>
 <html lang="pt-BR">
@@ -7,8 +10,8 @@ def render_qr_page(svg_data_uri, code, frontend_url):
 <img src="{svg_data_uri}" alt="QR code para login com Spotify" width="300" height="300">
 <p id="status">Aguardando alguém escanear...</p>
 <script>
-const code = "{code}";
-const frontendUrl = "{frontend_url}";
+const code = {json.dumps(code)};
+const frontendUrl = {json.dumps(frontend_url)};
 
 async function poll() {{
   const response = await fetch(`/api/pair/${{code}}/status`);
