@@ -51,6 +51,38 @@ def test_consume_on_unknown_code_returns_none():
     assert store.consume("nope") is None
 
 
+def test_consume_if_completed_on_pending_code_returns_pending_and_none():
+    store = PairingStore()
+    code = store.create()
+
+    status, tokens = store.consume_if_completed(code)
+
+    assert status == "pending"
+    assert tokens is None
+    assert store.get_status(code) == "pending"
+
+
+def test_consume_if_completed_on_unknown_code_returns_not_found_and_none():
+    store = PairingStore()
+
+    status, tokens = store.consume_if_completed("nope")
+
+    assert status == "not_found"
+    assert tokens is None
+
+
+def test_consume_if_completed_on_completed_code_returns_tokens_and_removes_entry():
+    store = PairingStore()
+    code = store.create()
+    store.mark_completed(code, {"access_token": "at"})
+
+    status, tokens = store.consume_if_completed(code)
+
+    assert status == "completed"
+    assert tokens == {"access_token": "at"}
+    assert store.get_status(code) == "not_found"
+
+
 def test_entry_expires_after_ttl():
     fake_time = [1000.0]
     store = PairingStore(clock=lambda: fake_time[0])

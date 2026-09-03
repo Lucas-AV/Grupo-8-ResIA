@@ -47,6 +47,18 @@ class PairingStore:
             del self._entries[code]
             return entry["tokens"]
 
+    def consume_if_completed(self, code):
+        with self._lock:
+            self._purge_expired_locked()
+            entry = self._entries.get(code)
+            if entry is None:
+                return "not_found", None
+            if entry["tokens"] is None:
+                return "pending", None
+            tokens = entry["tokens"]
+            del self._entries[code]
+            return "completed", tokens
+
     def _purge_expired_locked(self):
         now = self._clock()
         expired = [c for c, e in self._entries.items() if now - e["created_at"] >= _TTL_SECONDS]
