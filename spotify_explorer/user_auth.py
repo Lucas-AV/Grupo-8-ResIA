@@ -44,6 +44,12 @@ def _basic_auth_header(client_id, client_secret):
     return base64.b64encode(credentials).decode("utf-8")
 
 
+def apply_tokens_to_session(tokens):
+    session["user_access_token"] = tokens["access_token"]
+    session["user_refresh_token"] = tokens["refresh_token"]
+    session["user_token_expires_at"] = tokens["expires_at"]
+
+
 def exchange_code(code, state, client_id, client_secret, redirect_uri):
     if state != session.get("oauth_state"):
         raise ValueError("state inválido — possível CSRF, tente logar novamente")
@@ -79,9 +85,13 @@ def exchange_code(code, state, client_id, client_secret, redirect_uri):
             response.status_code,
         )
 
-    session["user_access_token"] = payload["access_token"]
-    session["user_refresh_token"] = payload["refresh_token"]
-    session["user_token_expires_at"] = time.time() + payload["expires_in"] - 30
+    tokens = {
+        "access_token": payload["access_token"],
+        "refresh_token": payload["refresh_token"],
+        "expires_at": time.time() + payload["expires_in"] - 30,
+    }
+    apply_tokens_to_session(tokens)
+    return tokens
 
 
 def get_valid_user_token(client_id, client_secret):
