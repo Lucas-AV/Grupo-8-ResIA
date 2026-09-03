@@ -420,3 +420,39 @@ def test_player_volume_uses_volume_percent_param(client, monkeypatch):
     response = client.post("/api/me/player/volume?volume_percent=80")
 
     assert response.status_code == 204
+
+
+def test_player_shuffle_uses_state_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/shuffle"
+        assert method == "PUT"
+        assert params == {"state": "true"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/shuffle?state=true")
+
+    assert response.status_code == 204
+
+
+def test_player_repeat_uses_state_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/repeat"
+        assert method == "PUT"
+        assert params == {"state": "track"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/repeat?state=track")
+
+    assert response.status_code == 204

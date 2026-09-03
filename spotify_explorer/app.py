@@ -317,6 +317,22 @@ def register_routes(app):
             method="PUT",
         )
 
+    @app.route("/api/me/player/shuffle", methods=["POST"])
+    def player_shuffle():
+        return _user_data_route(
+            "/me/player/shuffle",
+            params={"state": request.args.get("state", "false")},
+            method="PUT",
+        )
+
+    @app.route("/api/me/player/repeat", methods=["POST"])
+    def player_repeat():
+        return _user_data_route(
+            "/me/player/repeat",
+            params={"state": request.args.get("state", "off")},
+            method="PUT",
+        )
+
 
 if __name__ == "__main__":
     flask_app = create_app()
