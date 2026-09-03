@@ -94,6 +94,17 @@ Releases vai mostrar 403 pra qualquer app que não esteja em Extended
 Quota Mode. Mesmo caso dos 403 acima: é a API real, não bug da
 ferramenta.
 
+Na mesma leva de fev/2026, a Spotify também removeu
+`GET /artists/{id}/top-tracks` (sem substituto) e mudou o formato de
+`GET /playlists/{id}`: o campo `tracks` virou `items`, e o campo de
+faixas fica ausente inteiramente quando quem chama não é
+dono/colaborador da playlist. A aba Artist simplesmente não mostra a
+seção "Top tracks" quando isso falha (mesmo tratamento dos outros 403
+já citados). A aba Playlist usa Client Credentials Flow — sem usuário
+associado — então mostra uma nota explícita de "Faixas não
+disponíveis" em vez da lista, já que nunca vai ter permissão de
+dono/colaborador nenhuma.
+
 ## Checklist de smoke test manual
 
 - [ ] App sobe sem `.env` preenchido e mostra o aviso de credenciais faltando
@@ -106,3 +117,7 @@ ferramenta.
 - [ ] Top tracks/artists funciona nas 3 janelas de tempo
 - [ ] Faixas curtidas e tocadas recentemente retornam dado real
 - [ ] Logout funciona e volta ao estado deslogado
+- [ ] Artist não quebra quando top-tracks falha (403/404) — só omite
+      a seção
+- [ ] Playlist mostra a nota "Faixas não disponíveis" pra qualquer
+      playlist pública (Client Credentials nunca é dono/colaborador)
