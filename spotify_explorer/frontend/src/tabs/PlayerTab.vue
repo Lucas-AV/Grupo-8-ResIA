@@ -12,6 +12,7 @@ const status = reactive({ text: "", className: "status", loading: false });
 const result = reactive({ data: null });
 
 const nowPlaying = computed(() => result.data?.player?.item ?? null);
+const isPlaying = computed(() => result.data?.player?.is_playing ?? false);
 
 const queueItems = computed(() => {
   const items = result.data?.queue?.queue;
@@ -46,6 +47,17 @@ async function fetchPlayer() {
   status.className = "status " + (allOk ? "status-ok" : "status-error");
   result.data = { player: player.data, queue: queue.data };
 }
+
+async function callControl(action, params = {}) {
+  const query = new URLSearchParams(params).toString();
+  const url = query ? `/api/me/player/${action}?${query}` : `/api/me/player/${action}`;
+  await fetchJSON(url, { method: "POST" });
+  await fetchPlayer();
+}
+
+function togglePlayPause() {
+  callControl(isPlaying.value ? "pause" : "play");
+}
 </script>
 
 <template>
@@ -57,6 +69,11 @@ async function fetchPlayer() {
     </div>
     <div v-else>
       <button type="button" class="btn" @click="fetchPlayer">Atualizar</button>
+      <button type="button" class="btn btn-secondary" @click="callControl('previous')">⏮ Anterior</button>
+      <button type="button" class="btn btn-secondary" @click="togglePlayPause">
+        {{ isPlaying ? "⏸ Pausar" : "▶ Tocar" }}
+      </button>
+      <button type="button" class="btn btn-secondary" @click="callControl('next')">⏭ Próxima</button>
       <ResultPanel
         :status="status"
         :data="result.data"
