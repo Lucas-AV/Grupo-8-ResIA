@@ -916,7 +916,7 @@ body {
   left: 0;
   right: 0;
   padding: 12px 24px 20px 24px;
-  background: linear-gradient(180deg, transparent 0%, rgba(12, 12, 12, 0.85) 30%, var(--bg-base) 100%);
+  background: linear-gradient(180deg, transparent 0%, var(--bg-base-veil) 30%, var(--bg-base) 100%);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   z-index: 40;
