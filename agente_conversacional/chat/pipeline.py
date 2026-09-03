@@ -94,6 +94,11 @@ def _para_track(faixa):
         artista=faixa["artista"],
         album=faixa["album"],
         genero=faixa["genero"],
+        # Ticket KAN-77: `.get` (não `[]`) porque só faixas vindas de
+        # `buscar_recomendacoes` (busca.py:_enriquecer_com_preview_url)
+        # têm essa chave garantida — defensivo contra qualquer outro
+        # caller futuro de `_para_track` que não passe por lá.
+        preview_url=faixa.get("preview_url"),
     )
 
 

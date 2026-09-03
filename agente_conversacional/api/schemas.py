@@ -29,6 +29,12 @@ class TrackItem(BaseModel):
     artista: str
     album: str
     genero: str
+    # Ticket KAN-77 (4.10): clipe de 30s da faixa via Spotify GET /tracks
+    # (recomendacao/busca.py:_enriquecer_com_preview_url), quando
+    # disponível. `None` quando a Spotify não tiver preview pra essa
+    # faixa (ou o enriquecimento falhar/degradar) — nunca quebra a
+    # resposta por causa disso.
+    preview_url: str | None = None
 
 
 class ChatResponse(BaseModel):

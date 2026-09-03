@@ -1,9 +1,20 @@
+import logging
+
 import numpy as np
 
 from recomendacao.dataset import FEATURES_AUDIO, FEATURES_AUDIO_NORM, carregar_dataset
 from recomendacao.indice import construir_indice
 from recomendacao.normalizacao import normalizar_texto
 from recomendacao.spotify_fallback import buscar_faixas_spotify
+from spotify_auth.app_client import get_tracks
+
+logger = logging.getLogger("agente.recomendacao")
+
+# Ticket KAN-77: sem SLA formal, mesma logica de _TIMEOUT_SEGUNDOS do
+# fallback de busca (recomendacao/spotify_fallback.py) — nao pode segurar
+# a resposta por muito tempo, e qualquer estouro so significa faixas sem
+# preview_url, nunca uma resposta quebrada.
+_TIMEOUT_PREVIEW_SEGUNDOS = 5
 
 _ENERGIA_DANCABILIDADE_VALORES = {"baixa", "media", "alta"}
 _VALENCIA_VALORES = {"triste", "neutro", "feliz"}
@@ -71,13 +82,54 @@ def buscar_recomendacoes(
 
     faixas_locais = _formatar_faixas(resultado)
     faixas_fallback = _completar_com_spotify(consulta, faixas_locais)
+    todas_faixas = faixas_locais + faixas_fallback
+    _enriquecer_com_preview_url(todas_faixas)
 
     return {
-        "faixas": faixas_locais + faixas_fallback,
+        "faixas": todas_faixas,
         "diversidade_generos": _calcular_diversidade_generos(resultado, faixas_fallback),
         "cobertura_sessao": _calcular_cobertura_sessao(resultado, faixas_ja_mostradas_validas, faixas_fallback),
         "consulta_efetiva": consulta,
     }
+
+
+def _enriquecer_com_preview_url(faixas, timeout=None):
+    """Ticket KAN-77 (4.10): preenche `preview_url` (clipe de 30s em mp3,
+    quando a Spotify tiver) em cada faixa via `GET /tracks` em lote — uma
+    unica chamada HTTP pra resposta inteira (nunca uma por faixa), ja que
+    nem o dataset local (~31.8k faixas, so audio features) nem o fallback
+    da Spotify Search API (KAN-95, ver `spotify_fallback.py`) trazem esse
+    campo. Muta e devolve a mesma lista `faixas`, garantindo a chave
+    `preview_url` em toda faixa (fica `None` quando nao houver preview).
+
+    Nunca levanta excecao: qualquer falha (rede, timeout, credenciais
+    ausentes, HTTP != 200) so loga um aviso e deixa toda faixa sem
+    `preview_url` — mesma filosofia defensiva de
+    `recomendacao/spotify_fallback.py` (KAN-95): preview e um extra sobre
+    a recomendacao, nunca pode derrubar a resposta em si.
+
+    Ressalva conhecida (nao e bug deste modulo): desde nov/2024 a Spotify
+    parou de preencher `preview_url` pra apps criados depois disso — ver
+    docs/superpowers/specs/2026-09-03-spotify-preview-player-design.md.
+    Nesse app (criado depois da mudanca), o campo pode vir sempre `None`
+    na pratica; a feature e construida mesmo assim, no mesmo espirito das
+    outras restricoes de fev/2026 ja documentadas."""
+    ids = [faixa["track_id"] for faixa in faixas if faixa.get("track_id")]
+    preview_por_id = {}
+
+    if ids:
+        try:
+            itens = get_tracks(ids, timeout=timeout or _TIMEOUT_PREVIEW_SEGUNDOS)
+            preview_por_id = {
+                item["id"]: item.get("preview_url") for item in itens if isinstance(item, dict) and item.get("id")
+            }
+        except Exception:
+            logger.warning("falha ao enriquecer faixas com preview_url via Spotify", exc_info=True)
+
+    for faixa in faixas:
+        faixa["preview_url"] = preview_por_id.get(faixa.get("track_id"))
+
+    return faixas
 
 
 def _completar_com_spotify(consulta, faixas_locais):

@@ -77,6 +77,7 @@ def build_api_router(
                     artista=track.artista,
                     album=track.album,
                     genero=track.genero,
+                    preview_url=track.preview_url,
                 )
                 for track in result.faixas
             ],

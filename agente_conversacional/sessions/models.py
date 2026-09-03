@@ -17,6 +17,11 @@ class Track:
     artista: str
     album: str
     genero: str
+    # Ticket KAN-77 (4.10): clipe de 30s da faixa, quando a Spotify tiver
+    # (ver recomendacao/busca.py:_enriquecer_com_preview_url). `None` por
+    # padrão para não quebrar construções posicionais existentes (ex.:
+    # test_api_routes.py) que só passam os 5 campos originais.
+    preview_url: str | None = None
 
 
 @dataclass(frozen=True)
