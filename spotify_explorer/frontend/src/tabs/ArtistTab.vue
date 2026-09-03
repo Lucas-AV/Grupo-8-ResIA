@@ -78,13 +78,13 @@ useNavigationTarget("artist", (id) => {
         <div v-if="topTracksItems.length">
           <h3>Top tracks</h3>
           <div v-for="(item, i) in topTracksItems" :key="i">
-            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
           </div>
         </div>
         <div v-if="relatedArtistsItems.length">
           <h3>Related artists</h3>
           <div v-for="(item, i) in relatedArtistsItems" :key="i">
-            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
           </div>
         </div>
       </template>

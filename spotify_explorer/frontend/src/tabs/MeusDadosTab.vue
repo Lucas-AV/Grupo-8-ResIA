@@ -82,7 +82,7 @@ async function fetchRecentlyPlayed() {
         <ResultPanel :status="top.status" :data="topResult.data" empty-hint="Clique em Top tracks ou Top artists">
           <template #preview>
             <div v-for="(item, i) in topItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
             </div>
           </template>
         </ResultPanel>
@@ -94,7 +94,7 @@ async function fetchRecentlyPlayed() {
         <ResultPanel :status="saved.status" :data="savedResult.data" empty-hint="Clique em Buscar curtidas">
           <template #preview>
             <div v-for="(item, i) in savedItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
             </div>
           </template>
         </ResultPanel>
@@ -110,7 +110,7 @@ async function fetchRecentlyPlayed() {
         >
           <template #preview>
             <div v-for="(item, i) in recentlyPlayedItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
             </div>
           </template>
         </ResultPanel>
