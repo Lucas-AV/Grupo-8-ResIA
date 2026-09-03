@@ -260,6 +260,16 @@ def register_routes(app):
     def player_queue():
         return _user_data_route("/me/player/queue")
 
+    @app.route("/api/me/following")
+    def following():
+        return _user_data_route(
+            "/me/following",
+            params={
+                "type": "artist",
+                "limit": request.args.get("limit", "20"),
+            },
+        )
+
 
 if __name__ == "__main__":
     flask_app = create_app()

@@ -255,3 +255,36 @@ def test_player_queue_calls_correct_path(client, monkeypatch):
     response = client.get("/api/me/player/queue")
 
     assert response.status_code == 200
+
+
+def test_following_uses_type_artist_and_limit(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/following"
+        assert params == {"type": "artist", "limit": "10"}
+        return {"artists": {"items": []}}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/following?limit=10")
+
+    assert response.status_code == 200
+
+
+def test_following_defaults_limit_to_20(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert params["limit"] == "20"
+        return {"artists": {"items": []}}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/following")
+
+    assert response.status_code == 200
