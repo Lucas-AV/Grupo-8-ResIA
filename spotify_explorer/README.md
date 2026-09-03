@@ -32,12 +32,12 @@ design completo.
    ```
 7. Abra `http://127.0.0.1:5000`
 
-> **Se você já tinha uma sessão logada de antes da Fase 2:** os escopos
-> do OAuth mudaram (`user-read-playback-state`,
-> `user-read-currently-playing`, `user-follow-read`,
-> `playlist-read-private` foram adicionados). Deslogue e logue de novo
-> — a Spotify só pede consentimento dos escopos novos numa nova
-> autorização; um token antigo não os tem.
+> **Se você já tinha uma sessão logada de antes:** os escopos do OAuth
+> mudaram (`user-read-playback-state`, `user-read-currently-playing`,
+> `user-follow-read`, `playlist-read-private`,
+> `user-modify-playback-state`). Deslogue e logue de novo — a Spotify
+> só pede consentimento dos escopos novos numa nova autorização; um
+> token antigo não os tem.
 
 ## Rodando os testes
 
@@ -85,8 +85,13 @@ login a Spotify te devolve pra `:5000` (o Flask), não pro Vite.
 - **Meus dados** — requer login (Authorization Code Flow): top
   tracks/artists por `time_range`, faixas curtidas, tocadas recentemente
 - **Player** — `GET /me/player` (o que tá tocando, dispositivo,
-  progresso) + `GET /me/player/queue` (fila) — só leitura, sem
-  controles de reprodução. Requer login.
+  progresso) + `GET /me/player/queue` (fila), mais controles reais de
+  reprodução (play/pause/next/previous/seek/volume/shuffle/repeat) via
+  `PUT`/`POST /me/player/*` — a primeira parte da ferramenta que
+  escreve de verdade na conta do usuário. Também gera uma playlist
+  privada com faixas relacionadas à que está tocando agora
+  (`GET /recommendations` + `POST /me/playlists` + `POST
+  /playlists/{id}/items`). Requer login.
 - **Seguindo** — `GET /me/following?type=artist` (artistas seguidos).
   Clicar num artista abre os detalhes na aba Artist. Requer login.
 - **Minhas Playlists** — `GET /me/playlists` (inclui privadas do
@@ -126,6 +131,17 @@ associado — então mostra uma nota explícita de "Faixas não
 disponíveis" em vez da lista, já que nunca vai ter permissão de
 dono/colaborador nenhuma.
 
+Os controles de reprodução (`/me/player/play`, `/pause`, `/next`,
+`/previous`, `/seek`, `/volume`, `/shuffle`, `/repeat`) precisam de um
+dispositivo Spotify ativo (app aberto em algum lugar logado na mesma
+conta) — sem isso a Spotify devolve 404
+(`NO_ACTIVE_DEVICE`/`NO_PREV_TRACK` etc.). Também exigem conta
+Premium — contas free recebem 403 (`PREMIUM_REQUIRED`). A geração de
+playlist relacionada depende de `GET /recommendations`, que já é um
+403 conhecido desde nov/2024 pra apps sem Extended Quota Mode — o
+botão provavelmente vai mostrar esse erro em vez de criar a playlist,
+o que já é o comportamento esperado (documentado acima).
+
 ## Checklist de smoke test manual
 
 - [ ] App sobe sem `.env` preenchido e mostra o aviso de credenciais faltando
@@ -148,3 +164,13 @@ dono/colaborador nenhuma.
       Artist com os detalhes
 - [ ] Minhas Playlists lista as playlists (inclusive privadas);
       clicar num item abre a aba Playlist com os detalhes
+- [ ] Play/pause/next/previous mudam o estado real no dispositivo
+      ativo (ou mostram 404/403 se não houver dispositivo ativo/conta
+      não for Premium)
+- [ ] Seek e volume só disparam a chamada ao soltar o slider, não a
+      cada movimento
+- [ ] Shuffle e repeat alternam estado e refletem isso após o refetch
+      automático
+- [ ] Gerar playlist relacionada cria uma playlist privada de verdade
+      (ou mostra o erro real do passo que falhou — recommendations,
+      create_playlist ou add_items)

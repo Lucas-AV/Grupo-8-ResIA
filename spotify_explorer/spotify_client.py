@@ -57,13 +57,22 @@ def get_app_token(client_id, client_secret):
     return _token_cache["access_token"]
 
 
-def call_api(path, token, params=None):
+def call_api(path, token, params=None, method="GET", json_body=None):
     try:
-        response = requests.get(
-            f"{API_BASE}{path}",
-            headers={"Authorization": f"Bearer {token}"},
-            params=params or {},
-        )
+        if method == "GET":
+            response = requests.get(
+                f"{API_BASE}{path}",
+                headers={"Authorization": f"Bearer {token}"},
+                params=params or {},
+            )
+        else:
+            response = requests.request(
+                method,
+                f"{API_BASE}{path}",
+                headers={"Authorization": f"Bearer {token}"},
+                params=params or {},
+                json=json_body,
+            )
     except requests.exceptions.RequestException as exc:
         return {"error": "connection_error", "error_description": str(exc)}, 502
 

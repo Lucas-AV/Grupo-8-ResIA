@@ -1,4 +1,5 @@
 import os
+from datetime import date
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
@@ -204,7 +205,7 @@ def register_routes(app):
         body, status = spotify_client.call_api("/me", token)
         return jsonify(body), status
 
-    def _user_data_route(path, params=None):
+    def _user_data_route(path, params=None, method="GET", json_body=None):
         try:
             token = user_auth.get_valid_user_token(
                 app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_CLIENT_SECRET"]
@@ -212,7 +213,12 @@ def register_routes(app):
         except user_auth.NotLoggedInError as exc:
             return jsonify({"error": str(exc)}), 401
 
-        body, status = spotify_client.call_api(path, token, params=params)
+        kwargs = {"params": params}
+        if method != "GET":
+            kwargs["method"] = method
+        if json_body is not None:
+            kwargs["json_body"] = json_body
+        body, status = spotify_client.call_api(path, token, **kwargs)
         return jsonify(body), status
 
     @app.route("/api/me/top/tracks")
@@ -279,6 +285,104 @@ def register_routes(app):
                 "offset": request.args.get("offset", "0"),
             },
         )
+
+    @app.route("/api/me/player/play", methods=["POST"])
+    def player_play():
+        return _user_data_route("/me/player/play", method="PUT")
+
+    @app.route("/api/me/player/pause", methods=["POST"])
+    def player_pause():
+        return _user_data_route("/me/player/pause", method="PUT")
+
+    @app.route("/api/me/player/next", methods=["POST"])
+    def player_next():
+        return _user_data_route("/me/player/next", method="POST")
+
+    @app.route("/api/me/player/previous", methods=["POST"])
+    def player_previous():
+        return _user_data_route("/me/player/previous", method="POST")
+
+    @app.route("/api/me/player/seek", methods=["POST"])
+    def player_seek():
+        return _user_data_route(
+            "/me/player/seek",
+            params={"position_ms": request.args.get("position_ms", "0")},
+            method="PUT",
+        )
+
+    @app.route("/api/me/player/volume", methods=["POST"])
+    def player_volume():
+        return _user_data_route(
+            "/me/player/volume",
+            params={"volume_percent": request.args.get("volume_percent", "50")},
+            method="PUT",
+        )
+
+    @app.route("/api/me/player/shuffle", methods=["POST"])
+    def player_shuffle():
+        return _user_data_route(
+            "/me/player/shuffle",
+            params={"state": request.args.get("state", "false")},
+            method="PUT",
+        )
+
+    @app.route("/api/me/player/repeat", methods=["POST"])
+    def player_repeat():
+        return _user_data_route(
+            "/me/player/repeat",
+            params={"state": request.args.get("state", "off")},
+            method="PUT",
+        )
+
+    @app.route("/api/me/playlists/related", methods=["POST"])
+    def create_related_playlist():
+        data = request.get_json(silent=True) or {}
+        track_id = data.get("track_id")
+        track_name = data.get("track_name", "")
+        if not track_id:
+            return jsonify({"error": "missing_track_id"}), 400
+
+        # duplicated from _user_data_route: this route branches between 3 sequential
+        # calls, so it can't reuse the single-call helper
+        try:
+            token = user_auth.get_valid_user_token(
+                app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_CLIENT_SECRET"]
+            )
+        except user_auth.NotLoggedInError as exc:
+            return jsonify({"error": str(exc)}), 401
+
+        rec_body, rec_status = spotify_client.call_api(
+            "/recommendations", token, params={"seed_tracks": track_id, "limit": "20"}
+        )
+        if rec_status != 200:
+            return jsonify({"step": "recommendations", "error": rec_body}), rec_status
+        if not rec_body.get("tracks"):
+            return jsonify({"step": "recommendations", "error": rec_body}), 502
+
+        uris = [t["uri"] for t in rec_body["tracks"]]
+        playlist_name = f"Relacionadas com {track_name} — {date.today().isoformat()}"
+
+        create_body, create_status = spotify_client.call_api(
+            "/me/playlists",
+            token,
+            method="POST",
+            json_body={
+                "name": playlist_name,
+                "public": False,
+                "description": "Gerado automaticamente pelo Spotify Explorer",
+            },
+        )
+        if create_status not in (200, 201):
+            return jsonify({"step": "create_playlist", "error": create_body}), create_status
+
+        playlist_id = create_body["id"]
+        add_body, add_status = spotify_client.call_api(
+            f"/playlists/{playlist_id}/items", token, method="POST", json_body={"uris": uris}
+        )
+        if add_status not in (200, 201):
+            return jsonify({"step": "add_items", "playlist": create_body, "error": add_body}), add_status
+
+        return jsonify({"playlist": create_body, "added_tracks": len(uris)}), 200
 
 
 if __name__ == "__main__":
