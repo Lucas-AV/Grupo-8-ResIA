@@ -211,6 +211,7 @@ async function enviarMensagem(sessionId, mensagem) {
 let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
+let isEditingMessage = false; // Estado de edição (Ticket 16.2)
 
 // Elementos DOM
 const sessionIdDisplay = document.getElementById('session-id-display');
@@ -226,6 +227,8 @@ const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
 const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
+const editMessageBanner = document.getElementById('edit-message-banner');
+const btnCancelEdit = document.getElementById('btn-cancel-edit');
 
 function init() {
   currentSessionId = getSessionId();
@@ -279,6 +282,7 @@ function setupEventListeners() {
 
   btnNewChat?.addEventListener('click', () => {
     if (isProcessing) return;
+    cancelEditMessage();
     currentSessionId = resetSession();
     messages = [];
     messagesContainer.innerHTML = '';
@@ -296,10 +300,17 @@ function setupEventListeners() {
     showToast('Entrada de voz Convora: gravação ativada (modo demo).');
   });
 
+  // Botão de cancelar edição no banner (Ticket 16.2)
+  btnCancelEdit?.addEventListener('click', () => {
+    cancelEditMessage();
+    chatInput?.focus();
+  });
+
   document.querySelectorAll('.prompt-pill').forEach((pill) => {
     pill.addEventListener('click', () => {
       const prompt = pill.getAttribute('data-prompt');
       if (prompt && !isProcessing) {
+        cancelEditMessage();
         chatInput.value = prompt;
         ajustarAlturaInput();
         btnSend.disabled = false;
@@ -314,15 +325,34 @@ function setupEventListeners() {
     btnSend.disabled = !temTexto || isProcessing;
   });
 
+  // Atalhos de teclado no input (Ticket 16.4)
   chatInput?.addEventListener('keydown', (e) => {
+    // Enter envia mensagem; Shift+Enter insere quebra de linha
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (!btnSend.disabled && !isProcessing) {
         const texto = chatInput.value.trim();
         if (texto) {
+          // Limpar modo de edição antes de enviar
+          if (isEditingMessage) {
+            isEditingMessage = false;
+            if (editMessageBanner) editMessageBanner.classList.remove('active');
+          }
           enviarMensagemUsuario(texto);
         }
       }
+    }
+
+    // Escape cancela modo de edição (Ticket 16.4)
+    if (e.key === 'Escape' && isEditingMessage) {
+      e.preventDefault();
+      cancelEditMessage();
+    }
+
+    // Seta pra cima com input vazio recupera última mensagem (Ticket 16.4)
+    if (e.key === 'ArrowUp' && chatInput.value.trim() === '' && !isProcessing) {
+      e.preventDefault();
+      startEditLastMessage();
     }
   });
 
@@ -331,8 +361,26 @@ function setupEventListeners() {
     if (!btnSend.disabled && !isProcessing) {
       const texto = chatInput.value.trim();
       if (texto) {
+        if (isEditingMessage) {
+          isEditingMessage = false;
+          if (editMessageBanner) editMessageBanner.classList.remove('active');
+        }
         enviarMensagemUsuario(texto);
       }
+    }
+  });
+
+  // Atalho global "/" para focar no input (Ticket 16.4)
+  document.addEventListener('keydown', (e) => {
+    // Ignorar se já estiver em um campo de texto ou textarea
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) {
+      return;
+    }
+
+    if (e.key === '/') {
+      e.preventDefault();
+      chatInput?.focus();
     }
   });
 }
@@ -358,6 +406,130 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+/**
+ * Renderiza markdown básico com sanitização XSS integrada (Ticket 16.1).
+ * Suporta: negrito, itálico, código inline, links (http/https apenas),
+ * listas não-ordenadas, listas ordenadas e parágrafos.
+ * @param {string} text Texto bruto com possível markdown
+ * @returns {string} HTML seguro para inserção via innerHTML
+ */
+function renderMarkdownSafe(text) {
+  if (!text) return '';
+
+  // 1. Sanitização XSS: escape de caracteres perigosos antes de qualquer transformação
+  let safe = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  // 2. Código inline: `codigo`
+  safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // 3. Negrito: **texto** ou __texto__
+  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+  // 4. Itálico: *texto* ou _texto_ (sem conflito com negrito pois ** já foi processado)
+  safe = safe.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  safe = safe.replace(/(?<!\w)_(.+?)_(?!\w)/g, '<em>$1</em>');
+
+  // 5. Links markdown: [rótulo](url) — apenas http:// e https://
+  safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // 6. URLs soltas (não já envolvidas em <a>): transformar em links clicáveis
+  safe = safe.replace(/(?<!href=")(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // 7. Listas: processamento por linhas
+  const lines = safe.split('\n');
+  let result = [];
+  let inUl = false;
+  let inOl = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const ulMatch = line.match(/^\s*[-*]\s+(.+)/);
+    const olMatch = line.match(/^\s*\d+\.\s+(.+)/);
+
+    if (ulMatch) {
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      if (!inUl) { result.push('<ul>'); inUl = true; }
+      result.push(`<li>${ulMatch[1]}</li>`);
+    } else if (olMatch) {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (!inOl) { result.push('<ol>'); inOl = true; }
+      result.push(`<li>${olMatch[1]}</li>`);
+    } else {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      // Linhas vazias como separador de parágrafos
+      if (line.trim() === '') {
+        result.push('<br>');
+      } else {
+        result.push(`<p>${line}</p>`);
+      }
+    }
+  }
+  if (inUl) result.push('</ul>');
+  if (inOl) result.push('</ol>');
+
+  return result.join('');
+}
+
+// ==========================================
+// 5. Edição de Mensagem (Ticket 16.2)
+// ==========================================
+
+/**
+ * Ativa o modo de edição: popula o input com a última mensagem do usuário
+ * e exibe o banner informativo.
+ */
+function startEditLastMessage() {
+  if (isProcessing) return;
+
+  // Encontrar a última mensagem do usuário
+  let lastUserMsg = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      lastUserMsg = messages[i];
+      break;
+    }
+  }
+
+  if (!lastUserMsg) return;
+
+  isEditingMessage = true;
+  chatInput.value = lastUserMsg.conteudo;
+  ajustarAlturaInput();
+  btnSend.disabled = false;
+
+  // Exibir banner de edição
+  if (editMessageBanner) {
+    editMessageBanner.classList.add('active');
+  }
+
+  // Focar e posicionar cursor no final
+  chatInput.focus();
+  chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+}
+
+/**
+ * Cancela o modo de edição e limpa o input.
+ */
+function cancelEditMessage() {
+  isEditingMessage = false;
+  chatInput.value = '';
+  ajustarAlturaInput();
+  btnSend.disabled = true;
+
+  if (editMessageBanner) {
+    editMessageBanner.classList.remove('active');
+  }
 }
 
 function renderMessageBubble(msg, animar = true) {
@@ -390,7 +562,13 @@ function renderMessageBubble(msg, animar = true) {
 
   const textElem = document.createElement('div');
   textElem.className = 'message-text';
-  textElem.textContent = msg.conteudo;
+
+  // Ticket 16.1: Renderizar markdown sanitizado nas mensagens do agente
+  if (msg.role === 'agent') {
+    textElem.innerHTML = renderMarkdownSafe(msg.conteudo);
+  } else {
+    textElem.textContent = msg.conteudo;
+  }
   bubble.appendChild(textElem);
 
   // CRITÉRIO DE ACEITE TICKET 4.2:
@@ -410,6 +588,23 @@ function renderMessageBubble(msg, animar = true) {
   timeElem.className = 'message-timestamp';
   timeElem.textContent = formatarHora(msg.timestamp);
   bubble.appendChild(timeElem);
+
+  // Ticket 16.2: Botão de edição nas mensagens do usuário
+  if (msg.role === 'user') {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-edit-message';
+    editBtn.title = 'Editar e reenviar';
+    editBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+    `;
+    editBtn.addEventListener('click', () => {
+      startEditLastMessage();
+    });
+    bubble.appendChild(editBtn);
+  }
 
   row.appendChild(avatar);
   row.appendChild(bubble);
@@ -443,6 +638,28 @@ async function enviarMensagemUsuario(texto) {
     scrollToBottom();
   }
 
+  // Ticket 16.6: Skeleton loading de cards de faixa
+  let skeletonBubble = null;
+  if (window.ResIATrackCard && typeof window.ResIATrackCard.renderSkeletonTrackCards === 'function') {
+    skeletonBubble = document.createElement('div');
+    skeletonBubble.className = 'message-row agent';
+    skeletonBubble.id = 'skeleton-loading-row';
+    const skeletonAvatar = document.createElement('div');
+    skeletonAvatar.className = 'message-avatar';
+    skeletonAvatar.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+      </svg>
+    `;
+    const skeletonContent = document.createElement('div');
+    skeletonContent.className = 'message-bubble';
+    skeletonContent.appendChild(window.ResIATrackCard.renderSkeletonTrackCards(3));
+    skeletonBubble.appendChild(skeletonAvatar);
+    skeletonBubble.appendChild(skeletonContent);
+    messagesContainer.appendChild(skeletonBubble);
+    scrollToBottom();
+  }
+
   try {
     const resposta = await enviarMensagem(currentSessionId, texto);
 
@@ -456,11 +673,19 @@ async function enviarMensagemUsuario(texto) {
     messages.push(agentMsg);
     saveChatHistory(currentSessionId, messages);
 
+    // Remover skeleton antes de renderizar resposta real
+    if (skeletonBubble && skeletonBubble.parentNode) {
+      skeletonBubble.remove();
+    }
     if (typingIndicator) typingIndicator.style.display = 'none';
     renderMessageBubble(agentMsg, true);
     scrollToBottom();
   } catch (error) {
     console.error('Erro ao processar turno:', error);
+    // Remover skeleton em caso de erro
+    if (skeletonBubble && skeletonBubble.parentNode) {
+      skeletonBubble.remove();
+    }
     if (typingIndicator) typingIndicator.style.display = 'none';
 
     const errorMsg = {
@@ -486,6 +711,9 @@ window.ResIA = {
   resetSession,
   enviarMensagem,
   enviarMensagemUsuario,
+  renderMarkdownSafe,
+  startEditLastMessage,
+  cancelEditMessage,
 };
 
 if (document.readyState === 'loading') {

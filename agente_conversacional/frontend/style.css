@@ -489,6 +489,92 @@ body {
   text-align: right;
 }
 
+/* 7b. Botão de edição na bolha do usuário (Ticket 16.2) */
+.btn-edit-message {
+  position: absolute;
+  top: 8px;
+  right: -36px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity var(--transition-fast), color var(--transition-fast), background var(--transition-fast);
+}
+
+.message-row.user:hover .btn-edit-message {
+  opacity: 1;
+}
+
+.btn-edit-message:hover {
+  color: var(--spotify-green);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+/* 7c. Markdown nos balões do agente (Ticket 16.1) */
+.message-text a {
+  color: var(--spotify-green);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+  transition: color var(--transition-fast);
+}
+
+.message-text a:hover {
+  color: var(--spotify-green-hover);
+}
+
+.message-text strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.message-text em {
+  font-style: italic;
+  color: var(--text-secondary);
+}
+
+.message-text code {
+  font-family: 'SFMono-Regular', Consolas, 'Liberation Mono', Menlo, monospace;
+  font-size: 0.84em;
+  background: rgba(255, 255, 255, 0.08);
+  padding: 2px 6px;
+  border-radius: 4px;
+  color: var(--spotify-green);
+}
+
+.message-text ul,
+.message-text ol {
+  margin: 8px 0;
+  padding-left: 22px;
+}
+
+.message-text li {
+  margin-bottom: 4px;
+  line-height: 1.5;
+}
+
+.message-text ul li {
+  list-style-type: disc;
+}
+
+.message-text ol li {
+  list-style-type: decimal;
+}
+
+.message-text p {
+  margin-bottom: 6px;
+}
+
+.message-text p:last-child {
+  margin-bottom: 0;
+}
+
 /* 8. Cards Estruturados de Faixas (Ticket 4.2 - Spotify Album Tile / Carousel) */
 .tracks-section {
   margin-top: 14px;
@@ -734,6 +820,60 @@ body {
   background: rgba(29, 185, 84, 0.2);
 }
 
+/* 8b. Skeleton Loading dos Cards de Faixa (Ticket 16.6) */
+.skeleton-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.skeleton-bone {
+  background: linear-gradient(90deg, #1e1e1e 0%, #2a2a2a 40%, #1e1e1e 80%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+
+.skeleton-cover {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-xs);
+}
+
+.skeleton-details {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.skeleton-title {
+  height: 14px;
+  width: 70%;
+}
+
+.skeleton-artist {
+  height: 11px;
+  width: 50%;
+}
+
+.skeleton-tag {
+  height: 10px;
+  width: 36px;
+  border-radius: var(--radius-pill);
+}
+
+@keyframes shimmer {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
 /* 9. Indicador de Processamento / Waveform Animado (Ticket 4.3 & Imagem 1) */
 .processing-indicator {
   display: flex;
@@ -880,6 +1020,62 @@ body {
   transform: none;
 }
 
+/* 10b. Banner de Edição de Mensagem (Ticket 16.2) */
+.edit-message-banner {
+  display: none;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 18px;
+  margin-bottom: 8px;
+  background: rgba(29, 185, 84, 0.08);
+  border: 1px solid rgba(29, 185, 84, 0.25);
+  border-radius: var(--radius-sm);
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  animation: fadeIn 0.2s ease-out;
+}
+
+.edit-message-banner.active {
+  display: flex;
+}
+
+.edit-message-banner svg {
+  flex-shrink: 0;
+  color: var(--spotify-green);
+}
+
+.edit-banner-text {
+  flex: 1;
+}
+
+.edit-banner-text strong {
+  color: var(--spotify-green);
+  font-weight: 600;
+}
+
+.edit-banner-text span {
+  color: var(--text-muted);
+  font-size: 0.76rem;
+}
+
+.btn-cancel-edit {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 4px;
+  border-radius: 50%;
+  transition: var(--transition-fast);
+}
+
+.btn-cancel-edit:hover {
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .dock-footer-disclaimer {
   text-align: center;
   margin-top: 8px;
@@ -936,5 +1132,20 @@ body {
   }
   .btn-spotify-auth span {
     display: none;
+  }
+  .btn-edit-message {
+    right: -30px;
+  }
+}
+
+/* 13. Acessibilidade — Redução de Movimento (Ticket 16.5) */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
   }
 }

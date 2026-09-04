@@ -102,12 +102,15 @@ function createTrackCardElement(faixa, index = 0) {
       </div>
     </div>
 
-    <!-- Ações Rápidas: Abrir e Copiar Link -->
+    <!-- Ações Rápidas: Copiar Info, Copiar Link, Abrir Spotify -->
     <div class="track-actions-group">
-      <button type="button" class="btn-track-action btn-copy-track-link" title="Copiar link do Spotify" data-url="${spotifyUrl}">
-        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+      <button type="button" class="btn-track-action btn-copy-track-info" title="Copiar faixa e artista" data-track-name="${escapeHtml(nome)}" data-track-artist="${escapeHtml(artista)}">
+        <svg class="icon-copy" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
           <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+        </svg>
+        <svg class="icon-check" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="display:none">
+          <polyline points="20 6 9 17 4 12"></polyline>
         </svg>
       </button>
       <a href="${spotifyUrl}" target="_blank" rel="noopener noreferrer" class="btn-track-action btn-open-spotify" title="Abrir no Spotify">
@@ -120,21 +123,36 @@ function createTrackCardElement(faixa, index = 0) {
     </div>
   `;
 
-  // Ouvinte para cópia do link do Spotify
-  const copyBtn = card.querySelector('.btn-copy-track-link');
-  if (copyBtn) {
-    copyBtn.addEventListener('click', async (e) => {
+  // Ouvinte para cópia de faixa + artista formatado (Ticket 16.3)
+  const copyInfoBtn = card.querySelector('.btn-copy-track-info');
+  if (copyInfoBtn) {
+    copyInfoBtn.addEventListener('click', async (e) => {
       e.stopPropagation();
-      const url = copyBtn.getAttribute('data-url');
+      const trackName = copyInfoBtn.getAttribute('data-track-name');
+      const trackArtist = copyInfoBtn.getAttribute('data-track-artist');
+      const formatted = `${trackName} — ${trackArtist}`;
       try {
-        await navigator.clipboard.writeText(url);
-        copyBtn.classList.add('copied');
-        setTimeout(() => copyBtn.classList.remove('copied'), 1500);
-        if (typeof window.showToast === 'function') {
-          window.showToast(`Link de "${nome}" copiado!`);
+        await navigator.clipboard.writeText(formatted);
+        // Feedback visual: trocar ícone de cópia para check
+        const iconCopy = copyInfoBtn.querySelector('.icon-copy');
+        const iconCheck = copyInfoBtn.querySelector('.icon-check');
+        if (iconCopy && iconCheck) {
+          iconCopy.style.display = 'none';
+          iconCheck.style.display = 'block';
         }
+        copyInfoBtn.classList.add('copied');
+        if (typeof window.showToast === 'function') {
+          window.showToast(`Copiado: ${formatted}`);
+        }
+        setTimeout(() => {
+          if (iconCopy && iconCheck) {
+            iconCopy.style.display = 'block';
+            iconCheck.style.display = 'none';
+          }
+          copyInfoBtn.classList.remove('copied');
+        }, 1800);
       } catch (err) {
-        console.warn('Erro ao copiar link:', err);
+        console.warn('Erro ao copiar info da faixa:', err);
       }
     });
   }
@@ -188,11 +206,55 @@ function renderTrackCards(faixas) {
   return section;
 }
 
+/**
+ * Renderiza cards skeleton com efeito shimmer para placeholder visual (Ticket 16.6).
+ * As dimensões são idênticas aos cards reais para evitar Cumulative Layout Shift (CLS).
+ * @param {number} count Número de cards skeleton a exibir
+ * @returns {HTMLElement} Seção DOM com os skeletons
+ */
+function renderSkeletonTrackCards(count = 3) {
+  const section = document.createElement('div');
+  section.className = 'tracks-section skeleton-tracks-section';
+
+  const header = document.createElement('div');
+  header.className = 'tracks-header';
+  header.innerHTML = `
+    <span class="tracks-title">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/>
+      </svg>
+      Buscando faixas...
+    </span>
+  `;
+  section.appendChild(header);
+
+  const grid = document.createElement('div');
+  grid.className = 'tracks-grid';
+
+  for (let i = 0; i < count; i++) {
+    const skeleton = document.createElement('div');
+    skeleton.className = 'skeleton-card';
+    skeleton.innerHTML = `
+      <div class="skeleton-bone skeleton-cover"></div>
+      <div class="skeleton-details">
+        <div class="skeleton-bone skeleton-title"></div>
+        <div class="skeleton-bone skeleton-artist"></div>
+        <div class="skeleton-bone skeleton-tag"></div>
+      </div>
+    `;
+    grid.appendChild(skeleton);
+  }
+
+  section.appendChild(grid);
+  return section;
+}
+
 // Expõe globalmente para compatibilidade universal com scripts normais
 if (typeof window !== 'undefined') {
   window.ResIATrackCard = {
     renderTrackCards,
     createTrackCardElement,
     getGenreTheme,
+    renderSkeletonTrackCards,
   };
 }
