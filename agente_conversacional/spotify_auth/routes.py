@@ -224,4 +224,3 @@ def criar_playlist(body: CriarPlaylistRequest):
         )
 
     return resultado
-
