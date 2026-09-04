@@ -65,7 +65,7 @@ async function onSubmit() {
           <button v-if="submittedType === 'track'" type="button" class="media-item-clickable" @click="open(item)">
             <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
           </button>
-          <MediaItemRow v-else :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+          <MediaItemRow v-else :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
         </div>
       </template>
     </ResultPanel>

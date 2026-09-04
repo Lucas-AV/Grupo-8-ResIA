@@ -27,7 +27,10 @@ function stopFakeProgress() {
 }
 
 watch(current, (track, previous) => {
-  if (previous) stopFakeProgress();
+  if (previous) {
+    stopFakeProgress();
+    stop();
+  }
   if (!track) return;
   if (track.previewUrl) {
     toggle(track.previewUrl);
