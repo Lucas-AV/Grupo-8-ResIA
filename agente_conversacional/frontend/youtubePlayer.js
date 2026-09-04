@@ -102,7 +102,10 @@
 
   async function play(videoId) {
     const player = await obterPlayer();
-    player.loadVideoById(videoId);
+    // endSeconds corta a prévia em 30s de verdade (o player pausa sozinho e
+    // dispara onStateChange PAUSED, já tratado abaixo) — sem precisar de um
+    // setTimeout em paralelo controlando o corte por conta própria.
+    player.loadVideoById({ videoId, startSeconds: 0, endSeconds: 30 });
     player.playVideo();
     mostrarWidget();
   }

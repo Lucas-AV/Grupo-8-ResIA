@@ -125,7 +125,13 @@ class ErroBackend extends Error {
 async function enviarMensagem(sessionId, mensagem, extras = {}) {
   const url = `${API_BASE_URL}/chat`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  // Ollama local pode fazer 2 chamadas de LLM por turno (extração + geração,
+  // ver chat/pipeline.py), cada uma com ate LLM_TIMEOUT_SECONDS (20s no
+  // .env) do backend — latencia real medida variou de ~12s a ~28.5s entre
+  // chamadas (CPU sob carga, sem GPU), entao 25s aqui no cliente ainda
+  // abortava antes da resposta chegar. 60s cobre o pior caso (2 chamadas
+  // no limite do timeout do backend) sem deixar a espera indefinida.
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
   let response;
   try {
@@ -246,9 +252,9 @@ async function buscarHistoricoRemoto(sessionId) {
 /**
  * Converte o formato de histórico devolvido pelo backend (roles 'usuario'/'agente'/'sistema')
  * para o formato de mensagem usado pela interface de chat (roles 'user'/'agent').
- * Observação: o histórico remoto devolve apenas os IDs das faixas citadas (faixas_citadas),
- * sem os metadados completos (nome/artista/álbum) — por isso os cards de faixa não são
- * reconstruídos para mensagens restauradas do backend, só o texto e a ordem da conversa.
+ * Ticket 4.6/KAN-73: `faixas` traz os metadados completos (nome/artista/álbum/gênero),
+ * reconstruídos no backend a partir de faixas_citadas — os cards de faixa reaparecem
+ * normalmente ao restaurar o histórico, não só o texto.
  */
 function mapearHistoricoRemoto(historico) {
   const ROLE_MAP = { usuario: 'user', agente: 'agent', sistema: 'agent' };
@@ -258,7 +264,7 @@ function mapearHistoricoRemoto(historico) {
     id: `historico-${indice}-${item.timestamp || indice}`,
     role: ROLE_MAP[item.role] || 'agent',
     conteudo: item.conteudo,
-    faixas: [],
+    faixas: Array.isArray(item.faixas) ? item.faixas : [],
     timestamp: item.timestamp,
   }));
 }
@@ -332,14 +338,17 @@ function tratarRetornoLoginSpotify() {
 
 /**
  * Ticket 12.1 (KAN-104): chama POST /playlist/criar com as faixas da
- * sessão atual. Propaga erro (mensagem do backend, quando houver) pro
- * chamador tratar visivelmente — nunca falha silenciosa em console.log.
+ * sessão atual. `nome`/`descricao` (ticket 12.6) — opcionais, vêm do modal
+ * de confirmação (playlistSaveModal.js), que pré-preenche com uma sugestão
+ * do LLM mas deixa o usuário editar antes de confirmar. Propaga erro
+ * (mensagem do backend, quando houver) pro chamador tratar visivelmente —
+ * nunca falha silenciosa em console.log.
  */
-async function criarPlaylistSpotify(trackIds) {
+async function criarPlaylistSpotify(trackIds, { nome, descricao } = {}) {
   const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: currentSessionId, faixas: trackIds }),
+    body: JSON.stringify({ session_id: currentSessionId, faixas: trackIds, nome, descricao }),
   });
 
   if (!response.ok) {
@@ -357,32 +366,19 @@ async function criarPlaylistSpotify(trackIds) {
 }
 
 /**
- * Handler do clique em "Salvar no Spotify" (ticket 12.2): desabilita o
- * botão durante a chamada, dá feedback visível de sucesso/erro (nunca só
- * console.log) reaproveitando showToast/showErrorBanner do ticket 4.8.
+ * Handler do clique em "Salvar no Spotify" (ticket 12.2/12.6): abre o modal
+ * de confirmação (playlistSaveModal.js) com a lista de faixas e uma
+ * sugestão de título/descrição gerada pelo LLM — a criação de verdade só
+ * acontece se o usuário confirmar dentro do modal.
  */
-async function handleSalvarSpotify(button, trackIds) {
-  if (!trackIds || trackIds.length === 0 || button.disabled) return;
+function handleSalvarSpotify(faixas) {
+  if (!faixas || faixas.length === 0) return;
 
-  button.disabled = true;
-  const textoOriginal = button.textContent;
-  button.textContent = 'Salvando...';
-
-  try {
-    const resultado = await criarPlaylistSpotify(trackIds);
-    showToast('Playlist salva no seu Spotify!');
-    if (resultado && resultado.url) {
-      window.open(resultado.url, '_blank', 'noopener,noreferrer');
-    }
-  } catch (err) {
-    console.error('Erro ao salvar playlist no Spotify:', err);
-    showErrorBanner(err.message || 'Não foi possível salvar a playlist no Spotify.', () =>
-      handleSalvarSpotify(button, trackIds)
-    );
-  } finally {
-    button.disabled = false;
-    button.textContent = textoOriginal;
+  if (!window.ResIAPlaylistModal || typeof window.ResIAPlaylistModal.open !== 'function') {
+    console.error('Modal de salvar playlist indisponível (playlistSaveModal.js não carregado).');
+    return;
   }
+  window.ResIAPlaylistModal.open(faixas);
 }
 
 /**
@@ -608,10 +604,9 @@ async function carregarHistoricoInicial(resultado) {
   }
 
   // Ticket 12.4 (KAN-107): semeia o set de faixas já mostradas a partir do
-  // histórico restaurado — cobre o caso de cache local (localStorage guarda
-  // msg.faixas completo); histórico vindo do backend não traz faixas (ver
-  // mapearHistoricoRemoto), então não contribui aqui, mesma limitação já
-  // documentada pros cards de faixa não reconstruídos.
+  // histórico restaurado — cache local e histórico do backend (ticket
+  // 4.6/KAN-73) contribuem igual agora que mapearHistoricoRemoto traz
+  // msg.faixas completo em ambos os casos.
   messages.forEach((msg) => atualizarFaixasMostradas(msg.faixas));
 
   // Ticket 4.12 (KAN-79): sessão restaurada já tem histórico -> não mostra onboarding.
@@ -900,12 +895,11 @@ function renderMessageBubble(msg, animar = true) {
       // Ticket 12.2 (KAN-105): "Salvar no Spotify" só aparece pra sessão
       // autenticada — nunca tenta a ação sabendo de antemão que vai dar 401.
       if (isSpotifyAuthenticated) {
-        const trackIds = msg.faixas.map((faixa) => faixa && faixa.track_id).filter(Boolean);
         const btnSalvar = document.createElement('button');
         btnSalvar.type = 'button';
         btnSalvar.className = 'btn-response-action btn-salvar-spotify';
         btnSalvar.textContent = 'Salvar no Spotify';
-        btnSalvar.addEventListener('click', () => handleSalvarSpotify(btnSalvar, trackIds));
+        btnSalvar.addEventListener('click', () => handleSalvarSpotify(msg.faixas));
         actionsRow.appendChild(btnSalvar);
       }
 
@@ -1033,6 +1027,11 @@ window.ResIA = {
   atualizarFaixasMostradas,
   applyTheme,
   toggleTheme,
+  // Ticket 13.12 (KAN-121): trackCard.js consulta isto antes de tentar
+  // GET /explorer/track/{id} pra prévia — evita um 401 garantido (e
+  // ruído no console) em todo clique de prévia quando ninguém logou com
+  // Spotify ainda, indo direto pro fallback do YouTube nesse caso.
+  isSpotifyAuthenticated: () => isSpotifyAuthenticated,
 };
 
 if (document.readyState === 'loading') {
