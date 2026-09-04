@@ -11,6 +11,7 @@ const SESSION_STORAGE_KEY = 'resia_chat_session_id';
 const HISTORY_STORAGE_PREFIX = 'resia_chat_history_';
 const SETTINGS_STORAGE_KEY = 'resia_settings';
 const PLAYLISTS_STORAGE_KEY = 'resia_created_playlists';
+const ONBOARDING_STORAGE_KEY = 'resia_onboarding_seen';
 
 function generateUUID() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -611,6 +612,11 @@ const spotifyAuthIcon = document.getElementById('spotify-auth-icon');
 const spotifyAuthAvatar = document.getElementById('spotify-auth-avatar');
 const chatScrollArea = document.getElementById('chat-scroll-area');
 const heroEmptyState = document.getElementById('hero-empty-state');
+const onboardingTourEl = document.getElementById('onboarding-tour');
+const onboardingStepEl = document.getElementById('onboarding-tour-step');
+const onboardingDotsEl = document.getElementById('onboarding-tour-dots');
+const btnOnboardingNext = document.getElementById('btn-onboarding-next');
+const btnOnboardingSkip = document.getElementById('btn-onboarding-skip');
 const messagesContainer = document.getElementById('messages-container');
 const typingIndicator = document.getElementById('typing-indicator');
 const chatForm = document.getElementById('chat-form');
@@ -682,6 +688,91 @@ function toggleTheme() {
   const novoTema = temaAtual === 'light' ? 'dark' : 'light';
   applyTheme(novoTema);
   saveStoredTheme(novoTema);
+}
+
+// ==========================================
+// 2.1.1 Onboarding guiado (Ticket 19.2 / KAN-151)
+// ==========================================
+// Mesmo padrão de getStoredTheme/saveStoredTheme acima: uma única flag em
+// localStorage, lida com fallback silencioso (try/catch) se o storage não
+// estiver disponível (modo privado etc.) — nesse caso o tour some pra sempre
+// naquela aba em vez de travar a experiência.
+function getOnboardingSeen() {
+  try {
+    return localStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+  } catch (e) {
+    console.warn('Falha ao ler flag de onboarding do localStorage:', e);
+    return true;
+  }
+}
+
+function saveOnboardingSeen() {
+  try {
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+  } catch (e) {
+    console.warn('Falha ao salvar flag de onboarding no localStorage:', e);
+  }
+}
+
+// Passos do tour (KAN-151): expande o #hero-empty-state (que antes só tinha
+// os chips de sugestão, ticket 4.12/KAN-79) com poucos passos apontando pro
+// chat, os cards de faixa das respostas e o botão do Explorer no menu "···".
+const ONBOARDING_STEPS = [
+  {
+    icon: '💬',
+    title: 'Peça no chat',
+    text: 'Descreva o que quer ouvir — gênero, humor, energia ou momento do dia. Ex.: "rock animado pra treinar".',
+  },
+  {
+    icon: '🎵',
+    title: 'Veja os cards de faixa',
+    text: 'Cada resposta traz cards com prévia, artista e opções de tocar, favoritar ou salvar no Spotify.',
+  },
+  {
+    icon: '🧭',
+    title: 'Explore sua conta Spotify',
+    text: 'Conecte com o Spotify (botão no cabeçalho) e use o "Explorar Spotify" do menu "···" pra buscar músicas, artistas e playlists.',
+  },
+];
+
+let onboardingStepIndex = 0;
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[onboardingStepIndex];
+  if (!step || !onboardingStepEl) return;
+  onboardingStepEl.innerHTML = `
+    <span class="onboarding-step-icon" aria-hidden="true">${step.icon}</span>
+    <span class="onboarding-step-body">
+      <strong>${escapeHtml(step.title)}</strong>
+      <p>${escapeHtml(step.text)}</p>
+    </span>
+  `;
+  if (onboardingDotsEl) {
+    onboardingDotsEl.innerHTML = ONBOARDING_STEPS.map((_, index) =>
+      `<span class="onboarding-dot ${index === onboardingStepIndex ? 'is-active' : ''}"></span>`
+    ).join('');
+  }
+  if (btnOnboardingNext) {
+    btnOnboardingNext.textContent = onboardingStepIndex === ONBOARDING_STEPS.length - 1 ? 'Entendi' : 'Próximo';
+  }
+}
+
+function closeOnboardingTour() {
+  if (onboardingTourEl) onboardingTourEl.hidden = true;
+  saveOnboardingSeen();
+}
+
+/**
+ * Mostra o tour só se: (1) nunca foi visto antes (flag em localStorage) e
+ * (2) o hero de fato está visível agora — chamado só no ramo "sessão nova,
+ * sem histórico" de carregarHistoricoInicial (Ticket 4.12/KAN-79 já cobre
+ * sessão restaurada escondendo o hero inteiro, tour incluso).
+ */
+function initOnboardingTour() {
+  if (!onboardingTourEl || getOnboardingSeen()) return;
+  onboardingStepIndex = 0;
+  onboardingTourEl.hidden = false;
+  renderOnboardingStep();
 }
 
 // ==========================================
@@ -846,6 +937,10 @@ async function carregarHistoricoInicial(resultado) {
     if (heroEmptyState) heroEmptyState.style.display = 'none';
     messages.forEach((msg) => renderMessageBubble(msg, false));
     scrollToBottom();
+  } else {
+    // Ticket 19.2 (KAN-151): hero fica visível (sessão nova, sem histórico)
+    // -> é a hora certa de decidir se o tour de onboarding aparece.
+    initOnboardingTour();
   }
 
   // Ticket 17: reconstrói o índice de descobertas a partir do histórico restaurado.
@@ -1014,6 +1109,21 @@ function setupEventListeners() {
     cancelEditMessage();
     chatInput?.focus();
   });
+
+  // Tour de onboarding (Ticket 19.2 / KAN-151): "Próximo" avança até o
+  // último passo (aí vira "Entendi" e fecha); "Pular" fecha de imediato.
+  // Os dois marcam a flag como vista — o tour não deve voltar a interromper
+  // quem já decidiu não completar.
+  btnOnboardingNext?.addEventListener('click', () => {
+    if (onboardingStepIndex >= ONBOARDING_STEPS.length - 1) {
+      closeOnboardingTour();
+      return;
+    }
+    onboardingStepIndex += 1;
+    renderOnboardingStep();
+  });
+
+  btnOnboardingSkip?.addEventListener('click', closeOnboardingTour);
 
   document.querySelectorAll('.prompt-pill').forEach((pill) => {
     pill.addEventListener('click', () => {
@@ -1795,6 +1905,8 @@ window.ResIA = {
   loadSettings,
   saveSettings,
   applyTheme,
+  getOnboardingSeen,
+  saveOnboardingSeen,
   loadCreatedPlaylists,
   saveCreatedPlaylist,
   enviarMensagemUsuario,

@@ -180,6 +180,25 @@
           Nossa IA cruza seu pedido com um catálogo local de 97.534 faixas únicas.
         </p>
 
+        <!-- Onboarding guiado (Ticket 19.2 / KAN-151): tour curto de 3 passos pro
+             usuário novo, expandindo este hero (que antes só tinha os chips de
+             sugestão abaixo). Aparece só na primeira visita, controlado por flag
+             em localStorage (getOnboardingSeen/saveOnboardingSeen em app.js, mesmo
+             padrão de getStoredTheme/saveStoredTheme do tema — Ticket 12.5/KAN-108).
+             Fica `hidden` por padrão pra nunca piscar antes do JS decidir se mostra
+             — ver initOnboardingTour() em app.js. -->
+        <div id="onboarding-tour" class="onboarding-tour" hidden>
+          <div class="onboarding-tour-header">
+            <span class="panel-kicker">Primeiros passos</span>
+            <button type="button" id="btn-onboarding-skip" class="onboarding-skip" title="Pular tour de boas-vindas" aria-label="Pular tour de boas-vindas">Pular</button>
+          </div>
+          <div id="onboarding-tour-step" class="onboarding-tour-step" aria-live="polite"></div>
+          <div class="onboarding-tour-footer">
+            <div id="onboarding-tour-dots" class="onboarding-tour-dots" aria-hidden="true"></div>
+            <button type="button" id="btn-onboarding-next" class="onboarding-next">Próximo</button>
+          </div>
+        </div>
+
         <!-- Chips de Sugestão Rápida (Prompt Pills) — exemplos de pedidos (KAN-79) -->
         <div class="prompt-chips-container">
           <button class="prompt-pill" data-prompt="Quero um pagode animado para o churrasco de domingo">
