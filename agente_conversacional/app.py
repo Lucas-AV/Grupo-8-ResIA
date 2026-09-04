@@ -13,6 +13,7 @@ from chat.contracts import TurnProcessor
 from chat.pipeline import ChatPipeline
 from sessions.store import SessionStore
 from llm.health import check_llm_health
+from spotify_auth.explorer_routes import router as spotify_explorer_router
 from spotify_auth.routes import router as spotify_auth_router
 
 logger = logging.getLogger("agente")
@@ -72,6 +73,7 @@ def create_app(
         )
     )
     app.include_router(spotify_auth_router)
+    app.include_router(spotify_explorer_router)
     app.exception_handler(Exception)(handle_unhandled_exception)
 
     @app.get("/health")
