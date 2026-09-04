@@ -549,6 +549,23 @@ body {
   display: block;
 }
 
+.recommendation-metrics {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 14px;
+  margin-top: 12px;
+  padding: 9px 11px;
+  border-left: 3px solid var(--spotify-green);
+  border-radius: 6px;
+  background: rgba(29, 185, 84, 0.08);
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
+.recommendation-metrics strong { color: var(--text-primary); }
+.recommendation-metrics small { flex-basis: 100%; color: var(--text-muted); }
+
 .message-row.user .message-timestamp {
   text-align: right;
 }

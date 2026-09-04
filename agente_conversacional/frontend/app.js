@@ -827,6 +827,20 @@ function formatarHora(timestamp) {
   return data.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function criarResumoDiversidadeECobertura(resposta) {
+  const diversidade = Number(resposta.diversidade_generos) || 0;
+  const cobertura = Math.max(0, Math.min(1, Number(resposta.cobertura_sessao) || 0));
+  const resumo = document.createElement('aside');
+  resumo.className = 'recommendation-metrics';
+  resumo.setAttribute('aria-label', 'Resumo de diversidade e novidade das recomendações');
+  resumo.innerHTML = `
+    <span><strong>${diversidade}</strong> gênero${diversidade === 1 ? '' : 's'} na seleção</span>
+    <span><strong>${Math.round(cobertura * 100)}%</strong> de faixas novas nesta conversa</span>
+    <small>O resultado combina seu pedido com sinais como popularidade, sem definir sozinho a recomendação.</small>
+  `;
+  return resumo;
+}
+
 function escapeHtml(text) {
   if (!text) return '';
   const div = document.createElement('div');
@@ -882,6 +896,10 @@ function renderMessageBubble(msg, animar = true) {
 
     if (tracksSection) {
       bubble.appendChild(tracksSection);
+    }
+
+    if (msg.metricas) {
+      bubble.appendChild(criarResumoDiversidadeECobertura(msg.metricas));
     }
 
     // Ações logo abaixo dos cards de faixa — só faz sentido pra respostas do
@@ -971,6 +989,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
       role: 'agent',
       conteudo: resposta.mensagem || 'Recomendações prontas!',
       faixas: resposta.faixas || [],
+      metricas: resposta,
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
