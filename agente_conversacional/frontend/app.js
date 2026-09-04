@@ -108,79 +108,6 @@ const API_BASE_URL =
     ? ''
     : 'http://127.0.0.1:8000';
 
-const OFFLINE_CATALOGO = {
-  pagode: [
-    { track_id: '3n3Ppam7vgaVa1iaRUc9Lp', nome: 'Deixa Acontecer', artista: 'Grupo Revelação', album: 'Ao Vivo', genero: 'pagode' },
-    { track_id: '2OzhsB92lF4N4Ynxy7P9hP', nome: 'Pé Na Areia', artista: 'Diogo Nogueira', album: 'Munduê', genero: 'pagode' },
-    { track_id: '5gB82p5T9z7Xw8Q7F1oE7B', nome: 'Falta Você', artista: 'Thiaguinho', album: 'Meu Nome É Thiago André', genero: 'pagode' },
-  ],
-  rock: [
-    { track_id: '08mG3Y1vljYA6bvNXEsOh9', nome: "Sweet Child O' Mine", artista: "Guns N' Roses", album: 'Appetite For Destruction', genero: 'rock' },
-    { track_id: '2VxeLyX666F8uXCJ0dZF8B', nome: "Livin' On A Prayer", artista: 'Bon Jovi', album: 'Slippery When Wet', genero: 'rock' },
-    { track_id: '7w8OXQ8oo6b5gPshx842Xk', nome: 'Back In Black', artista: 'AC/DC', album: 'Back In Black', genero: 'rock' },
-  ],
-  chill: [
-    { track_id: '3U4isOIWM3VvDubwSI3y7a', nome: 'Weightless', artista: 'Marconi Union', album: 'Weightless (Vol. 2)', genero: 'chill' },
-    { track_id: '4GfK1A2GZJvD1YwV61y6hA', nome: 'Sunset Lover', artista: 'Petit Biscuit', album: 'Presence', genero: 'chill' },
-    { track_id: '1A7F0J3F5F4h8C4G7x1A2B', nome: 'Coffee', artista: 'beabadoobee', album: 'Loveworm', genero: 'chill' },
-  ],
-  pop: [
-    { track_id: '0VjIjW4GlUZAMYd2vXMi3b', nome: 'Blinding Lights', artista: 'The Weeknd', album: 'After Hours', genero: 'pop' },
-    { track_id: '4Dvkj6JhhA12EX05fT7y2e', nome: 'As It Was', artista: 'Harry Styles', album: "Harry's House", genero: 'pop' },
-    { track_id: '1BxfuPKGuaTgP7aM0XbdMe', nome: 'Levitating', artista: 'Dua Lipa', album: 'Future Nostalgia', genero: 'pop' },
-  ],
-  mpb: [
-    { track_id: '4d1X9F8j4h2k8f1g3h5j6k', nome: 'Oceano', artista: 'Djavan', album: 'Djavan', genero: 'mpb' },
-    { track_id: '5h2j8k1l4f6g7h8j9k0l1m', nome: 'Aquarela', artista: 'Toquinho', album: 'Aquarela', genero: 'mpb' },
-    { track_id: '6k3l9m2n5g7h8j9k0l1m2n', nome: 'Como Nossos Pais', artista: 'Elis Regina', album: 'Falso Brilhante', genero: 'mpb' },
-  ]
-};
-
-function resolverMockLocal(sessionId, mensagem) {
-  const msg = mensagem.toLowerCase();
-  let faixas = [];
-  let texto = '';
-  let genero = 'misto';
-
-  if (msg.includes('pagode') || msg.includes('samba') || msg.includes('churrasco')) {
-    faixas = OFFLINE_CATALOGO.pagode;
-    texto = 'Selecionei clássicos do pagode com energia lá em cima para animar o seu churrasco!';
-    genero = 'pagode';
-  } else if (msg.includes('rock') || msg.includes('80') || msg.includes('guitarra')) {
-    faixas = OFFLINE_CATALOGO.rock;
-    texto = 'Aqui estão hinos do rock clássico com solos marcantes e energia contagiante:';
-    genero = 'rock';
-  } else if (msg.includes('chill') || msg.includes('lofi') || msg.includes('lo-fi') || msg.includes('relax') || msg.includes('foco') || msg.includes('calm') || msg.includes('estud')) {
-    faixas = OFFLINE_CATALOGO.chill;
-    texto = 'Encontrei faixas perfeitas com clima relaxante e alta acústica para você desacelerar ou focar:';
-    genero = 'chill';
-  } else if (msg.includes('mpb') || msg.includes('djavan') || msg.includes('caetano')) {
-    faixas = OFFLINE_CATALOGO.mpb;
-    texto = 'Obras primas da MPB selecionadas do catálogo com rica harmonia acústica:';
-    genero = 'mpb';
-  } else if (msg.includes('pop') || msg.includes('danc') || msg.includes('trein')) {
-    faixas = OFFLINE_CATALOGO.pop;
-    texto = 'Músicas pop com batidas vibrantes e alta dançabilidade separadas do dataset:';
-    genero = 'pop';
-  } else if (msg.includes('oi') || msg.includes('olá') || msg.includes('ola') || msg.includes('ajuda')) {
-    texto = 'Olá! Sou o agente musical do Grupo 8 ResIA. Como posso ajudar seu dia com música? Experimente pedir por gênero (pagode, rock, pop, chill, MPB) ou momento!';
-    faixas = [];
-  } else {
-    faixas = [OFFLINE_CATALOGO.pop[0], OFFLINE_CATALOGO.chill[1], OFFLINE_CATALOGO.mpb[0]];
-    texto = `Entendi seu pedido! Busquei no acervo de 114k faixas do Spotify algumas recomendações que combinam com "${mensagem}":`;
-  }
-
-  return {
-    session_id: sessionId,
-    mensagem: texto,
-    faixas: faixas,
-    diversidade_generos: faixas.length > 0 ? 1 : 0,
-    cobertura_sessao: 1.0,
-    consulta_efetiva: { genero: genero, consulta: mensagem },
-    _offline: true,
-  };
-}
-
 /**
  * Erro do backend padronizado pelo Ticket 8.3 (HTTP 5xx com corpo {"erro": "..."}).
  * Sinalizado com uma classe própria pra não cair no fallback silencioso de mock:
@@ -220,8 +147,6 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
       signal: controller.signal,
     });
   } catch (err) {
-    // Falha de rede/timeout (backend fora do ar): mantém a resiliência existente
-    // e responde com o catálogo offline em vez de travar o chat.
     clearTimeout(timeoutId);
     console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
     await new Promise((r) => setTimeout(r, 650));
@@ -654,8 +579,13 @@ function atualizarBotaoSpotifyAuth() {
  * 4. Backend inacessível (rede/timeout): mantém o comportamento anterior, restaurando do
  *    localStorage — não regride a experiência quando offline.
  */
-async function carregarHistoricoInicial() {
-  const resultado = await buscarHistoricoRemoto(currentSessionId);
+async function carregarHistoricoInicial(resultado) {
+  // `init` já consulta o backend para validar/criar a sessão antes de chamar
+  // esta função. Mantemos a leitura aqui como fallback para usos futuros que
+  // chamem a função isoladamente.
+  if (resultado === undefined) {
+    resultado = await buscarHistoricoRemoto(currentSessionId);
+  }
 
   if (resultado === null) {
     messages = loadChatHistory(currentSessionId);
@@ -779,6 +709,7 @@ function setupEventListeners() {
     if (isProcessing) return;
     currentSessionId = await resetSession();
     messages = [];
+    faixasMostradasSessao.clear();
     messagesContainer.innerHTML = '';
     // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
     if (heroEmptyState) heroEmptyState.style.display = 'flex';
@@ -869,6 +800,9 @@ function formatarHora(timestamp) {
 }
 
 function criarResumoDiversidadeECobertura(resposta) {
+  // Ticket 6.2: os números já calculados pelo backend aparecem junto das
+  // recomendações, em linguagem simples. O indicador também deixa explícito
+  // quando popularidade participa do ranqueamento, sem esconder esse sinal.
   const diversidade = Number(resposta.diversidade_generos) || 0;
   const cobertura = Math.max(0, Math.min(1, Number(resposta.cobertura_sessao) || 0));
   const resumo = document.createElement('aside');
@@ -1087,10 +1021,10 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
 window.ResIA = {
   getSessionId,
   saveSessionId,
-  resetSession,
   enviarMensagem,
   enviarMensagemUsuario,
   buscarHistoricoRemoto,
+  criarSessaoRemota,
   ErroBackend,
   showErrorBanner,
   verificarStatusSpotify,

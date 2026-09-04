@@ -29,11 +29,19 @@ class ChatPipeline:
         rota = roteador.rotear(mensagem)
 
         if rota is not None and rota.tipo == "saudacao":
-            _registrar_turno(inicio, rota="saudacao", extracao="nao_necessaria", busca="nao_necessaria", geracao="template", auditoria="nao_necessaria", resultado="sucesso")
+            _registrar_turno(
+                inicio, rota="saudacao", extracao="nao_necessaria",
+                busca="nao_necessaria", geracao="template",
+                auditoria="nao_necessaria", resultado="sucesso",
+            )
             return _resultado_sem_busca(template.saudacao())
 
         if rota is not None and rota.tipo == "fora_escopo":
-            _registrar_turno(inicio, rota="fora_escopo", extracao="nao_necessaria", busca="nao_necessaria", geracao="template", auditoria="nao_necessaria", resultado="sucesso")
+            _registrar_turno(
+                inicio, rota="fora_escopo", extracao="nao_necessaria",
+                busca="nao_necessaria", geracao="template",
+                auditoria="nao_necessaria", resultado="sucesso",
+            )
             return _resultado_sem_busca(template.fora_de_escopo())
 
         if rota is not None and rota.tipo == "consulta":
@@ -45,34 +53,62 @@ class ChatPipeline:
                 # Ticket 2.7 — fallback total: roteador não resolveu E a
                 # extração via LLM falhou/está indisponível. Nunca chama
                 # buscar_recomendacoes com consulta vazia/garbage.
-                _registrar_turno(inicio, rota="nao_resolvida", extracao="falhou", busca="nao_executada", geracao="template", auditoria="nao_necessaria", resultado="fallback")
+                _registrar_turno(
+                    inicio, rota="nao_resolvida", extracao="falhou",
+                    busca="nao_executada", geracao="template",
+                    auditoria="nao_necessaria", resultado="fallback",
+                )
                 return _resultado_sem_busca(template.esclarecimento())
             origem = "extracao_llm"
 
         try:
             consulta = validador.validar_consulta(consulta_bruta)
             resultado = buscar_recomendacoes(
-                genero=consulta["genero"], energia=consulta["energia"], valencia=consulta["valencia"],
-                dancabilidade=consulta["dancabilidade"], artista_referencia=consulta["artista_referencia"],
-                excluir_explicit=consulta["excluir_explicit"], n_resultados=consulta["n_resultados"],
-                perfil_usuario=contexto.perfil_usuario, faixas_ja_mostradas=contexto.faixas_ja_mostradas,
+                genero=consulta["genero"],
+                energia=consulta["energia"],
+                valencia=consulta["valencia"],
+                dancabilidade=consulta["dancabilidade"],
+                artista_referencia=consulta["artista_referencia"],
+                excluir_explicit=consulta["excluir_explicit"],
+                n_resultados=consulta["n_resultados"],
+                perfil_usuario=contexto.perfil_usuario,
+                faixas_ja_mostradas=contexto.faixas_ja_mostradas,
             )
         except Exception:
-            _registrar_turno(inicio, rota=origem, extracao="nao_necessaria" if origem == "roteador" else "sucesso", busca="falhou", geracao="nao_executada", auditoria="nao_executada", resultado="falha")
+            _registrar_turno(
+                inicio, rota=origem,
+                extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+                busca="falhou", geracao="nao_executada", auditoria="nao_executada",
+                resultado="falha",
+            )
             raise
 
         try:
             texto, citadas_brutas = gerador.gerar(mensagem, contexto.historico, resultado)
         except Exception:
-            _registrar_turno(inicio, rota=origem, extracao="nao_necessaria" if origem == "roteador" else "sucesso", busca="sucesso", geracao="falhou", auditoria="nao_executada", resultado="falha")
+            _registrar_turno(
+                inicio, rota=origem,
+                extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+                busca="sucesso", geracao="falhou", auditoria="nao_executada", resultado="falha",
+            )
             raise
         try:
             auditoria_resultado = auditoria.auditar_citacoes(citadas_brutas, resultado["faixas"])
         except Exception:
-            _registrar_turno(inicio, rota=origem, extracao="nao_necessaria" if origem == "roteador" else "sucesso", busca="sucesso", geracao="sucesso", auditoria="falhou", resultado="falha")
+            _registrar_turno(
+                inicio, rota=origem,
+                extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+                busca="sucesso", geracao="sucesso", auditoria="falhou", resultado="falha",
+            )
             raise
 
-        _registrar_turno(inicio, rota=origem, extracao="nao_necessaria" if origem == "roteador" else "sucesso", busca="sucesso", geracao="sucesso", auditoria="divergencia" if auditoria_resultado.divergentes else "sucesso", resultado="sucesso")
+        _registrar_turno(
+            inicio, rota=origem,
+            extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+            busca="sucesso", geracao="sucesso",
+            auditoria="divergencia" if auditoria_resultado.divergentes else "sucesso",
+            resultado="sucesso",
+        )
 
         return TurnResult(
             mensagem=texto,
@@ -108,4 +144,7 @@ def _resultado_sem_busca(texto):
 
 
 def _registrar_turno(inicio, **etapas):
-    observabilidade.registrar_turno(**etapas, duracao_ms=(time.monotonic() - inicio) * 1000)
+    observabilidade.registrar_turno(
+        **etapas,
+        duracao_ms=(time.monotonic() - inicio) * 1000,
+    )
