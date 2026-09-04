@@ -1,123 +1,93 @@
 # Roteiro do pitch — 5 minutos
 
-O pitch apresenta o problema, mostra por que o momento de mercado é favorável
-e prova que o MelodIA já possui uma base técnica controlável. O foco está no
-valor para a pessoa usuária, não nos detalhes de implementação.
+O pitch apresenta o problema, mostra a oportunidade de mercado, demonstra o produto e explica como o MelodIA mantém as recomendações ligadas ao catálogo. O tempo total planejado é de 300 segundos.
 
-## Distribuição das falas
+## Distribuição de tempo
 
-| Pessoa | Parte | Tempo |
-| --- | --- | ---: |
-| Pessoa 1 | Abertura e fechamento | 45 s |
-| Pessoa 2 | Problema | 35 s |
-| Pessoa 3 | Mercado | 40 s |
-| Pessoa 4 | Experiência proposta | 45 s |
-| Pessoa 5 | Segurança da recomendação e dados | 70 s |
-| Pessoa 6 | Demonstração ao vivo | 65 s |
+| Slide | Tema | Tempo |
+| ---: | --- | ---: |
+| 1 | MelodIA | 10 s |
+| 2 | Como você escolhe o que ouvir? | 15 s |
+| 3 | Descobrir música ainda dá trabalho | 20 s |
+| 4 | O Brasil cresce acima da média mundial | 25 s |
+| 5 | A conversa como ponto de partida | 20 s |
+| 6 | Do pedido à recomendação | 20 s |
+| 7 | Mais liberdade para descobrir | 15 s |
+| 8 | O que você pediria? | 10 s |
+| 9 | Vamos transformar um pedido em música? | 55 s |
+| 10 | A Inteligência Artificial ajuda a entender o pedido | 20 s |
+| 11 | As músicas recomendadas precisam existir | 25 s |
+| 12 | Cada gênero tem um perfil diferente | 25 s |
+| 13 | O produto já funciona e pode evoluir | 20 s |
+| 14 | O que você pediria ao MelodIA? | 20 s |
 | **Total** |  | **300 s** |
-
-Troquem “Pessoa 1” a “Pessoa 6” pelos nomes da equipe antes do primeiro ensaio.
 
 ## Slide a slide
 
-### 1. MelodIA — 15 segundos — Pessoa 1
+### 1. MelodIA — 10 segundos
 
-**Objetivo:** apresentar o produto em uma frase.
+“O MelodIA recebe um pedido em linguagem comum, encontra faixas reais e explica a recomendação.”
 
-**Fala sugerida:** “O MelodIA é um agente de recomendação musical. A pessoa
-descreve o que quer ouvir em uma conversa simples e recebe músicas reais do
-catálogo, com uma explicação curta do resultado.”
+### 2. Como você escolhe o que ouvir? — 15 segundos
 
-**Passagem:** “O ponto de partida foi um problema comum em catálogos grandes.”
+“Muitas vezes sabemos o momento ou a sensação que procuramos, mas ainda não sabemos qual música escolher.”
 
-### 2. Descobrir ainda dá trabalho — 35 segundos — Pessoa 2
+### 3. Descobrir música ainda dá trabalho — 20 segundos
 
-**Objetivo:** tornar o problema reconhecível.
+“Um pedido simples pode misturar gênero, energia e contexto. Traduzir tudo isso para filtros e buscas dá trabalho.”
 
-**Fala sugerida:** “Serviços de música oferecem milhares de opções, mas a
-descoberta costuma depender de listas prontas e rankings. Quando alguém quer
-algo específico, como uma música animada sem conteúdo explícito, precisa
-traduzir esse desejo para filtros e telas. O MelodIA reduz esse esforço por
-meio da conversa.”
+### 4. O Brasil cresce acima da média mundial — 25 segundos
 
-**Passagem:** “Esse problema aparece em um mercado que continua crescendo.”
+“As receitas de música gravada cresceram 14,1% no Brasil em 2025, contra 6,4% no mundo. O país chegou ao oitavo lugar no ranking mundial, e cerca de 86% da receita brasileira veio do streaming.”
 
-### 3. O Brasil cresce acima da média — 40 segundos — Pessoa 3
+### 5. A conversa como ponto de partida — 20 segundos
 
-**Objetivo:** apresentar oportunidade sem exagero.
+“A pessoa escreve do seu jeito. O MelodIA entende o pedido, busca no catálogo e explica a resposta.”
 
-**Fala sugerida:** “O mercado global de música gravada cresceu 6,4% em 2025.
-No Brasil, o crescimento foi de 14,1%, mais que o dobro da média global. O país
-também avançou do décimo para o oitavo lugar no ranking mundial entre 2023 e
-2025. O cenário favorece experiências que ajudem as pessoas a aproveitar
-melhor o catálogo que já existe.”
+### 6. Do pedido à recomendação — 20 segundos
 
-**Passagem:** “Nossa resposta é uma experiência direta.”
+“O fluxo tem quatro etapas: pedido, entendimento, consulta ao catálogo e resposta explicada.”
 
-### 4. Um pedido vira uma lista explicada — 45 segundos — Pessoa 4
+### 7. Mais liberdade para descobrir — 15 segundos
 
-**Objetivo:** mostrar a jornada da pessoa usuária.
+“A experiência funciona sem conta conectada. O Spotify pode ser conectado depois para salvar playlists.”
 
-**Fala sugerida:** “A pessoa escreve um pedido comum. O sistema identifica
-gênero, energia, clima e preferências. Em seguida, consulta o catálogo local e
-monta uma lista. O texto final explica a seleção. O login com Spotify é
-opcional e pode acrescentar o histórico de escuta, mas a experiência funciona
-sem conta conectada.”
+### 8. O que você pediria? — 10 segundos
 
-**Passagem:** “O ponto mais importante está em como controlamos a resposta.”
+Faça uma pergunta rápida à banca e use a escolha como passagem para a demonstração.
 
-### 5. A escolha das faixas fica sob controle — 35 segundos — Pessoa 5
+### 9. Vamos transformar um pedido em música? — 55 segundos
 
-**Objetivo:** explicar confiança sem jargão.
+1. Mostrar a aplicação já aberta e o backend pronto.
+2. Digitar: **“Quero um pagode animado.”**
+3. Apontar as faixas reais e a justificativa.
+4. Se a aplicação não responder em dez segundos, interromper a tentativa e usar o clipe reserva.
 
-**Fala sugerida:** “O modelo de linguagem ajuda a entender o pedido e a
-escrever a resposta. Ele não escolhe músicas livremente. Um motor em Python
-seleciona as faixas e uma checagem confirma que o texto só citou itens dessa
-lista. Se o modelo falhar, o sistema responde por um modelo de texto simples e
-continua funcionando.”
+### 10. A Inteligência Artificial ajuda a entender o pedido — 20 segundos
 
-**Passagem:** “Esse motor usa uma base que o grupo conhece e mede.”
+“A IA ajuda a interpretar a linguagem e a escrever uma resposta clara. A busca das músicas continua ligada ao catálogo.”
 
-### 6. Uma base ampla, com limites conhecidos — 35 segundos — Pessoa 5
+### 11. As músicas recomendadas precisam existir — 25 segundos
 
-**Objetivo:** apresentar evidência e transparência.
+“O sistema verifica as faixas antes da resposta. Pedidos simples continuam funcionando sem IA. O catálogo funciona como fonte de verdade.”
 
-**Fala sugerida:** “O conjunto processado reúne 128.830 registros, que
-representam 97.534 faixas únicas em 118 gêneros. Existem 31.296 registros
-repetidos porque a mesma faixa pode aparecer em mais de um gênero. A análise
-preserva essa informação; a recomendação evita repetir a música no resultado.”
+### 12. Cada gênero tem um perfil diferente — 25 segundos
 
-**Passagem:** “Agora mostramos o fluxo funcionando.”
+“A energia média vai de 0,19 em clássica a 0,93 em death metal. Chicago house tem 0,77 de dançabilidade, e chill tem 53,7 de popularidade média.”
 
-### 7. Demonstração ao vivo — 65 segundos — Pessoa 6
+Não acrescentar interpretações subjetivas aos números.
 
-**Objetivo:** provar o fluxo principal sem depender de serviços externos.
+### 13. O produto já funciona e pode evoluir — 20 segundos
 
-1. Mostrar a tela já aberta, com o backend pronto.
-2. Digitar: **“quero um pagode animado”**.
-3. Apontar a resposta e os cards de faixas reais.
-4. Mostrar rapidamente diversidade e cobertura, se estiverem visíveis.
-5. Explicar: “Esse pedido simples passa pelo roteador e funciona mesmo sem
-   modelo de linguagem ou login no Spotify.”
+“Hoje já temos conversa em linguagem comum, recomendações verificadas e um produto pronto para demonstração. O próximo passo é testar com pessoas reais, ouvir opiniões e melhorar a personalização.”
 
-Se a aplicação não responder em dez segundos, interromper a tentativa e exibir
-o clipe reserva. Não investigar o erro diante da banca.
+### 14. O que você pediria ao MelodIA? — 20 segundos
 
-**Passagem:** “A demonstração resume o diferencial do projeto.”
+“O MelodIA transforma pedidos cotidianos em recomendações verificáveis. Convidamos vocês a experimentar o produto e compartilhar sua percepção. Obrigado.”
 
-### 8. Descoberta com controle e transparência — 30 segundos — Pessoa 1
-
-**Objetivo:** fechar com diferencial e próximo passo.
-
-**Fala sugerida:** “O MelodIA une conversa simples, busca verificável e
-medidas de diversidade. O próximo passo é observar interações reais para
-melhorar a personalização sem perder transparência. O projeto já reúne dados,
-produto, arquitetura e testes para sustentar essa evolução. Obrigado.”
-
-## Plano B do pitch
+## Plano B
 
 - Aplicação indisponível: usar o clipe reserva de 45 segundos.
-- Vídeo sem áudio: narrar o mesmo passo sobre capturas estáticas.
-- LLM indisponível: manter o pedido determinístico e explicar o fallback.
-- Tempo abaixo de 4:30: ampliar apenas a explicação do slide 6.
-- Tempo acima de 5:00: retirar a frase sobre login Spotify no slide 4.
+- Vídeo sem áudio: narrar o mesmo fluxo sobre capturas estáticas.
+- Modelo de linguagem indisponível: manter o pedido determinístico e explicar o fallback.
+- Tempo acima de cinco minutos: reduzir a interação do slide 8 e encurtar a explicação do slide 12.

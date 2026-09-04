@@ -124,7 +124,7 @@ function addFooter(slide, label, dark = false) {
   });
 }
 
-function createPitch() {
+function createPitchLegacy() {
   const p = Presentation.create({ slideSize: { width: 1280, height: 720 } });
 
   // 1 — capa
@@ -311,6 +311,308 @@ function createPitch() {
   });
   textBox(s, "Obrigado.", 485, 610, 310, 45, { size: 28, bold: true, color: C.warm, align: "center" });
   note(s, "00:30", "Retome os três diferenciais, apresente a evolução pretendida e encerre com uma frase curta.", "analise_mercado_streaming/RELATORIO.md; docs/apresentacao/ROTEIRO_PITCH.md");
+
+  return p;
+}
+
+async function createPitch() {
+  const p = Presentation.create({ slideSize: { width: 1280, height: 720 } });
+  const P = {
+    cream: "#F5F6EF",
+    paper: "#FFFFFF",
+    forest: "#173D2B",
+    green: "#3F7D58",
+    sage: "#DCE8D9",
+    gold: "#C7A34A",
+    ink: "#26362B",
+    muted: "#5C6A60",
+    line: "#C8D5C9",
+  };
+  const assetDir = path.join(OUTPUT, "assets");
+
+  function pitchBase(title, number, { dark = false, titleWidth = 1080, titleSize = 43 } = {}) {
+    const slide = p.slides.add();
+    slide.background.fill = dark ? P.forest : P.cream;
+    textBox(slide, "MELODIA", 72, 30, 220, 24, {
+      size: 15, bold: true, color: dark ? P.gold : P.green,
+    });
+    textBox(slide, title, 72, 64, titleWidth, 92, {
+      size: titleSize, bold: true, color: dark ? P.paper : P.ink, autoFit: "shrinkText",
+    });
+    textBox(slide, String(number).padStart(2, "0"), 1160, 30, 48, 24, {
+      size: 16, bold: true, color: dark ? P.paper : P.muted, align: "right",
+    });
+    return slide;
+  }
+
+  function pitchFooter(slide, label, dark = false) {
+    textBox(slide, label, 72, 681, 1136, 22, {
+      size: 14, color: dark ? "#E7EBDD" : P.forest,
+    });
+  }
+
+  async function pitchImage(slide, fileName, alt, position, fit = "cover") {
+    const blob = await fs.readFile(path.join(assetDir, fileName));
+    return slide.images.add({
+      blob,
+      contentType: "image/png",
+      alt,
+      fit,
+      geometry: "roundRect",
+      borderRadius: "rounded-2xl",
+      position,
+    });
+  }
+
+  let s = p.slides.add();
+  s.background.fill = P.cream;
+  rect(s, 0, 0, 760, 720, P.forest);
+  textBox(s, "MelodIA", 84, 145, 590, 100, { size: 72, bold: true, color: P.paper });
+  textBox(s, "Recomendações musicais por conversa", 88, 252, 560, 46, { size: 29, color: "#E4EBDD" });
+  textBox(s, "Você descreve o que quer ouvir.\nO MelodIA encontra faixas reais e explica a escolha.", 88, 342, 570, 118, {
+    size: 29, bold: true, color: P.paper,
+  });
+  textBox(s, "Grupo 8 · Residência em Inteligência Artificial", 88, 568, 570, 32, {
+    size: 17, bold: true, color: P.gold,
+  });
+  textBox(s, "Lucas · Felipe · Eduarda · Ruan · Rebeca", 88, 608, 570, 30, {
+    size: 17, color: "#E4EBDD",
+  });
+  textBox(s, "M", 840, 155, 330, 340, { size: 220, bold: true, color: P.green, align: "center" });
+  textBox(s, "conversa + catálogo", 840, 500, 330, 38, { size: 22, color: P.muted, align: "center" });
+  note(s, "00:10", "Apresente o MelodIA em uma frase: a pessoa descreve o que quer ouvir e recebe faixas reais com uma explicação curta.", "docs/apresentacao/ROTEIRO_PITCH.md");
+
+  s = pitchBase("Como você escolhe o que ouvir?", 2);
+  textBox(s, "Você já sabia o clima que queria, mas não sabia qual música colocar?", 72, 165, 1030, 42, {
+    size: 25, color: P.muted,
+  });
+  const moments = [
+    ["Estudar", "Foco e concentração"],
+    ["Treinar", "Energia e motivação"],
+    ["Descansar", "Calma e relaxamento"],
+    ["Encontrar amigos", "Alegria e celebração"],
+  ];
+  moments.forEach(([head, body], i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = 88 + col * 585;
+    const y = 245 + row * 165;
+    textBox(s, head, x, y, 500, 48, { size: 32, bold: true, color: P.forest });
+    textBox(s, body, x, y + 55, 500, 38, { size: 22, color: P.muted });
+    rect(s, x, y + 112, 465, 3, col === 0 ? P.green : P.gold);
+  });
+  note(s, "00:15", "Convide a banca a reconhecer situações em que a intenção aparece antes de uma música específica.", "docs/apresentacao/ROTEIRO_PITCH.md");
+
+  s = pitchBase("Descobrir música ainda dá trabalho", 3);
+  await pitchImage(s, "problema-descoberta-musical.png", "Pessoa escolhendo música em um catálogo amplo", {
+    left: 72, top: 175, width: 660, height: 420,
+  });
+  textBox(s, "“Quero um pagode animado para o churrasco de domingo.”", 790, 190, 405, 108, {
+    size: 28, bold: true, color: P.forest,
+  });
+  rect(s, 790, 320, 68, 4, P.gold);
+  textBox(s, "Esse pedido mistura gênero, energia e contexto.", 790, 350, 405, 72, { size: 23, color: P.ink });
+  textBox(s, "O desejo é simples. Encontrar a combinação certa pode exigir várias buscas.", 790, 450, 405, 98, {
+    size: 23, color: P.muted,
+  });
+  note(s, "00:20", "Mostre que o problema não é falta de música, mas traduzir um pedido humano para buscas e filtros.", "analise_mercado_streaming/RELATORIO.md; docs/apresentacao/ROTEIRO_PITCH.md");
+
+  s = pitchBase("O Brasil cresce acima da média mundial", 4);
+  const marketChart = s.charts.add("bar", {
+    position: { left: 72, top: 180, width: 670, height: 390 },
+    categories: ["Brasil", "Mundo"],
+    series: [{ name: "Crescimento em 2025", values: [14.1, 6.4], fill: P.green }],
+    barOptions: { direction: "column", grouping: "clustered" },
+    hasLegend: false,
+    dataLabels: { showValue: false },
+  });
+  applyPresentationChartFont(marketChart, { fontFamily: FONT });
+  textBox(s, "14,1%", 180, 273, 135, 40, { size: 22, bold: true, color: P.forest, align: "center" });
+  textBox(s, "6,4%", 500, 370, 135, 40, { size: 22, bold: true, color: P.forest, align: "center" });
+  textBox(s, "8º", 850, 205, 270, 90, { size: 66, bold: true, color: P.forest, align: "center" });
+  textBox(s, "maior mercado musical do mundo", 815, 300, 340, 70, {
+    size: 25, bold: true, color: P.ink, align: "center",
+  });
+  textBox(s, "~86%", 850, 420, 270, 76, { size: 54, bold: true, color: P.green, align: "center" });
+  textBox(s, "da receita vem do streaming no Brasil", 815, 500, 340, 66, {
+    size: 23, color: P.muted, align: "center",
+  });
+  pitchFooter(s, "Fontes: Pró-Música Brasil e IFPI Global Music Report 2026. Dados de 2025.");
+  note(s, "00:25", "Compare 14,1% no Brasil com 6,4% no mundo e cite o oitavo lugar e a participação aproximada do streaming.", "Pró-Música Brasil; IFPI Global Music Report 2026; analise_mercado_streaming/RELATORIO.md");
+
+  s = pitchBase("A conversa como ponto de partida", 5);
+  textBox(s, "“Algo calmo, sem conteúdo explícito, para estudar à noite.”", 160, 190, 960, 90, {
+    size: 35, bold: true, color: P.forest, align: "center",
+  });
+  ["Entender", "Buscar", "Explicar"].forEach((verb, i) => {
+    const x = 100 + i * 390;
+    textBox(s, verb, x, 380, 300, 75, {
+      size: 42, bold: true, color: i === 1 ? P.green : P.ink, align: "center",
+    });
+    rect(s, x + 80, 480, 140, 4, i === 1 ? P.gold : P.green);
+  });
+  note(s, "00:20", "Leia o pedido e resuma a proposta em três ações: entender, buscar e explicar.", "docs/apresentacao/ROTEIRO_PITCH.md");
+
+  s = pitchBase("Do pedido à recomendação", 6);
+  textBox(s, "Quatro etapas simples, do primeiro pedido até a recomendação.", 72, 160, 1040, 42, {
+    size: 25, color: P.muted,
+  });
+  const stages = [
+    ["1", "Pedido", "Você descreve o que quer ouvir"],
+    ["2", "Entendimento", "O sistema identifica as preferências"],
+    ["3", "Catálogo", "As músicas compatíveis são procuradas"],
+    ["4", "Resposta", "As sugestões chegam com uma explicação"],
+  ];
+  stages.forEach(([n, head, body], i) => {
+    const x = 65 + i * 305;
+    textBox(s, n, x, 250, 56, 56, { size: 34, bold: true, color: P.gold, align: "center" });
+    textBox(s, head, x, 325, 255, 46, { size: 29, bold: true, color: P.forest, align: "center" });
+    textBox(s, body, x + 10, 390, 235, 102, { size: 21, color: P.muted, align: "center" });
+    rect(s, x + 55, 520, 145, 3, i === 3 ? P.gold : P.green);
+  });
+  note(s, "00:20", "Explique as quatro etapas sem jargão. A conversa inicia o fluxo e o catálogo sustenta a resposta.", "docs/PIPELINE_AGENTE_PROPOSTA_B.md; agente_conversacional/recomendacao/busca.py");
+
+  s = pitchBase("Mais liberdade para descobrir", 7);
+  textBox(s, "A experiência começa com uma conversa e cresce quando a pessoa desejar.", 72, 165, 1040, 42, {
+    size: 25, color: P.muted,
+  });
+  const freedoms = [
+    "Peça músicas com suas próprias palavras",
+    "Comece sem conectar uma conta",
+    "Entenda o motivo das recomendações",
+    "Conecte o Spotify para salvar uma playlist",
+  ];
+  freedoms.forEach((label, i) => {
+    const y = 245 + i * 82;
+    textBox(s, String(i + 1).padStart(2, "0"), 95, y, 55, 38, { size: 18, bold: true, color: P.gold });
+    textBox(s, label, 165, y - 4, 920, 48, { size: 27, bold: true, color: P.ink });
+    rect(s, 165, y + 52, 880, 2, P.line);
+  });
+  textBox(s, "Também é possível pedir outra seleção sem repetir as faixas já mostradas.", 165, 585, 900, 42, {
+    size: 21, color: P.green,
+  });
+  note(s, "00:15", "Destaque que o fluxo principal funciona sem conta e que o Spotify acrescenta conveniência, não dependência.", "docs/apresentacao/ROTEIRO_PITCH.md");
+
+  s = pitchBase("O que você pediria?", 8);
+  const requests = [
+    ["Pagode animado", "Para um churrasco de domingo"],
+    ["Lo-fi calmo", "Para estudar na madrugada"],
+    ["Rock energético", "Para acelerar na estrada"],
+    ["Pop dançante", "Para o treino"],
+  ];
+  requests.forEach(([head, body], i) => {
+    const col = i % 2;
+    const row = Math.floor(i / 2);
+    const x = 90 + col * 590;
+    const y = 205 + row * 175;
+    textBox(s, head, x, y, 500, 48, { size: 30, bold: true, color: P.forest });
+    textBox(s, body, x, y + 58, 500, 38, { size: 22, color: P.muted });
+    rect(s, x, y + 112, 430, 3, col === 0 ? P.green : P.gold);
+  });
+  textBox(s, "Qual desses você gostaria de testar?", 260, 580, 760, 50, {
+    size: 29, bold: true, color: P.green, align: "center",
+  });
+  note(s, "00:10", "Faça uma pergunta rápida à banca e use a resposta como transição para a demonstração.", "docs/apresentacao/ROTEIRO_PITCH.md");
+
+  s = pitchBase("Vamos transformar um pedido em música?", 9, { dark: true });
+  textBox(s, "“Quero um pagode animado.”", 150, 235, 980, 100, {
+    size: 48, bold: true, color: P.paper, align: "center",
+  });
+  rect(s, 455, 370, 370, 4, P.gold);
+  textBox(s, "Demonstração ao vivo", 370, 420, 540, 54, {
+    size: 30, bold: true, color: "#E4EBDD", align: "center",
+  });
+  textBox(s, "Plano B: clipe reserva de 45 segundos", 395, 535, 490, 34, {
+    size: 19, color: P.gold, align: "center",
+  });
+  note(s, "00:55", "Digite o pedido combinado, mostre as faixas reais e a justificativa. Se a aplicação não responder em dez segundos, use o clipe reserva.", "docs/apresentacao/ENSAIO_GERAL.md; docs/apresentacao/video/GUIA_GRAVACAO.md");
+
+  s = pitchBase("A Inteligência Artificial ajuda a entender o pedido", 10, { titleWidth: 790, titleSize: 36 });
+  textBox(s, "A IA interpreta a linguagem da pessoa e ajuda a escrever uma resposta clara.", 72, 185, 500, 82, {
+    size: 25, color: P.muted,
+  });
+  const aiRoles = [
+    ["Interpretar", "Compreende o que a pessoa quer dizer"],
+    ["Buscar", "Consulta um catálogo conhecido"],
+    ["Explicar", "Apresenta a resposta em linguagem humana"],
+  ];
+  aiRoles.forEach(([head, body], i) => {
+    const y = 315 + i * 92;
+    textBox(s, head, 72, y, 185, 38, { size: 25, bold: true, color: P.forest });
+    textBox(s, body, 265, y - 2, 315, 54, { size: 20, color: P.muted });
+  });
+  await pitchImage(s, "ia-conversa-catalogo.png", "Balão de conversa conectado a um catálogo musical", {
+    left: 615, top: 165, width: 595, height: 410,
+  }, "contain");
+  note(s, "00:20", "Explique que a IA apoia a interpretação e a redação, enquanto a busca permanece ligada ao catálogo.", "docs/PIPELINE_AGENTE_PROPOSTA_B.md; agente_conversacional/chat/pipeline.py");
+
+  s = pitchBase("As músicas recomendadas precisam existir", 11);
+  const trust = [
+    ["Verificação antes da resposta", "O sistema confirma as faixas no catálogo"],
+    ["Pedidos simples sempre funcionam", "O fluxo continua mesmo sem IA"],
+    ["97.534 faixas únicas", "128.830 registros e 118 gêneros"],
+  ];
+  trust.forEach(([head, body], i) => {
+    const y = 190 + i * 125;
+    textBox(s, head, 72, y, 500, 42, { size: 27, bold: true, color: P.forest });
+    textBox(s, body, 72, y + 48, 500, 38, { size: 21, color: P.muted });
+    rect(s, 72, y + 96, 475, 2, P.line);
+  });
+  rect(s, 675, 205, 500, 320, P.forest, 24);
+  textBox(s, "O catálogo funciona como fonte de verdade.", 735, 275, 380, 170, {
+    size: 38, bold: true, color: P.paper, align: "center",
+  });
+  pitchFooter(s, "Fonte: data/analytics/dataset_profile.json");
+  note(s, "00:25", "Mostre os três controles e reforce a frase central: o catálogo funciona como fonte de verdade.", "data/analytics/dataset_profile.json; docs/PIPELINE_AGENTE_PROPOSTA_B.md");
+
+  s = pitchBase("Cada gênero tem um perfil diferente", 12);
+  const genreChart = s.charts.add("bar", {
+    position: { left: 72, top: 185, width: 660, height: 365 },
+    categories: ["Clássica", "Death metal"],
+    series: [{ name: "Energia", values: [0.19, 0.93], fill: P.green }],
+    barOptions: { direction: "bar", grouping: "clustered" },
+    hasLegend: false,
+    dataLabels: { showValue: false },
+  });
+  applyPresentationChartFont(genreChart, { fontFamily: FONT });
+  textBox(s, "0,93", 680, 265, 62, 32, { size: 18, bold: true, color: P.forest });
+  textBox(s, "0,19", 275, 438, 62, 32, { size: 18, bold: true, color: P.forest });
+  textBox(s, "Energia", 72, 160, 200, 30, { size: 20, bold: true, color: P.forest });
+  textBox(s, "0,77", 830, 205, 300, 82, { size: 58, bold: true, color: P.forest, align: "center" });
+  textBox(s, "Chicago house\ndançabilidade", 830, 295, 300, 68, { size: 23, color: P.muted, align: "center" });
+  textBox(s, "53,7", 830, 410, 300, 82, { size: 58, bold: true, color: P.green, align: "center" });
+  textBox(s, "Chill\npopularidade média", 830, 500, 300, 68, { size: 23, color: P.muted, align: "center" });
+  pitchFooter(s, "Energia e dançabilidade: escala de 0 a 1. Popularidade: escala de 0 a 100. Fonte: data/analytics/occurrences_by_genre.csv");
+  note(s, "00:25", "Leia apenas os números e as escalas. Evite atribuir qualidades subjetivas aos gêneros.", "data/analytics/occurrences_by_genre.csv; analise_exploratoria.ipynb");
+
+  s = pitchBase("O produto já funciona e pode evoluir", 13);
+  rect(s, 72, 190, 540, 390, P.paper, 22, P.line);
+  rect(s, 668, 190, 540, 390, P.sage, 22, P.line);
+  textBox(s, "Hoje", 115, 225, 420, 50, { size: 34, bold: true, color: P.forest });
+  textBox(s, "Próximo passo", 710, 225, 420, 50, { size: 34, bold: true, color: P.forest });
+  const today = ["Conversa em linguagem comum", "Recomendações verificadas", "Produto pronto para demonstração"];
+  const next = ["Testar com pessoas reais", "Ouvir opiniões", "Melhorar a personalização"];
+  today.forEach((label, i) => textBox(s, label, 115, 315 + i * 82, 430, 52, { size: 24, color: P.ink }));
+  next.forEach((label, i) => textBox(s, label, 710, 315 + i * 82, 430, 52, { size: 24, color: P.ink }));
+  note(s, "00:20", "Resuma o que já funciona e apresente a validação com pessoas reais como próximo passo.", "docs/apresentacao/ROTEIRO_PITCH.md");
+
+  s = p.slides.add();
+  await pitchImage(s, "problema-descoberta-musical.png", "Catálogo musical em segundo plano", {
+    left: 0, top: 0, width: 1280, height: 720,
+  });
+  rect(s, 0, 0, 1280, 720, `${P.forest}/86`);
+  textBox(s, "O que você pediria ao MelodIA?", 135, 190, 1010, 95, {
+    size: 52, bold: true, color: P.paper, align: "center",
+  });
+  textBox(s, "Experimente o produto e compartilhe sua percepção.", 225, 320, 830, 58, {
+    size: 28, color: "#E7EBDD", align: "center",
+  });
+  rect(s, 470, 420, 340, 4, P.gold);
+  textBox(s, "Grupo 8 · Residência em Inteligência Artificial", 260, 485, 760, 38, {
+    size: 20, bold: true, color: P.gold, align: "center",
+  });
+  textBox(s, "Obrigado", 500, 565, 280, 46, { size: 28, bold: true, color: P.paper, align: "center" });
+  note(s, "00:20", "Encerre com o convite para experimentar o produto e compartilhar a percepção.", "docs/apresentacao/ROTEIRO_PITCH.md");
 
   return p;
 }
@@ -561,9 +863,9 @@ async function finalizeDeck(presentation, fileName, slideCount, charts, previewD
   await renderPreviews(presentation, previewDir);
 }
 
-const pitch = createPitch();
+const pitch = await createPitch();
 const technical = await createTechnical();
-await finalizeDeck(pitch, "MelodIA_Pitch.pptx", 8, [3, 6], PITCH_PREVIEW);
+await finalizeDeck(pitch, "MelodIA_Pitch.pptx", 14, [4, 12], PITCH_PREVIEW);
 await finalizeDeck(technical, "MelodIA_Tecnica.pptx", 10, [6], TECH_PREVIEW);
 
 const pdfResult = spawnSync(

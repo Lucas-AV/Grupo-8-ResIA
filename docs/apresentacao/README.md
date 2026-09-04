@@ -26,7 +26,7 @@ O resultado das verificações automáticas e visuais está em `VALIDACAO.md`.
 
 ## Tempos de referência
 
-- Pitch: 5 minutos, 8 slides.
+- Pitch: 5 minutos, 14 slides.
 - Apresentação técnica: 8 minutos, 10 slides.
 - Vídeo: 5 minutos.
 - Clipe reserva da demo: 45 segundos.

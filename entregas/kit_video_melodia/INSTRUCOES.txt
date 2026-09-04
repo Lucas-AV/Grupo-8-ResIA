@@ -1,0 +1,27 @@
+Oi! Separei um kit com o slide atual do MelodIA, o roteiro cena a cena e as
+referências do projeto para orientar a construção do vídeo sem fugir do tema ou
+da identidade visual.
+
+Referência principal do design:
+https://gamma.app/docs/MelodIA-nbegrc1sqwm8ogd?mode=doc
+
+Por favor, use primeiro o arquivo MelodIA_Slides_Atuais.pdf para cores, fontes,
+ilustrações e composição. O vídeo deve seguir ROTEIRO_VIDEO.md e
+GUIA_GRAVACAO.md. O arquivo GUIA_DE_REFERENCIA_VIDEO.md resume a ordem das
+cenas, os números que precisam permanecer exatos e o checklist de entrega.
+
+Pontos principais:
+- duração final de aproximadamente 5 minutos;
+- resolução 1920 x 1080, 30 fps;
+- identidade em creme, verde claro, verde escuro e preto;
+- títulos serifados, corpo simples e ilustrações musicais editoriais;
+- sem músicas protegidas, credenciais, QR de login ou notificações pessoais;
+- demonstração real com o pedido “quero um pagode animado”.
+
+O PowerPoint é uma referência editável, mas o Gamma avisou que alguns efeitos
+podem mudar na exportação. Em caso de diferença, considere o Gamma e o PDF como
+fonte visual principal.
+
+Qualquer dúvida sobre conteúdo ou números, consulte as fontes que estão dentro
+do kit antes de adaptar o texto.
+

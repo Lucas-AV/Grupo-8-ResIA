@@ -6,18 +6,18 @@ Data da validação técnica: **4 de setembro de 2026**.
 
 | Verificação | Resultado |
 | --- | --- |
-| Testes do agente | 358 aprovados; 2 avisos de descontinuação das bibliotecas FastAPI/Starlette |
+| Testes do agente | 306 aprovados; 2 avisos de descontinuação das bibliotecas FastAPI/Starlette |
 | Caminho padrão do conjunto | Teste de regressão aprovado para `data/processed/dataset.csv` |
 | Validação do notebook | Concluída sem erro por `validate_notebook_demo.py` |
 | Execução do notebook | Concluída sem erro por `run_notebook_demo.py` |
 | Reconstrução do site | Concluída; páginas atuais distinguem registros de faixas únicas |
-| Pitch | 8 slides, 8 conjuntos de notas, 2 gráficos editáveis |
+| Pitch | 14 slides, 14 conjuntos de notas, 2 gráficos editáveis |
 | Técnica | 10 slides, 10 conjuntos de notas, 1 gráfico editável |
-| PDF do pitch | 8 páginas, formato 16:9 |
+| PDF do pitch | 14 páginas, formato 16:9 |
 | PDF técnico | 10 páginas, formato 16:9 |
 | Tempos | Pitch 300 s; técnica 480 s; vídeo 300 s |
 
-As 18 prévias dos PPTX e as 18 páginas renderizadas dos PDFs foram conferidas
+As 24 prévias dos PPTX e as 24 páginas renderizadas dos PDFs foram conferidas
 quanto a corte de texto, sobreposição, acentos, alinhamento e legibilidade. O
 slide técnico do notebook mantém o heatmap já gerado como contingência.
 
