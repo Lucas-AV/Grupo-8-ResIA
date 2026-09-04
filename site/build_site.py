@@ -31,6 +31,9 @@ CORRELATION_HEATMAP_PNG = ROOT / "images" / "correlation_heatmap.png"
 SIMILARIDADE_COSSENO_PNG = ROOT / "images" / "similaridade_cosseno.png"
 SIMILARIDADE_COSSENO_PDF = ROOT / "docs" / "ilustracao_similaridade_cosseno.pdf"
 
+PRECISAO_COSSENO_CSV = ROOT / "data" / "analytics" / "precisao_cosseno.csv"
+PRECISAO_COSSENO_PNG = ROOT / "images" / "precisao_cosseno.png"
+
 MARKET_DIR = ROOT / "analise_mercado_streaming"
 MARKET_SHARE_CSV = MARKET_DIR / "data" / "platform_market_share.csv"
 MARKET_DATA_CSVS = [
@@ -193,6 +196,13 @@ ANALYSES = [
         "nav": "Similaridade",
         "description": "Como o motor de recomendacao compara o perfil do usuario com cada faixa do catalogo.",
         "href": "similaridade-cosseno.html",
+    },
+    {
+        "id": "precisao-cosseno",
+        "title": "Precisao do Modelo",
+        "nav": "Precisao",
+        "description": "Estimativa de precisao@k do motor de similaridade por cosseno, contra um baseline aleatorio.",
+        "href": "precisao-cosseno.html",
     },
     {
         "id": "notebook",
@@ -379,6 +389,11 @@ STATIC_ANALYSES = [
         ],
     },
 ]
+
+
+def format_pct_br(fracao: float) -> str:
+    """Formata uma fracao (0.163) como percentual pt-BR (16,3%)."""
+    return f"{fracao:.1%}".replace(".", ",")
 
 
 def load_genre_rows(csv_path: Path) -> list[dict]:
@@ -905,6 +920,77 @@ def build() -> None:
     )
     (DIST_DIR / "similaridade-cosseno.html").write_text(similaridade_html, encoding="utf-8")
 
+    precisao_df = pd.read_csv(PRECISAO_COSSENO_CSV)
+    melhor_k = precisao_df.iloc[precisao_df["precisao_media"].idxmax()]
+    precisao_html = env.get_template("analise.html").render(
+        title="Precisao do Modelo",
+        current_page="precisao-cosseno.html",
+        eyebrow="Motor de recomendacao · scripts/avaliar_precisao_cosseno.py",
+        heading="Precisao do Modelo de Similaridade por Cosseno",
+        description=(
+            "O dataset nao tem playlist nem feedback de usuario, entao nao ha "
+            "rotulo de relevancia explicito. A estimativa usa leave-one-out: "
+            "cada faixa de uma amostra vira sua propria consulta e um vizinho "
+            "e considerado relevante quando compartilha o mesmo track_genre — "
+            "uma aproximacao, nao uma medida direta de satisfacao do usuario."
+        ),
+        tiles=[
+            {
+                "label": f"Melhor precisao (k={int(melhor_k['k'])})",
+                "value": format_pct_br(melhor_k["precisao_media"]),
+                "sub": f"vs {format_pct_br(melhor_k['baseline_aleatorio'])} no baseline aleatorio",
+                "icon": "trending-up",
+            },
+            {
+                "label": "Ganho sobre baseline",
+                "value": f"{melhor_k['ganho_sobre_baseline']:.1f}x".replace(".", ","),
+                "sub": "chance de acerto vs. sorteio aleatorio de genero",
+                "icon": "bolt",
+            },
+            {
+                "label": "Amostra avaliada",
+                "value": "3.000 faixas",
+                "sub": "consultas leave-one-out, seed fixa",
+                "icon": "layers",
+            },
+        ],
+        figures=[
+            {
+                "image": PRECISAO_COSSENO_PNG.name,
+                "alt": "Grafico de barras comparando a precisao media do motor de similaridade por cosseno com um baseline aleatorio, para k=5, 10 e 20",
+                "caption": "Precisao@k (proxy de genero) vs. baseline aleatorio",
+                "leitura": (
+                    "A precisao cai de 16,3% (k=5) para 12,3% (k=20) — esperado, "
+                    "quanto mais vizinhos entram no top-k, mais dificil manter "
+                    "todos no mesmo genero da consulta. Mas em todo k avaliado o "
+                    "motor fica entre 12x e 16x acima do baseline aleatorio (~1%), "
+                    "que reflete so a concentracao natural de generos no dataset. "
+                    "Isso indica que o cosseno concentra vizinhos genuinamente mais "
+                    "parecidos do que um sorteio faria — mas genero e um proxy "
+                    "grosseiro de relevancia (faixas do mesmo genero nem sempre "
+                    "soam parecidas, e faixas de generos diferentes podem ser uma "
+                    "recomendacao valida), entao o numero deve ser lido como um "
+                    "piso qualitativo, nao uma medida final de qualidade percebida "
+                    "pelo usuario."
+                ),
+            }
+        ],
+        table={
+            "title": "Precisao media por k",
+            "headers": ["k", "Precisao media", "Baseline aleatorio", "Ganho sobre baseline"],
+            "rows": [
+                [
+                    int(linha["k"]),
+                    format_pct_br(linha["precisao_media"]),
+                    format_pct_br(linha["baseline_aleatorio"]),
+                    f"{linha['ganho_sobre_baseline']:.1f}x".replace(".", ","),
+                ]
+                for _, linha in precisao_df.iterrows()
+            ],
+        },
+    )
+    (DIST_DIR / "precisao-cosseno.html").write_text(precisao_html, encoding="utf-8")
+
     notebook_body, pygments_css = render_notebook_html(NOTEBOOK_PATH)
     notebook_html = env.get_template("notebook.html").render(
         title="Notebook de Analise Exploratoria",
@@ -925,7 +1011,7 @@ def build() -> None:
     all_pngs = (
         GENRE_PNGS
         + [fig["path"] for analysis in STATIC_ANALYSES for fig in analysis["figures"]]
-        + [ARTIST_DIST_PNG, ALBUM_DIST_PNG, CORRELATION_HEATMAP_PNG, SIMILARIDADE_COSSENO_PNG]
+        + [ARTIST_DIST_PNG, ALBUM_DIST_PNG, CORRELATION_HEATMAP_PNG, SIMILARIDADE_COSSENO_PNG, PRECISAO_COSSENO_PNG]
         + MARKET_PNGS
     )
     for png in all_pngs:
