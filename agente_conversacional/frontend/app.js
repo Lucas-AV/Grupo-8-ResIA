@@ -850,9 +850,14 @@ function setupEventListeners() {
   btnSpotifyAuth?.addEventListener('click', () => {
     // Ticket 4.5 (KAN-40): sessão já conectada -> o mesmo botão desconecta
     // em vez de iniciar um novo fluxo OAuth (evita duplicar todo o padrão
-    // de botão de auth só pra um logout).
+    // de botão de auth só pra um logout). Ticket 20.11 (KAN-170): antes de
+    // desconectar de fato, confirma com o usuário — evita clique acidental.
     if (isSpotifyAuthenticated) {
-      handleLogoutSpotify();
+      if (window.ResIALogoutConfirmModal) {
+        window.ResIALogoutConfirmModal.open(handleLogoutSpotify);
+      } else {
+        handleLogoutSpotify();
+      }
       return;
     }
 

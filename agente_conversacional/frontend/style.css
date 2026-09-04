@@ -1618,6 +1618,23 @@ body {
   color: var(--text-primary);
 }
 
+/* Dialog "Desconectar do Spotify?" (Ticket 20.11 / KAN-170) */
+.confirm-dialog-panel .playlist-save-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.btn-logout-confirm {
+  background: var(--error-red-subtle);
+  color: var(--error-red-hover);
+  border-color: var(--error-red);
+}
+.btn-logout-confirm:hover:not(:disabled) {
+  background: var(--error-red);
+  color: #fff;
+}
+
 .explorer-header {
   display: flex;
   align-items: center;
