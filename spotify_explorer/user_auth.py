@@ -8,7 +8,11 @@ from flask import session
 
 AUTH_URL = "https://accounts.spotify.com/authorize"
 TOKEN_URL = "https://accounts.spotify.com/api/token"
-SCOPES = "user-top-read user-library-read user-read-recently-played"
+SCOPES = (
+    "user-top-read user-library-read user-read-recently-played "
+    "user-read-playback-state user-read-currently-playing "
+    "user-follow-read playlist-read-private user-modify-playback-state"
+)
 
 
 class NotLoggedInError(Exception):
@@ -38,6 +42,12 @@ def get_login_url(client_id, redirect_uri):
 def _basic_auth_header(client_id, client_secret):
     credentials = f"{client_id}:{client_secret}".encode("utf-8")
     return base64.b64encode(credentials).decode("utf-8")
+
+
+def apply_tokens_to_session(tokens):
+    session["user_access_token"] = tokens["access_token"]
+    session["user_refresh_token"] = tokens["refresh_token"]
+    session["user_token_expires_at"] = tokens["expires_at"]
 
 
 def exchange_code(code, state, client_id, client_secret, redirect_uri):
@@ -75,9 +85,13 @@ def exchange_code(code, state, client_id, client_secret, redirect_uri):
             response.status_code,
         )
 
-    session["user_access_token"] = payload["access_token"]
-    session["user_refresh_token"] = payload["refresh_token"]
-    session["user_token_expires_at"] = time.time() + payload["expires_in"] - 30
+    tokens = {
+        "access_token": payload["access_token"],
+        "refresh_token": payload["refresh_token"],
+        "expires_at": time.time() + payload["expires_in"] - 30,
+    }
+    apply_tokens_to_session(tokens)
+    return tokens
 
 
 def get_valid_user_token(client_id, client_secret):

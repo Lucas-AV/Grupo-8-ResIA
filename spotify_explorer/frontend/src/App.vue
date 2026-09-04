@@ -1,8 +1,10 @@
 <script setup>
-import { onMounted, reactive, ref } from "vue";
+import { onMounted, reactive, ref, watch } from "vue";
 import { fetchJSON } from "./composables/useApi.js";
 import { useAuthStatus } from "./composables/useAuthStatus.js";
+import { useTabNavigation } from "./composables/useTabNavigation.js";
 import AppSidebar from "./components/AppSidebar.vue";
+import NowPlayingModal from "./components/NowPlayingModal.vue";
 import SearchTab from "./tabs/SearchTab.vue";
 import TrackTab from "./tabs/TrackTab.vue";
 import ArtistTab from "./tabs/ArtistTab.vue";
@@ -11,6 +13,9 @@ import MeusDadosTab from "./tabs/MeusDadosTab.vue";
 import AlbumTab from "./tabs/AlbumTab.vue";
 import PlaylistTab from "./tabs/PlaylistTab.vue";
 import NewReleasesTab from "./tabs/NewReleasesTab.vue";
+import PlayerTab from "./tabs/PlayerTab.vue";
+import FollowingTab from "./tabs/FollowingTab.vue";
+import MyPlaylistsTab from "./tabs/MyPlaylistsTab.vue";
 
 const tabs = [
   { id: "search", label: "Search", icon: "search", component: SearchTab },
@@ -21,12 +26,20 @@ const tabs = [
   { id: "new-releases", label: "New Releases", icon: "new-releases", component: NewReleasesTab },
   { id: "recommendations", label: "Recommendations", icon: "sparkles", component: RecommendationsTab },
   { id: "me", label: "Meus dados", icon: "heart", component: MeusDadosTab },
+  { id: "player", label: "Player", icon: "player", component: PlayerTab },
+  { id: "following", label: "Seguindo", icon: "following", component: FollowingTab },
+  { id: "my-playlists", label: "Minhas Playlists", icon: "folder", component: MyPlaylistsTab },
 ];
 
 const activeTab = ref("search");
 const config = reactive({ missingCredentials: false });
 const authError = ref(new URLSearchParams(window.location.search).get("auth_error"));
 const { state: authState, refresh: refreshAuthStatus } = useAuthStatus();
+const { pending } = useTabNavigation();
+
+watch(pending, (nav) => {
+  if (nav) activeTab.value = nav.tab;
+});
 
 onMounted(async () => {
   const result = await fetchJSON("/api/config");
@@ -54,5 +67,7 @@ onMounted(async () => {
         <component :is="tabs.find((t) => t.id === activeTab).component" />
       </KeepAlive>
     </main>
+
+    <NowPlayingModal />
   </div>
 </template>

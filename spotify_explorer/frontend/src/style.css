@@ -267,6 +267,18 @@ h3 {
   background: var(--bg-elevated);
 }
 
+.media-item-clickable {
+  display: block;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+
 .media-item-image {
   width: 48px;
   height: 48px;
@@ -438,6 +450,10 @@ h3 {
   align-items: center;
   color: var(--text-secondary);
   flex-shrink: 0;
+  background: none;
+  border: none;
+  padding: 0;
+  font: inherit;
 }
 
 .media-item-link:hover {
@@ -465,8 +481,131 @@ h3 {
   font-size: 0.85rem;
   font-weight: 700;
   text-decoration: none;
+  background: none;
+  border: none;
+  padding: 0;
+  font-family: inherit;
 }
 
 .preview-spotify-link:hover {
   text-decoration: underline;
+}
+
+/* Now-playing modal (click on a track row) */
+.now-playing-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+}
+
+.now-playing-modal {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 2rem;
+  width: 320px;
+  max-width: 90vw;
+  text-align: center;
+  position: relative;
+}
+
+.now-playing-close {
+  position: absolute;
+  top: 0.75rem;
+  right: 0.75rem;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.now-playing-art {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  background: var(--bg-elevated-hover);
+}
+
+.now-playing-equalizer {
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: 4px;
+  height: 20px;
+  margin: 1rem 0;
+}
+
+.now-playing-equalizer span {
+  width: 4px;
+  height: 6px;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+.now-playing-equalizer.is-playing span {
+  animation: now-playing-bounce 0.8s ease-in-out infinite;
+}
+
+.now-playing-equalizer span:nth-child(2) { animation-delay: 0.15s; }
+.now-playing-equalizer span:nth-child(3) { animation-delay: 0.3s; }
+.now-playing-equalizer span:nth-child(4) { animation-delay: 0.45s; }
+
+@keyframes now-playing-bounce {
+  0%, 100% { height: 6px; }
+  50% { height: 20px; }
+}
+
+.now-playing-title {
+  margin: 0.25rem 0 0;
+}
+
+.now-playing-subtitle {
+  color: var(--text-secondary);
+  margin: 0.25rem 0 1rem;
+}
+
+.now-playing-progress-track {
+  height: 4px;
+  background: var(--bg-elevated-hover);
+  border-radius: 2px;
+  overflow: hidden;
+}
+
+.now-playing-progress-fill {
+  height: 100%;
+  background: var(--accent);
+}
+
+.now-playing-hint {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  margin: 0.5rem 0 1rem;
+}
+
+.now-playing-controls {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+}
+
+.now-playing-play-btn {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #000;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.now-playing-play-btn:hover {
+  background: var(--accent-hover);
 }

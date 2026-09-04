@@ -24,7 +24,7 @@ from chart_style import (
     apply_style,
 )
 
-INPUT_FILE = "data/occurrences_by_genre.csv"
+INPUT_FILE = "data/analytics/occurrences_by_genre.csv"
 BAR_OUTPUT_FILE = "images/genre_popularity.png"
 SCATTER_OUTPUT_FILE = "images/genre_energy_dance.png"
 

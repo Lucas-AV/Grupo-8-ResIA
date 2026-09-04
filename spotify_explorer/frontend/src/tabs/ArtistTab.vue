@@ -2,6 +2,8 @@
 import { computed, reactive, ref } from "vue";
 import { fetchJSON } from "../composables/useApi.js";
 import { useHistory } from "../composables/useHistory.js";
+import { useNavigationTarget } from "../composables/useTabNavigation.js";
+import { useNowPlaying } from "../composables/useNowPlaying.js";
 import { trackSummary, artistSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import ArtistPreview from "../components/previews/ArtistPreview.vue";
@@ -11,6 +13,7 @@ const artistId = ref("");
 const status = reactive({ text: "", className: "status", loading: false });
 const result = reactive({ data: null });
 const { items: history, add: addToHistory } = useHistory("artist");
+const { open } = useNowPlaying();
 
 const topTracksItems = computed(() => {
   if (!result.data?.top_tracks?.tracks) return [];
@@ -48,6 +51,11 @@ async function onSubmit() {
   };
   addToHistory(artistId.value);
 }
+
+useNavigationTarget("artist", (id) => {
+  artistId.value = id;
+  onSubmit();
+});
 </script>
 
 <template>
@@ -72,13 +80,15 @@ async function onSubmit() {
         <div v-if="topTracksItems.length">
           <h3>Top tracks</h3>
           <div v-for="(item, i) in topTracksItems" :key="i">
-            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+            <button type="button" class="media-item-clickable" @click="open(item)">
+              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+            </button>
           </div>
         </div>
         <div v-if="relatedArtistsItems.length">
           <h3>Related artists</h3>
           <div v-for="(item, i) in relatedArtistsItems" :key="i">
-            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
           </div>
         </div>
       </template>

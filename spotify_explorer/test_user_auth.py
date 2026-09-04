@@ -23,6 +23,11 @@ def test_get_login_url_contains_client_id_scope_redirect_and_state(app):
         assert "user-top-read" in url
         assert "user-library-read" in url
         assert "user-read-recently-played" in url
+        assert "user-read-playback-state" in url
+        assert "user-read-currently-playing" in url
+        assert "user-follow-read" in url
+        assert "playlist-read-private" in url
+        assert "user-modify-playback-state" in url
         assert "redirect_uri=" in url
         assert "state=" in url
         assert session["oauth_state"] in url
@@ -185,3 +190,35 @@ def test_get_valid_user_token_clears_session_on_non_json_refresh_body(mock_post,
             user_auth.get_valid_user_token("client-id", "client-secret")
 
         assert "user_access_token" not in session
+
+
+@patch("user_auth.requests.post")
+def test_exchange_code_returns_the_token_payload(mock_post, app):
+    mock_post.return_value = Mock(
+        status_code=200,
+        json=lambda: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
+        raise_for_status=lambda: None,
+    )
+
+    with app.test_request_context():
+        session["oauth_state"] = "abc"
+
+        tokens = user_auth.exchange_code(
+            "code123", "abc", "client-id", "client-secret",
+            "http://127.0.0.1:5000/callback",
+        )
+
+        assert tokens["access_token"] == "at"
+        assert tokens["refresh_token"] == "rt"
+        assert isinstance(tokens["expires_at"], float)
+
+
+def test_apply_tokens_to_session_writes_all_three_keys(app):
+    with app.test_request_context():
+        user_auth.apply_tokens_to_session(
+            {"access_token": "at2", "refresh_token": "rt2", "expires_at": 12345.0}
+        )
+
+        assert session["user_access_token"] == "at2"
+        assert session["user_refresh_token"] == "rt2"
+        assert session["user_token_expires_at"] == 12345.0

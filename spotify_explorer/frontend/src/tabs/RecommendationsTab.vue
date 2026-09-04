@@ -2,6 +2,7 @@
 import { computed, reactive } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useHistory } from "../composables/useHistory.js";
+import { useNowPlaying } from "../composables/useNowPlaying.js";
 import { trackSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import MediaItemRow from "../components/MediaItemRow.vue";
@@ -16,6 +17,7 @@ const form = reactive({
 const { status, call } = useApi();
 const result = reactive({ data: null });
 const { items: history, add: addToHistory } = useHistory("recommendations");
+const { open } = useNowPlaying();
 
 const items = computed(() => {
   if (!result.data) return [];
@@ -57,7 +59,9 @@ async function onSubmit() {
     >
       <template #preview>
         <div v-for="(item, i) in items" :key="i">
-          <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" />
+          <button type="button" class="media-item-clickable" @click="open(item)">
+            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+          </button>
         </div>
       </template>
     </ResultPanel>

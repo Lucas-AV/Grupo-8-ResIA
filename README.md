@@ -86,7 +86,8 @@ sufixo tech como Sense/IA):
 
 Dataset: [Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya/-spotify-tracks-dataset) (Kaggle).
 
-`dataset.csv` contém ~31,8 mil faixas distribuídas em 32 gêneros, com colunas:
+`data/processed/dataset.csv` contém uma base ampliada de faixas e gêneros, gerada a partir das
+fontes documentadas em `docs/data_enrichment/`.
 
 - Identificação: `track_id`, `artists`, `album_name`, `track_name`, `track_genre`
 - Popularidade: `popularity`
@@ -102,13 +103,11 @@ Dataset: [Spotify Tracks Dataset](https://www.kaggle.com/datasets/maharshipandya
 
 ```
 analise_exploratoria.ipynb     # notebook que concentra a EDA (mesma logica dos scripts abaixo, saida inline)
-data/                           # CSVs/JSON, brutos e gerados
-  dataset.csv                   # dataset bruto (Kaggle)
-  occurrences_by_column.csv     # contagem de valores por coluna (formato longo)
-  occurrences_by_genre.csv      # contagem de faixas + médias por gênero
-  dataset_profile.json          # estatísticas gerais do dataset
-  dataset_multi_genre_tracks.csv# faixas presentes em mais de um gênero
-  correlations_top_pairs.csv    # pares mais correlacionados (Pearson)
+data/                           # fontes e artefatos do pipeline
+  raw/                          # CSVs originais baixados das fontes
+  processed/                    # fontes normalizadas e dataset.csv consolidado
+  analytics/                    # CSVs/JSON derivados para análises e site
+  hygiene/                      # validações, proveniência e rejeições
 images/                         # PNGs gerados pelos scripts de análise
 scripts/                        # scripts Python de análise
   chart_style.py                 # estilo/cores compartilhados entre os scripts de gráfico
@@ -124,7 +123,7 @@ tests/                         # testes automatizados (pytest)
 requirements.txt               # dependências Python
 .github/workflows/pages.yml    # workflow de deploy do site no GitHub Pages
 analise_mercado_streaming/     # análise de mercado do pitch, em Julia (stack separada, ver abaixo)
-agente_conversacional/         # backend do agente (Proposta B) — Épico 0: infra de LLM (ver seção abaixo)
+agente_conversacional/         # backend + frontend do agente (Proposta B) — Épicos 0,1,3,4,5,8,12 (ver seção abaixo)
 docs/PIPELINE_AGENTE_PROPOSTA_B.md  # especificação técnica completa do pipeline conversacional
 docs/BACKLOG_JIRA_PROPOSTA_B.md     # backlog em tickets, 1 seção por épico do Jira
 ```
@@ -188,7 +187,7 @@ arquitetura ponta a ponta:
 
 | Biblioteca | O que é | Para que serve neste projeto |
 |---|---|---|
-| [pandas](https://pandas.pydata.org/) | Biblioteca de manipulação e análise de dados tabulares (DataFrames) | Ler o `data/dataset.csv`, agrupar por coluna/gênero e calcular médias/contagens (`scripts/group_occurrences.py`, `site/build_site.py`) |
+| [pandas](https://pandas.pydata.org/) | Biblioteca de manipulação e análise de dados tabulares (DataFrames) | Ler o `data/processed/dataset.csv`, agrupar por coluna/gênero e calcular médias/contagens (`scripts/group_occurrences.py`, `site/build_site.py`); carregar e normalizar o dataset pro motor de recomendação (`agente_conversacional/recomendacao/dataset.py`) |
 | [matplotlib](https://matplotlib.org/) | Biblioteca de geração de gráficos estáticos | Gerar os PNGs das análises (`scripts/plot_genre_charts.py`, `scripts/plot_genre_mode.py`, `scripts/plot_popularity_occurrences.py`) |
 | [adjustText](https://github.com/Phlya/adjustText) | Reposiciona rótulos de texto em gráficos matplotlib para evitar sobreposição | Afastar os rótulos de gênero que se sobrepunham no scatter de energia × dançabilidade (`genre_energy_dance.png`) |
 | [Jinja2](https://jinja.palletsprojects.com/) | Motor de templates para gerar texto/HTML a partir de dados | Renderizar as páginas HTML do site (`site/build_site.py` + `site/templates/`) |
@@ -203,13 +202,17 @@ python scripts/group_occurrences.py           # gera os CSVs agregados em data/
 python scripts/plot_genre_charts.py           # gera images/genre_popularity.png e images/genre_energy_dance.png
 python scripts/plot_genre_mode.py             # gera images/genre_mode.png
 python scripts/plot_popularity_occurrences.py # gera images/popularity_occurrences.png
-python scripts/profile_dataset.py             # gera data/dataset_profile.json e distribuicoes por artista/album
-python scripts/plot_correlations.py           # gera images/correlation_heatmap.png e data/correlations_top_pairs.csv
+python scripts/profile_dataset.py             # gera arquivos de perfil em data/analytics/
+python scripts/plot_correlations.py           # gera correlation_heatmap.png e pares em data/analytics/
 python site/build_site.py                     # gera o site em site/dist/ (abrir site/dist/index.html)
 jupyter lab analise_exploratoria.ipynb        # abre o notebook de EDA (mesma logica, saida inline)
 ```
 
 Testes: `pytest`
+
+## Demonstração do notebook
+
+O notebook de EDA está pronto para uma demonstração guiada, célula a célula. Veja as opções online e os comandos de verificação em [`docs/NOTEBOOK_DEMO.md`](docs/NOTEBOOK_DEMO.md). Para abrir e executar pelo navegador sem preparar ambiente local, use o [Binder](https://mybinder.org/v2/gh/Lucas-AV/Grupo-8-ResIA/HEAD?labpath=analise_exploratoria.ipynb).
 
 ## Roadmap
 
@@ -222,9 +225,31 @@ Testes: `pytest`
 - [x] Épico 0 — Infraestrutura de LLM implementada e testada (Ollama +
       backend Claude alternativo, health-check, logística de rede da demo) —
       ver [`agente_conversacional/`](agente_conversacional/)
-- [ ] Motor de recomendação (Épico 1) e pipeline conversacional (Épico 2)
+- [x] Épico 1 — Motor de recomendação (`recomendacao/`): dataset normalizado,
+      índice de similaridade, `buscar_recomendacoes` completa, diversidade/
+      cobertura, fallback via Spotify Search API quando o catálogo local não
+      cobre o pedido
+- [x] Épico 2 — Pipeline conversacional (roteador determinístico → extração
+      via LLM → busca → geração/auditoria), integrado ao `POST /chat` com
+      fallback seguro e testes ponta a ponta
+- [x] Épico 3 — Backend/API de sessões (`POST /session`, `POST /chat`,
+      `GET /chat/historico`) — ver
+      [`agente_conversacional/docs/KAN-8_BACKEND_API.md`](agente_conversacional/docs/KAN-8_BACKEND_API.md)
+- [x] Épico 4 — Frontend do chat (tela, cards de faixa, indicador de
+      processando, login com Spotify) — falta só o fluxo de logout (4.5)
+- [x] Épico 5 — Integração Spotify OAuth completa: login PKCE, tokens
+      criptografados, matching de histórico com o dataset local, perfil de
+      gosto (centróide) injetado na recomendação
+- [x] Épico 8 — Infra de projeto: CORS, tratamento de erro global, CI
+      (pytest em todo push/PR), rate limiter pronto (falta só ligar no
+      `/chat`)
+- [x] Épico 12 — Funcionalidades extras: criar playlist real no Spotify a
+      partir da recomendação, endpoint de recomendação sem depender do LLM,
+      dark mode, landing page do projeto
 - [ ] Modelagem do agente de recomendação (conteúdo/colaborativo/híbrido)
 - [ ] Avaliação com dataset complementar de interação/avaliação de usuários
+      (pesquisa de hábitos musicais roteirizada em `docs/pesquisa/`, ainda
+      não publicada/coletada)
 
 ## Licença
 

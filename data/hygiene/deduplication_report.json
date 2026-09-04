@@ -1,0 +1,27 @@
+{
+  "deduplication_key": [
+    "track_id",
+    "track_genre"
+  ],
+  "source_priority": [
+    "current",
+    "spotify_tracks_114k",
+    "top_10k_2025"
+  ],
+  "input_rows": {
+    "current": 31819,
+    "spotify_tracks_114k": 113999,
+    "top_10k_2025": 15935
+  },
+  "rejected_rows": 73,
+  "exact_duplicate_rows_removed": 32923,
+  "final_rows": 128830,
+  "final_unique_track_ids": 97534,
+  "final_genres": 118,
+  "top_10k_new_track_ids": 7794,
+  "dropped_by_source": {
+    "spotify_tracks_114k": 32115,
+    "top_10k_2025": 654,
+    "current": 154
+  }
+}

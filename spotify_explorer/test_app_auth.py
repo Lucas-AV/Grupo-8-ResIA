@@ -1,4 +1,29 @@
+import re
+
 import app as app_module
+
+
+def test_login_qr_returns_html_with_qr_and_poll_code(client):
+    response = client.get("/login/qr")
+
+    assert response.status_code == 200
+    body = response.get_data(as_text=True)
+    assert "data:image/svg+xml" in body
+    assert "/api/pair/" in body
+
+    match = re.search(r'const code = "([^"]+)"', body)
+    assert match is not None
+    assert len(match.group(1)) > 10
+
+
+def test_login_qr_generates_a_fresh_code_each_time(client):
+    first = client.get("/login/qr").get_data(as_text=True)
+    second = client.get("/login/qr").get_data(as_text=True)
+
+    first_code = re.search(r'const code = "([^"]+)"', first).group(1)
+    second_code = re.search(r'const code = "([^"]+)"', second).group(1)
+
+    assert first_code != second_code
 
 
 def test_login_redirects_to_spotify_authorize(client):
@@ -201,3 +226,561 @@ def test_logout_redirects_to_configured_frontend_url(client, monkeypatch):
 
     assert response.status_code == 302
     assert response.location == "http://127.0.0.1:5173"
+
+
+def test_player_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/player"
+        return {"is_playing": True}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/player")
+
+    assert response.status_code == 200
+
+
+def test_player_returns_204_when_nothing_playing(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+    monkeypatch.setattr(app_module.spotify_client, "call_api", lambda path, token, params=None: ({}, 204))
+
+    response = client.get("/api/me/player")
+
+    assert response.status_code == 204
+
+
+def test_player_requires_login(client, monkeypatch):
+    def fake_get_valid_user_token(client_id, client_secret):
+        raise app_module.user_auth.NotLoggedInError("faça login primeiro em /login")
+
+    monkeypatch.setattr(app_module.user_auth, "get_valid_user_token", fake_get_valid_user_token)
+
+    response = client.get("/api/me/player")
+
+    assert response.status_code == 401
+
+
+def test_player_queue_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/player/queue"
+        return {"currently_playing": None, "queue": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/player/queue")
+
+    assert response.status_code == 200
+
+
+def test_following_uses_type_artist_and_limit(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/following"
+        assert params == {"type": "artist", "limit": "10"}
+        return {"artists": {"items": []}}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/following?limit=10")
+
+    assert response.status_code == 200
+
+
+def test_following_defaults_limit_to_20(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert params["limit"] == "20"
+        return {"artists": {"items": []}}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/following")
+
+    assert response.status_code == 200
+
+
+def test_my_playlists_calls_correct_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None):
+        assert path == "/me/playlists"
+        assert params == {"limit": "20", "offset": "0"}
+        return {"items": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.get("/api/me/playlists")
+
+    assert response.status_code == 200
+
+
+def test_player_play_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/play"
+        assert method == "PUT"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/play")
+
+    assert response.status_code == 204
+
+
+def test_player_play_requires_login(client, monkeypatch):
+    def fake_get_valid_user_token(client_id, client_secret):
+        raise app_module.user_auth.NotLoggedInError("faça login primeiro em /login")
+
+    monkeypatch.setattr(app_module.user_auth, "get_valid_user_token", fake_get_valid_user_token)
+
+    response = client.post("/api/me/player/play")
+
+    assert response.status_code == 401
+
+
+def test_player_pause_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/pause"
+        assert method == "PUT"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/pause")
+
+    assert response.status_code == 204
+
+
+def test_player_next_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/next"
+        assert method == "POST"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/next")
+
+    assert response.status_code == 204
+
+
+def test_player_previous_calls_correct_path_and_method(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/previous"
+        assert method == "POST"
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/previous")
+
+    assert response.status_code == 204
+
+
+def test_player_seek_uses_position_ms_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/seek"
+        assert method == "PUT"
+        assert params == {"position_ms": "30000"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/seek?position_ms=30000")
+
+    assert response.status_code == 204
+
+
+def test_player_volume_uses_volume_percent_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/volume"
+        assert method == "PUT"
+        assert params == {"volume_percent": "80"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/volume?volume_percent=80")
+
+    assert response.status_code == 204
+
+
+def test_player_shuffle_uses_state_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/shuffle"
+        assert method == "PUT"
+        assert params == {"state": "true"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/shuffle?state=true")
+
+    assert response.status_code == 204
+
+
+def test_player_repeat_uses_state_param(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        assert path == "/me/player/repeat"
+        assert method == "PUT"
+        assert params == {"state": "track"}
+        return {}, 204
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post("/api/me/player/repeat?state=track")
+
+    assert response.status_code == 204
+
+
+def test_create_related_playlist_happy_path(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        if path == "/recommendations":
+            assert params == {"seed_tracks": "track123", "limit": "20"}
+            return {"tracks": [{"uri": "spotify:track:a"}, {"uri": "spotify:track:b"}]}, 200
+        if path == "/me/playlists":
+            assert method == "POST"
+            assert json_body["public"] is False
+            return (
+                {
+                    "id": "playlist1",
+                    "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist1"},
+                },
+                201,
+            )
+        if path == "/playlists/playlist1/items":
+            assert method == "POST"
+            assert json_body == {"uris": ["spotify:track:a", "spotify:track:b"]}
+            return {"snapshot_id": "abc"}, 201
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data["added_tracks"] == 2
+    assert data["playlist"]["id"] == "playlist1"
+    assert calls == ["/recommendations", "/me/playlists", "/playlists/playlist1/items"]
+
+
+def test_create_related_playlist_stops_if_add_items_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        if path == "/recommendations":
+            return {"tracks": [{"uri": "spotify:track:a"}]}, 200
+        if path == "/me/playlists":
+            return {
+                "id": "playlist1",
+                "external_urls": {"spotify": "https://open.spotify.com/playlist/playlist1"},
+            }, 201
+        if path == "/playlists/playlist1/items":
+            return {"error": {"status": 403, "message": "forbidden"}}, 403
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["step"] == "add_items"
+    assert data["playlist"]["id"] == "playlist1"
+
+
+def test_create_related_playlist_treats_empty_recommendations_as_upstream_error(
+    client, monkeypatch
+):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        return {"tracks": []}, 200
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 502
+    data = response.get_json()
+    assert data["step"] == "recommendations"
+    assert calls == ["/recommendations"]
+
+
+def test_create_related_playlist_stops_if_recommendations_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        return {"error": {"status": 403, "message": "forbidden"}}, 403
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["step"] == "recommendations"
+    assert calls == ["/recommendations"]
+
+
+def test_create_related_playlist_stops_if_playlist_creation_fails(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    calls = []
+
+    def fake_call_api(path, token, params=None, method="GET", json_body=None):
+        calls.append(path)
+        if path == "/recommendations":
+            return {"tracks": [{"uri": "spotify:track:a"}]}, 200
+        if path == "/me/playlists":
+            return {"error": {"status": 403, "message": "forbidden"}}, 403
+        raise AssertionError(f"unexpected path {path}")
+
+    monkeypatch.setattr(app_module.spotify_client, "call_api", fake_call_api)
+
+    response = client.post(
+        "/api/me/playlists/related",
+        json={"track_id": "track123", "track_name": "Test Track"},
+    )
+
+    assert response.status_code == 403
+    data = response.get_json()
+    assert data["step"] == "create_playlist"
+    assert calls == ["/recommendations", "/me/playlists"]
+
+
+def test_create_related_playlist_requires_track_id(client, monkeypatch):
+    monkeypatch.setattr(
+        app_module.user_auth, "get_valid_user_token", lambda cid, secret: "user-token"
+    )
+
+    response = client.post("/api/me/playlists/related", json={})
+
+    assert response.status_code == 400
+
+
+def test_create_related_playlist_requires_login(client, monkeypatch):
+    def fake_get_valid_user_token(client_id, client_secret):
+        raise app_module.user_auth.NotLoggedInError("faça login primeiro em /login")
+
+    monkeypatch.setattr(app_module.user_auth, "get_valid_user_token", fake_get_valid_user_token)
+
+    response = client.post(
+        "/api/me/playlists/related", json={"track_id": "track123", "track_name": "Test"}
+    )
+
+    assert response.status_code == 401
+
+
+def test_login_with_valid_pair_code_stashes_it_in_session_and_redirects_to_spotify(client):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    response = client.get(f"/login?pair={code}")
+
+    assert response.status_code == 302
+    assert response.location.startswith("https://accounts.spotify.com/authorize")
+    with client.session_transaction() as sess:
+        assert sess["pairing_code"] == code
+
+
+def test_login_with_unknown_pair_code_shows_error_without_redirecting_to_spotify(client):
+    response = client.get("/login?pair=does-not-exist")
+
+    assert response.status_code == 400
+    assert b"login/qr" in response.data
+
+
+def test_login_without_pair_param_behaves_exactly_like_before(client):
+    response = client.get("/login")
+
+    assert response.status_code == 302
+    assert response.location.startswith("https://accounts.spotify.com/authorize")
+    with client.session_transaction() as sess:
+        assert "pairing_code" not in sess
+
+
+def test_pair_status_for_fresh_code_is_pending(client):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    response = client.get(f"/api/pair/{code}/status")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "pending"}
+
+
+def test_pair_status_for_unknown_code_is_not_found(client):
+    response = client.get("/api/pair/does-not-exist/status")
+
+    assert response.status_code == 200
+    assert response.get_json() == {"status": "not_found"}
+
+
+def test_callback_without_pairing_code_behaves_like_before(client, monkeypatch):
+    def fake_exchange_code(code, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    response = client.get("/callback?code=abc&state=xyz")
+
+    assert response.status_code == 302
+    assert response.location.endswith("/")
+
+
+def test_callback_relays_tokens_so_kiosk_status_poll_completes_and_logs_in(monkeypatch):
+    monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client-id")
+    monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "client-secret")
+    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://127.0.0.1:5000/callback")
+    monkeypatch.setenv("FLASK_SECRET_KEY", "test-secret")
+    flask_app = app_module.create_app()
+    flask_app.config["TESTING"] = True
+
+    kiosk = flask_app.test_client()
+    phone = flask_app.test_client()
+
+    qr_response = kiosk.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+
+    phone.get(f"/login?pair={code}")
+
+    def fake_exchange_code(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    phone.get("/callback?code=abc&state=xyz")
+
+    status_response = kiosk.get(f"/api/pair/{code}/status")
+    assert status_response.get_json() == {"status": "completed"}
+
+    with kiosk.session_transaction() as sess:
+        assert sess["user_access_token"] == "at"
+        assert sess["user_refresh_token"] == "rt"
+
+    second_poll = kiosk.get(f"/api/pair/{code}/status")
+    assert second_poll.get_json() == {"status": "not_found"}
+
+
+def test_callback_failure_clears_pairing_code_and_does_not_leak_into_later_login(client, monkeypatch):
+    qr_response = client.get("/login/qr")
+    code = re.search(r'const code = "([^"]+)"', qr_response.get_data(as_text=True)).group(1)
+    client.get(f"/login?pair={code}")
+
+    def fake_exchange_code_fails(code_param, state, client_id, client_secret, redirect_uri):
+        raise ValueError("state inválido")
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code_fails)
+    client.get("/callback?code=abc&state=bad")
+
+    with client.session_transaction() as sess:
+        assert "pairing_code" not in sess
+
+    def fake_exchange_code_succeeds(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code_succeeds)
+    client.get("/callback?code=abc&state=xyz")
+
+    status_response = client.get(f"/api/pair/{code}/status")
+    assert status_response.get_json() == {"status": "pending"}
+
+
+def test_callback_shows_auth_error_when_pairing_entry_already_gone(client, monkeypatch):
+    def fake_exchange_code(code_param, state, client_id, client_secret, redirect_uri):
+        return {"access_token": "at", "refresh_token": "rt", "expires_at": 9999999999.0}
+
+    monkeypatch.setattr(app_module.user_auth, "exchange_code", fake_exchange_code)
+
+    with client.session_transaction() as sess:
+        sess["pairing_code"] = "does-not-exist"
+
+    response = client.get("/callback?code=abc&state=xyz")
+
+    assert response.status_code == 302
+    assert "auth_error=" in response.location

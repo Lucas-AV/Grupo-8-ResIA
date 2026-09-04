@@ -1,19 +1,46 @@
 # Agente Conversacional — backend
 
-Implementacao do backend do agente de recomendacao (Proposta B). Ver
-[`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](../docs/PIPELINE_AGENTE_PROPOSTA_B.md)
+Implementação do backend + frontend do agente de recomendação (Proposta B).
+Ver [`docs/PIPELINE_AGENTE_PROPOSTA_B.md`](../docs/PIPELINE_AGENTE_PROPOSTA_B.md)
 pra especificacao completa e
 [`docs/BACKLOG_JIRA_PROPOSTA_B.md`](../docs/BACKLOG_JIRA_PROPOSTA_B.md) pro
-backlog em tickets. Este README cobre só o que já existe: Épico 0
-(infraestrutura de LLM).
+backlog em tickets. Este README cobre o que já existe: infraestrutura de LLM
+(Épico 0), motor de recomendação (Épico 1), pipeline conversacional
+(Épico 2), sessões e API (Épico 3/KAN-8), frontend do chat (Épico 4),
+integração Spotify OAuth (Épico 5), infra/qualidade do projeto (Épico 8) e
+funcionalidades extras + landing page (Épico 12). `POST /chat` já usa o
+`ChatPipeline` real por padrão (deixa de responder `503
+pipeline_indisponivel`). Para uma visão simples da entrega do KAN-8, veja
+[`docs/KAN-8_BACKEND_API.md`](docs/KAN-8_BACKEND_API.md).
 
 ## Setup
+
+Pré-requisito pro backend de LLM local (ticket 0.1): [Ollama](https://ollama.com)
+instalado e o modelo baixado —
+
+```bash
+ollama pull qwen2.5:7b-instruct-q4_K_M
+```
+
+Backend em si:
 
 ```bash
 cd agente_conversacional
 pip install -r requirements.txt
-cp .env.example .env   # editar OLLAMA_MODEL / ANTHROPIC_API_KEY conforme necessário
+cp .env.example .env
 ```
+
+Edite o `.env` conforme necessário — os valores default já funcionam pro
+Ollama local. Só mexa em:
+
+- `LLM_BACKEND=claude` + `ANTHROPIC_API_KEY` se quiser o backend hospedado
+  em vez do Ollama local (ticket 0.3).
+- `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET` se for testar o fluxo OAuth
+  (registre o app em https://developer.spotify.com/dashboard primeiro,
+  ticket 5.1) e `SPOTIFY_TOKEN_ENCRYPTION_KEY` (gere com o comando
+  comentado no `.env.example`, ticket 5.4).
+- `FRONTEND_URL` se o frontend rodar numa porta diferente de `5173`
+  (ticket 8.2).
 
 ## Rodar o backend
 
@@ -24,16 +51,88 @@ uvicorn app:app --reload
 - `GET /health` — chama o LLM configurado com um prompt trivial e devolve
   `{"disponivel": bool, "backend": str, "erro": str|None}`. Nunca derruba o
   processo, mesmo com o LLM fora do ar (ticket 0.4).
+- `POST /session`, `POST /chat`, `GET /chat/historico` — sessão e conversa
+  (Épicos 2 e 3, ver seção abaixo). `POST /chat` usa o pipeline real por
+  padrão e preserva o fallback seguro quando o LLM não está disponível.
+- `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`,
+  `GET /auth/status` — fluxo OAuth do Spotify (Épico 5, ver seção abaixo).
+- `GET /recomendar`, `POST /playlist/criar` — funcionalidades extras do
+  Épico 12 (ver seção abaixo).
+
+## Rodar o frontend
+
+```powershell
+cd agente_conversacional/frontend
+.\serve.ps1   # serve em http://127.0.0.1:8080 (porta configurável: -Port)
+```
+
+Frontend em HTML/CSS/JS puro (sem framework/bundler) — ver seção "Épico 4"
+abaixo pro que já está implementado. `frontend/app.js` decide a URL do
+backend (`API_BASE_URL`) por origem: se a porta do frontend não for `5500`
+nem `3000`, assume que backend e frontend estão na mesma origem (sem
+`API_BASE_URL` explícito) — ajuste isso (ou `FRONTEND_URL` no `.env` do
+backend, pro CORS liberar a porta certa) se seu setup local servir os dois
+em portas diferentes.
+
+## CORS (ticket 8.2)
+
+Só a origem em `FRONTEND_URL` do `.env` (default `http://127.0.0.1:5173`)
+tem acesso — nunca wildcard. Pra liberar mais de uma origem (ex.: dev +
+demo), separe por vírgula: `FRONTEND_URL=http://127.0.0.1:5173,https://minha-demo.exemplo.com`.
+
+## Tratamento de erro global (ticket 8.3)
+
+Qualquer exceção não tratada em qualquer rota vira HTTP 500 com corpo
+`{"erro": "erro interno do servidor"}` — nunca stack trace cru pro
+cliente. O erro completo é logado no servidor (`logger.exception`, logger
+`"agente"`).
+
+## Rate limiting (ticket 8.4)
+
+`rate_limit.py` tem um limitador em memória (`RateLimiter`, configurável
+via `CHAT_RATE_LIMIT_MAX_REQUESTS`/`CHAT_RATE_LIMIT_WINDOW_SECONDS`) pronto
+para ser ligado à rota de conversa em uma etapa posterior.
+
+## API de sessões — KAN-8
+
+O backend mantém sessões de conversa **em memória** para o MVP. Cada sessão é
+criada com UUID4, expira após `SESSION_TIMEOUT_MINUTES` (30 minutos por padrão)
+e é descartada no restart do processo. A expiração trata somente o histórico de
+chat; a futura camada OAuth mantém os tokens em armazenamento separado.
+
+- `POST /session` cria uma sessão e devolve `{"session_id": "<uuid4>"}`.
+- `POST /chat` recebe `session_id` e `mensagem`; devolve texto, faixas e
+  métricas no contrato consumido pelo frontend.
+- `GET /chat/historico?session_id=...` devolve as mensagens auditáveis, com
+  `role`, `conteudo`, `faixas_citadas` e timestamp UTC.
+
+Sessões inexistentes ou expiradas retornam `404` com
+`detail.codigo = "sessao_invalida"`. `POST /chat` está ligado ao pipeline
+conversacional real (Épico 2, `chat/pipeline.py`) por padrão — só retorna
+`503` com `detail.codigo = "pipeline_indisponivel"` se alguém injetar
+explicitamente um `turn_processor` que sinalize indisponibilidade (ver
+`chat.contracts.PipelineUnavailableError`), não é mais o comportamento
+default.
+
+O pipeline é conectado através de `TurnProcessor`
+(`chat/contracts.py`). A fábrica `create_app(session_store=...,
+turn_processor=...)` aceita dependências opcionais pra testes; sem
+argumentos, usa `SessionStore()` e `ChatPipeline()` de verdade.
 
 ## Testes
 
 ```bash
-pytest
+python -m pytest
 ```
 
-26 testes cobrindo o dispatcher `chamar_llm`, os dois backends (Ollama e
-Claude) e o boot do FastAPI — todos com o LLM mockado, não dependem de
-Ollama rodando de verdade.
+Uma suíte automatizada cobrindo o dispatcher `chamar_llm`, os backends, o boot do
+FastAPI, sessões, expiração, contratos HTTP do Épico 3, motor de
+recomendação (Épico 1), fluxo OAuth (Épico 5), CORS, tratamento de erros e
+rate limiter (Épico 8), e as funcionalidades extras do Épico 12. Todos usam
+LLM/Spotify mockados e não dependem de nada rodando de verdade. A suíte roda
+automaticamente em todo push/PR via
+[`.github/workflows/agente-tests.yml`](../.github/workflows/agente-tests.yml)
+(ticket 8.5).
 
 ## Camada de abstração `chamar_llm`
 
@@ -56,8 +155,304 @@ resposta = chamar_llm([{"role": "user", "content": "quero pagode"}])
 
 | Ticket | O que cobre | Status |
 |---|---|---|
-| 0.1 — Instalar/configurar modelo local | Ollama já instalado nesta máquina (v0.18.3); serviço estava parado, subiu ao rodar `ollama list`. Modelo alvo `qwen2.5:7b-instruct-q4_K_M` **ainda não foi baixado** — só há `glm-4.7-flash:latest` (19GB) local, usado pra validar o backend de ponta a ponta. Ver achado de RAM/GPU em [`docs/logistica_rede.md`](docs/logistica_rede.md). | Parcial — falta `ollama pull qwen2.5:7b-instruct-q4_K_M` e reteste com o modelo alvo |
-| 0.2 — `chamar_llm(...)` | Implementado (`llm/client.py`), backend Ollama real (`llm/backends/ollama_backend.py`), testado com mocks e uma vez contra o Ollama real rodando localmente. | Feito |
+| 0.1 — Instalar/configurar modelo local | Ollama instalado (v0.18.3) e com o modelo alvo `qwen2.5:7b-instruct-q4_K_M` (4.7GB) baixado e confirmado via `ollama list`/`ollama ps`. Validado servindo em `http://localhost:11434` (ver Épico 15). Ver achado de RAM/GPU em [`docs/logistica_rede.md`](docs/logistica_rede.md). | Feito |
+| 0.2 — `chamar_llm(...)` | Implementado (`llm/client.py`), backend Ollama real (`llm/backends/ollama_backend.py`), testado com mocks (`test_ollama_backend.py`) e validado repetidamente contra o Ollama real, incluindo `formato_json=True` (ver Épico 15). | Feito |
 | 0.3 — Backend hospedado alternativo | Implementado (`llm/backends/claude_backend.py`), troca via `LLM_BACKEND=claude`, chave lida de `ANTHROPIC_API_KEY`. Não testado contra a API real (precisa de chave válida). | Feito (não testado contra API real) |
 | 0.4 — Health-check no boot | `app.py` usa `lifespan` do FastAPI pra logar disponibilidade no boot sem bloquear a subida; endpoint `GET /health` exposto. | Feito |
 | 0.5 — Logística de rede da demo | Ver [`docs/logistica_rede.md`](docs/logistica_rede.md) — opção recomendada documentada, falta ensaiar no hardware real de quem apresenta. | Parcial — decisão proposta, falta validar/ensaiar |
+
+## Épico 5 — Integração Spotify OAuth (status por ticket)
+
+Módulo `spotify_auth/` — fluxo Authorization Code + PKCE, tokens
+criptografados em SQLite (`cryptography.Fernet`), renovação proativa e
+busca de histórico. Rotas montadas em `app.py`
+(`GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`,
+`GET /auth/status` — usado pelo frontend, ticket 12.2, pra saber se a
+sessão está autenticada).
+
+`session_id` é aceito como query param direto (não há cookie de sessão).
+Após o callback, o backend marca a sessão de conversa já existente como
+autenticada; os tokens continuam guardados separadamente pelo OAuth. Nenhuma
+segunda conversa é criada nesse processo.
+
+**Desvio do fluxo descrito na seção 3.2 do pipeline:** `GET /auth/login`
+não redireciona mais direto pro Spotify — devolve a página de
+consentimento do ticket 5.10 primeiro. O redirect real (o que a seção
+3.2 chama de passo 3) foi pra `GET /auth/login/start`. Motivo: o
+Épico 4 (frontend) ainda não existe pra hospedar esse aviso antes do
+botão "Conectar com Spotify", então o backend hospeda ele mesmo por
+enquanto. Quando o Épico 4 existir, o frontend pode renderizar o texto
+de `spotify_auth/consent.py` diretamente e chamar `/auth/login/start`
+como o botão em si — nesse caso `GET /auth/login` volta a poder
+redirecionar direto, se fizer mais sentido.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 5.1 — Registro do app | Variáveis `SPOTIFY_CLIENT_ID`/`SPOTIFY_CLIENT_SECRET`/`SPOTIFY_REDIRECT_URI` no `.env.example`, nunca hardcoded. Cadastro do app no Spotify Developer Dashboard ainda não feito (ação manual, fora do código). | Parcial — código pronto, falta cadastrar o app de verdade |
+| 5.2 — `GET /auth/login` (PKCE) | `spotify_auth/pkce.py` + `spotify_auth/client.py` (`build_authorize_url`), chamado por `GET /auth/login/start` — `state` e `code_challenge` (S256) gerados e correlacionados via `PendingAuth`. | Feito |
+| 5.3 — `GET /auth/callback` | `spotify_auth/routes.py` — valida `state`, troca código por tokens, trata `?error=access_denied` (login cancelado) sem erro visível ao usuário. | Feito |
+| 5.4 — Armazenamento/renovação de tokens | `spotify_auth/token_store.py` (SQLite + Fernet) e `client.get_valid_access_token` (renova quando falta <60s; se o refresh falhar, sessão cai pra anônima). | Feito |
+| 5.5 — Busca do histórico | `spotify_auth/history.py` — top tracks, recently played, saved tracks (paginado). 429/timeout tratados como histórico parcial, não bloqueiam o login. | Feito |
+| 5.6 — Matching com dataset local | `recomendacao/historico_match.py` (`casar_historico_com_dataset`) — match por `track_id` exato e fallback por nome+artista normalizados (`recomendacao/normalizacao.py`, mesma função de 2.3). Cobertura calculada e logada. | Feito |
+| 5.7 — Perfil de gosto (centróide) | `recomendacao/perfil.py` (`calcular_perfil_usuario`) — centróide das features normalizadas das faixas casadas (5.6), injetado em `buscar_recomendacoes(perfil_usuario=...)` com o blend 70/30 (`recomendacao/busca.py`). Cobertura zero devolve `None`, mesmo comportamento do anônimo. O `ChatPipeline` recebe esse perfil pelo contexto da sessão e o repassa à busca. | Feito |
+| 5.8 — `POST /auth/logout` | `spotify_auth/routes.py` — descarta os tokens da sessão. | Feito |
+| 5.9 — Casos de falha do OAuth | Tabela da seção 3.7 do pipeline coberta: `state` inválido, `error=access_denied`, refresh revogado, 429, timeout — todos testados com mocks (`test_spotify_client.py`, `test_spotify_history.py`, `test_spotify_routes.py`). | Feito |
+| 5.10 — Aviso de privacidade antes do login | `spotify_auth/consent.py` — `GET /auth/login` mostra os scopes lidos e a política de dados (§9 do pipeline) antes do link pra `/auth/login/start`. Implementado no backend por falta do Épico 4; ver desvio de fluxo acima. | Feito (via backend, adiantado do Épico 4) |
+| 5.11 — Busca via Spotify Search API (fallback do dataset local) | `recomendacao/spotify_fallback.py` + `spotify_auth/app_client.py` (Client Credentials Flow) — complementa `buscar_recomendacoes` quando o dataset local não cobre o gênero/artista pedido ou devolve resultado escasso. Faixas do fallback ganham `_origem: "spotify_fallback"`, ordenadas pela relevância nativa da Search API, sem entrar no índice de similaridade local. Falha/timeout degrada pro resultado local. | Feito |
+
+Épico 5 completo — todos os 11 tickets feitos.
+
+## Épico 1 — Motor de recomendação (status por ticket)
+
+Módulo `recomendacao/` — Épico 1 completo: carregamento/normalização,
+índice de similaridade, busca completa, métricas de diversidade/
+cobertura e a suíte formal de testes de edge cases.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 1.1 — Carregar dataset e normalizar features de áudio | `recomendacao/dataset.py` — `carregar_dataset()` lê `data/dataset.csv` uma vez (cacheado com `functools.lru_cache`), marca `track_id_duplicado` sem remover linhas, e adiciona colunas `*_norm` com as 9 features de áudio contínuas padronizadas (z-score), preservando as colunas originais em escala crua pros filtros/buckets do ticket 1.3. | Feito |
+| 1.2 — Índice de similaridade (k-NN / cosseno) | `recomendacao/indice.py` — `construir_indice()` monta, uma única vez (cacheado), a matriz de features normalizada linha a linha (norma L2); `IndiceSimilaridade.mais_similares(vetor_alvo, n)` devolve as `n` faixas mais próximas por cosseno via produto escalar vetorizado (numpy puro, sem nova dependência). Busca no dataset real (~31,8 mil faixas) roda em milissegundos, bem abaixo do limite de ~1s. | Feito |
+| 1.3 — `buscar_recomendacoes(...)` completa | `recomendacao/busca.py` — assinatura completa (`genero`, `energia`, `valencia`, `dancabilidade`, `artista_referencia`, `excluir_explicit`, `n_resultados`, `perfil_usuario`, `faixas_ja_mostradas`); validação defensiva de cada campo (nunca levanta exceção); filtros rígidos (gênero, `excluir_explicit`, dedup de `track_id`) antes da similaridade; vetor-alvo pelos 3 casos (artista de referência → centróide, buckets categóricos, blend 70/30 com `perfil_usuario`); fallback por popularidade quando não há sinal nenhum; `n_resultados` sempre em `[1, 30]`. Ver decisões assumidas abaixo. | Feito |
+| 1.4 — Cálculo de diversidade e cobertura | `diversidade_generos` (nº de gêneros distintos no resultado) e `cobertura_sessao` (proporção de faixas cujo `track_id` não está em `faixas_ja_mostradas`) calculados dentro de `buscar_recomendacoes` e sempre presentes na resposta — inclusive no fallback de popularidade e no caso de resultado vazio (`0` e `0.0`, respectivamente). | Feito |
+| 1.5 — Testes unitários de `buscar_recomendacoes` | `test_recomendacoes_edge_cases.py` fecha as combinações que faltavam contra a tabela de edge cases (§7 do pipeline) e os critérios do ticket: atributo só (dançabilidade, valência — energia já estava em 1.3), gênero/artista inválido em combinação, dedup na busca por similaridade (não só no fallback), e resultado vazio nos dois caminhos (fallback e similaridade). O resto dos critérios (combinação de sinal, `n_resultados` fora da faixa, gênero/artista inválido isolado, dedup no fallback) já tinha saído coberto organicamente em 1.3/1.4. | Feito |
+
+**Decisões assumidas no 1.3** (a especificação detalhada referenciada
+pelo ticket — filtros/buckets/blend — não está mais no
+`PIPELINE_AGENTE_PROPOSTA_B.md` atual; só o texto do próprio ticket do
+Jira tinha esse nível de detalhe). Vale o time confirmar:
+
+- Buckets `baixa`/`media`/`alta` (e `triste`/`neutro`/`feliz` pra
+  valência) mapeiam pra -1/0/+1 desvio-padrão na dimensão normalizada
+  correspondente — não havia threshold explícito especificado.
+- Quando `artista_referencia` bate com o dataset, o centróide é
+  calculado sobre a base inteira (não restrito ao `genero` do filtro) —
+  representa o "perfil de som" do artista, independente de gênero.
+- Blend 70/30 é sempre `0.7 * vetor_da_consulta + 0.3 * perfil_usuario`
+  (perfil como viés secundário, nunca dominante) — quando não há nenhum
+  outro sinal (nem artista, nem bucket), `perfil_usuario` sozinho vira o
+  vetor-alvo (100%, sem blend).
+- `faixas_ja_mostradas` é aceito e validado na assinatura, mas não filtra
+  resultado nesta função — só o ticket 1.4 (`cobertura_sessao`) usa esse
+  parâmetro de fato.
+- Faixas do próprio artista de referência não são excluídas do
+  resultado (nada no ticket pedia isso).
+- `cobertura_sessao` com resultado vazio (nenhum candidato passou nos
+  filtros) devolve `0.0` em vez de indefinido/`NaN` — evita dividir por
+  zero sem esconder que não há faixas novas nem antigas, simplesmente
+  não há faixas.
+
+Testes: `pytest` — cobertura automatizada dos casos do motor, todos
+sem depender de rede ou de serviços externos. Épico 1 completo.
+
+## Épico 2 — Pipeline conversacional (status por ticket)
+
+Módulo `chat/` — roteador determinístico, extração e geração via LLM,
+validação de schema, template determinístico, auditoria mecânica de
+citações e o orquestrador (`chat/pipeline.py::ChatPipeline`) que
+implementa `TurnProcessor` e está ligado em `app.py` por padrão.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 2.1 — Roteador determinístico por regex | `chat/roteador.py` — reconhece os 32 gêneros reais de `track_genre` do dataset (sinônimos PT/EN), humor/energia/valência/dançabilidade e intensificadores ("mais animado", "mais calmo"...), além de saudações e pedidos fora de escopo (letra de música, compor música) como padrões próprios. Só resolve "pedidos simples" (até 6 palavras) — frases livres/longas (caso de uso 2) são deixadas de propósito pra extração via LLM. | Feito |
+| 2.2 — Extração via LLM | `chat/extrator.py` — prompt de sistema versionado (`SYSTEM_PROMPT_EXTRACAO_V1`), usa o timeout padrão de `chamar_llm` (~8s), parser tolerante a texto/markdown ao redor do JSON (`chat/json_extrator.py`). | Feito |
+| 2.3 — Validador de schema | `chat/validador.py` — campo fora do domínio vira `null` sem rejeitar a consulta inteira; `genero` validado contra `track_genre` real; `artista_referencia` normalizado com a mesma `normalizar_texto` do matching OAuth (5.6); `n_resultados` sempre em `[1, 30]`. | Feito |
+| 2.4 — Resposta por template determinístico | `chat/template.py` — texto fixo pro resultado com faixas e pro resultado vazio, sem LLM; também cobre saudação, fora de escopo e a pergunta de esclarecimento do fallback total. | Feito |
+| 2.5 — Geração via LLM | `chat/gerador.py` — segunda chamada ao LLM (prompt `SYSTEM_PROMPT_GERACAO_V1`) pede JSON `{"texto", "faixas_citadas"}`; resultado vazio nunca aciona o LLM; qualquer falha (timeout, indisponibilidade, JSON inválido/sem texto) cai pro template (2.4) sem quebrar o turno. | Feito |
+| 2.6 — Auditoria mecânica de `faixas_citadas` | `chat/auditoria.py` — compara `faixas_citadas` com os `track_id`s reais do resultado da busca daquele turno; citação divergente é filtrada do resultado final e logada como warning (`agente.chat.auditoria`). | Feito |
+| 2.7 — Fallback total | Implementado dentro de `chat/pipeline.py::ChatPipeline.process` — roteador sem match + extração retornando `None` cai direto na pergunta de esclarecimento (2.4), sem chamar `buscar_recomendacoes`. | Feito |
+| 2.8 — Truncamento do histórico enviado ao LLM | `chat/historico_llm.py` (`LIMITE_HISTORICO_LLM = 6`) — usado pela extração (2.2) e pela geração (2.5); `GET /chat/historico` continua devolvendo o histórico completo da sessão. | Feito |
+
+**Gaps conhecidos, fora do escopo estrito dos critérios de aceite dos
+tickets 2.1–2.8:**
+
+- Caso de uso 8 ("por que vocês recomendaram isso?") não tem tratamento
+  especial — `consulta_efetiva` não é persistida por mensagem no
+  histórico da sessão (`sessions/models.py::Message` só guarda
+  `faixas_citadas`), então não há hoje como reconstruir os filtros do
+  turno anterior pra responder essa pergunta sem uma nova busca. Ficaria
+  pra uma iteração futura que estenda `Message`/`SessionStore`.
+- Caso de uso 6 (artista pedido não existe no dataset): o comportamento
+  técnico é correto (`busca.py` degrada pra `None`/outros filtros/
+  popularidade, nunca inventa faixa), mas a resposta não menciona
+  explicitamente "esse artista não está na nossa base" — usa o mesmo
+  texto genérico de resultado vazio/com resultado do template (2.4) ou o
+  texto livre da geração (2.5), que pode ou não mencionar isso dependendo
+  do que o LLM escrever.
+- O roteador (2.1) cobre os gêneros **reais** do dataset carregado neste
+  repositório (`data/dataset.csv`, 32 gêneros de `acoustic` a `electro` —
+  um recorte alfabético do dataset completo do Kaggle). Exemplos do
+  próprio backlog como "pagode"/"sertanejo" não existem nesse recorte;
+  o roteador não tem sinônimo pra eles (cai pra extração via LLM, que
+  também não vai achar o gênero — `buscar_recomendacoes` degrada pra
+  filtros/popularidade sem esse gênero, não quebra).
+
+Testes: `pytest` — 74 testes novos (roteador, extração, validador,
+template, geração, auditoria, orquestrador do pipeline e o turno
+completo via API real em `test_chat_endpoint.py`), todos com LLM e
+dataset mockados. Suíte completa do backend: 242 testes.
+
+## Épico 8 — Infraestrutura de projeto, qualidade e deploy (status por ticket)
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 8.1 — Scaffold do backend | Já existia como subproduto dos Épicos 0/5 — `app.py` como entrypoint, `requirements.txt` (instala limpo, testado), `.env.example` cobrindo 0.x/5.x/8.x. Backend sobe com `uvicorn app:app --reload`. | Feito |
+| 8.2 — CORS | `app.py` (`CORSMiddleware`), origem(ns) via `FRONTEND_URL` (nunca wildcard). Testado em `test_cors.py`. | Feito |
+| 8.3 — Handler de erro global | `app.py` (`handle_unhandled_exception`) — qualquer exceção não tratada vira HTTP 500 padronizado, nunca stack trace cru; log completo no servidor. Testado em `test_error_handler.py`. | Feito |
+| 8.4 — Rate limiting no `/chat` | `rate_limit.py` (`RateLimiter`) está pronto e testado (`test_rate_limit.py`). A rota `POST /chat` já existe (Épico 3); falta só ligar o limitador nela como `dependency`. | **Pendente — utilitário pronto, falta ligar no `/chat`** |
+| 8.5 — CI de testes (pytest) | [`.github/workflows/agente-tests.yml`](../.github/workflows/agente-tests.yml) — roda `pytest` em todo push/PR que toque `agente_conversacional/`. | Feito |
+| 8.6 — README / guia de setup | Este arquivo — Ollama, `.env`, CORS, erro global, rate limiter, testes, tabelas de status por épico. | Feito |
+| 8.7 — Deploy/hosting real | Backend (Épico 3) e frontend (Épico 4) já existem — o bloqueio original não vale mais. Continua opcional (demo local já funciona, ticket 0.5) e ninguém começou a publicar num hosting real ainda. | Desbloqueado — não iniciado |
+
+## Épico 3 — Backend / API (status por ticket)
+
+Módulo `api/` + `sessions/` — sessões de conversa em memória, endpoints
+`POST /session`, `POST /chat`, `GET /chat/historico`. Detalhe completo em
+[`docs/KAN-8_BACKEND_API.md`](docs/KAN-8_BACKEND_API.md); resumo aqui:
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 3.1 — `POST /session` | `api/routes.py` — cria sessão, devolve `session_id` (UUID4). | Feito |
+| 3.2 — `POST /chat` | `api/routes.py` — orquestra o turno com `ChatPipeline`; interpreta, busca, gera e audita antes de gravar o histórico. `503 pipeline_indisponivel` fica restrito a uma dependência explicitamente indisponível em teste/integração. | Feito |
+| 3.3 — `GET /chat/historico` | `api/routes.py` — devolve mensagens auditáveis (`role`, `conteudo`, `faixas_citadas`, timestamp UTC). | Feito |
+| 3.4 — Gerenciador de sessão | `sessions/store.py` — sessão inválida/expirada nunca derruba o backend, devolve `404 sessao_invalida`. | Feito |
+| 3.5 — Timeout de inatividade | Sessão expira após `SESSION_TIMEOUT_MINUTES` (30min padrão); tokens OAuth (Épico 5) ficam em armazenamento separado, não são afetados. | Feito |
+
+Épico 3 completo.
+
+## Épico 4 — Frontend (status por ticket)
+
+`frontend/` — HTML/CSS/JS puro (sem framework/bundler), servido por
+`frontend/serve.ps1` em dev.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 4.1 — Tela de chat | `frontend/app.js`/`index.html` — input + histórico, `session_id` persistido (localStorage + cookie), recupera histórico do backend ao abrir (4.6). | Feito |
+| 4.2 — Cards de faixa | `frontend/components/trackCard.js` — monta cards a partir do campo `faixas`, sem parsear texto livre. | Feito |
+| 4.3 — Indicador de "processando" | `#typing-indicator` — aparece do envio até a resposta chegar. | Feito |
+| 4.4 — Login com Spotify | Botão `#btn-spotify-auth` → `GET /auth/login` (consentimento, 5.10) → `/auth/login/start`; estado autenticado consultado via `GET /auth/status`. | Feito |
+| 4.5 — Fluxo de logout | Nenhum botão/fluxo de logout no frontend ainda — só login. | **A fazer** |
+| 4.6 — Recuperar histórico ao reabrir | `buscarHistoricoRemoto()` — `GET /chat/historico` ao carregar a tela; 404 cai pro estado de conversa nova. | Feito |
+| 4.7 — Consentimento do Spotify no login | Linka direto pra página de consentimento do backend (5.10) em vez de duplicar o texto na UI. | Feito |
+| 4.8 — Banner de erro (HTTP 500) | `ErroBackend` — qualquer `>= 500` vira banner recuperável, sem travar o chat. | Feito |
+| 4.9 — Feedback de rate limit (HTTP 429) | Tratado fora do fallback offline (não mascara o limite como se fosse erro comum). | Feito |
+| 4.10 — Preview de áudio | Reaproveita `usePreviewPlayer.js` (padrão do `spotify_explorer/`) — um player compartilhado, só uma faixa toca por vez. | Feito |
+| 4.11 — Layout responsivo | Header com `flex-wrap` + breakpoint em 480px; cards já empilhavam abaixo de 768px. Verificado sem overflow horizontal em 375px. | Feito |
+| 4.12 — Estado vazio / onboarding | `#hero-empty-state` com chips de sugestão, some no primeiro envio. | Feito |
+
+11 de 12 tickets feitos — só falta 4.5 (logout).
+
+## Épico 12 — Funcionalidades extras e landing page (status por ticket)
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 12.1 — Criar playlist no Spotify | `spotify_auth/playlist.py` (`create_playlist_with_tracks`) + rota `POST /playlist/criar` — resolve o usuário logado, cria a playlist e adiciona as faixas recomendadas (lotes de até 100 URIs). | Feito |
+| 12.2 — Botão "Salvar no Spotify" | Aparece só quando `GET /auth/status` confirma sessão autenticada; feedback de sucesso/erro na UI. | Feito |
+| 12.3 — Endpoint de recomendação sem LLM | `GET /recomendar` (`api/routes.py`) — chama `buscar_recomendacoes` direto, sem depender do roteador/LLM/Épico 2. Útil pra demo e debug. | Feito |
+| 12.4 — Botão "Gerar outra recomendação" | Reenvia uma nova solicitação e o backend usa as faixas já mostradas para calcular a cobertura da sessão; a lista permanece rastreável no histórico. | Feito |
+| 12.5 — Dark mode | Toggle de tema com preferência salva em `localStorage`. | Feito |
+| 12.6 — Landing page do projeto | `site/templates/landing.html` — pitch cards reaproveitados de `site/build_site.py`, CTA pro passo a passo do agente (ainda sem hosting público, ver 8.7) e link pro dashboard de análises. | Feito |
+
+Épico 12 completo.
+
+## Épico 13 — Integração das funcionalidades do spotify_explorer (status por ticket)
+
+Porta pro produto real (aqui, não em `spotify_explorer/frontend/` — aquilo é
+a ferramenta de dev) as funcionalidades de navegação e controle que só
+existiam no `spotify_explorer`. Todas as rotas ficam em
+`spotify_auth/explorer.py` (chamadas à Spotify Web API) +
+`spotify_auth/explorer_routes.py` (rotas HTTP, prefixo `/explorer`), usando
+o mesmo access_token PKCE por sessão de `spotify_auth/client.py` — nenhum
+escopo OAuth novo foi necessário, os endpoints de catálogo/dados do usuário
+aceitam qualquer Bearer token válido.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 13.1 — Busca | `GET /explorer/search` (`q`, `type`, `limit`). | Feito |
+| 13.2 — Detalhes de faixa | `GET /explorer/track/{id}`, `/audio-features`, `/audio-analysis`. | Feito |
+| 13.3 — Detalhes de artista | `GET /explorer/artist/{id}`, `/top-tracks`, `/albums`, `/related-artists`. | Feito |
+| 13.4 — Detalhes de álbum | `GET /explorer/album/{id}`. | Feito |
+| 13.5 — Detalhes de playlist | `GET /explorer/playlist/{id}`. | Feito |
+| 13.6 — Minhas playlists | `GET /explorer/me/playlists`. | Feito |
+| 13.7 — Lançamentos recentes | `GET /explorer/new-releases`. | Feito |
+| 13.8 — Recomendações via API nativa do Spotify | `GET /explorer/recommendations` (seed_tracks/seed_artists/seed_genres). | Feito |
+| 13.9 — Seguindo | `GET /explorer/me/following`. | Feito |
+| 13.10 — Meus dados | `GET /explorer/me`, `/me/top/tracks`, `/me/top/artists`, `/me/tracks`, `/me/player/recently-played`. | Feito |
+| 13.11 — Controles de reprodução | `GET/POST /explorer/me/player*` (play/pause/next/previous/seek/volume/shuffle/repeat/queue). | Feito |
+| 13.12 — Preview de áudio (corrige KAN-77) | Reimplementado em `frontend/components/trackCard.js` (antes só existia em `spotify_explorer/frontend/`) — botão de prévia de 30s por faixa, busca `preview_url` via `/explorer/track/{id}`. | Feito |
+| 13.13 — Login via QR code | `GET /auth/qr` (gera código + QR em SVG data URI) e `GET /auth/pair/{code}/status` (polling). Endurecido em relação ao spotify_explorer: o kiosk nunca aprende o `access_token` do celular diretamente — o relay (`spotify_auth/pairing_store.py`) só guarda os tokens até o kiosk consumir uma vez, e o código de pareamento é de uso único e TTL de 5 min. | Feito |
+
+Frontend: painel único "Explorar Spotify" (`frontend/components/explorer.js`,
+botão de lupa no cabeçalho, ao lado do alternador de tema) reúne busca,
+lançamentos, minhas playlists, seguindo, meus dados, recomendações e player
+— clicar em qualquer resultado abre o detalhe (faixa/artista/álbum/playlist)
+empilhado com breadcrumb pra voltar. Login por QR fica num botão dedicado ao
+lado de "Conectar Spotify" (`frontend/components/qrLogin.js`).
+
+Testes: `test_spotify_explorer.py` (camada HTTP contra a Spotify Web API,
+mockada), `test_spotify_explorer_routes.py` (rotas FastAPI) e os testes de
+`/auth/qr`/`/auth/pair` acrescentados a `test_spotify_routes.py`.
+
+## Épico 15 — Modelo de IA local via Ollama (status por ticket)
+
+Diferente dos demais épicos, aqui a maior parte do trabalho já existia como
+código testado com mocks (`llm/backends/ollama_backend.py`,
+`test_ollama_backend.py`) — faltava validar contra um Ollama **de verdade**
+rodando. As tasks 15.1–15.3, 15.5 e 15.6 foram executadas e validadas nesta
+máquina; 15.4 e 15.7 têm sua parte automatizável coberta, mas dependem de
+login numa conta Spotify real (não automatizável nesta sessão) pra
+fechar por completo.
+
+| Ticket | O que foi validado | Status |
+|---|---|---|
+| 15.1 — Instalar/configurar Ollama local | `qwen2.5:7b-instruct-q4_K_M` (4.7GB) já instalado e servindo em `http://localhost:11434` (v0.18.3). Confirmado via `ollama list` e `GET /api/version`. | Feito |
+| 15.2 — Validar chamada real ao backend e ao health-check | `ollama_backend.call(...)` chamado de verdade (texto coerente, inclusive `formato_json=True`); `check_llm_health()` retornou `disponivel: True` com o servidor no ar. | Feito |
+| 15.3 — Calibrar timeouts pra latência real | Medido nesta máquina: ~3s (chamada simples), ~4.8s (`formato_json=True`), ~10s um turno completo de `/chat` que passa pela extração via LLM. O timeout de 8s usado nos testes/mocks é realista pra chamada individual — **não** cobre um turno completo com extração+geração em série; ver nota abaixo. | Feito |
+| 15.4 — Validar pipeline ponta a ponta com modelo real | `POST /chat` executado de ponta a ponta contra o Ollama real (sem mock) com sucesso (HTTP 200). **Achado real:** um pedido livre por humor ("triste, queria algo instrumental pra relaxar") não foi extraído em parâmetros estruturados pelo roteador/extração e caiu na resposta de esclarecimento — candidato a ajuste de prompt/roteador, não corrigido nesta entrega. Falta a parte que depende de conta Spotify real (dados de histórico/perfil do usuário) — ver checklist manual abaixo. | Parcial |
+| 15.5 — Validar fallback real quando o Ollama está indisponível | Com `OLLAMA_BASE_URL` apontando pra uma porta inexistente: `check_llm_health()` voltou `disponivel: False` sem lançar exceção, e `POST /chat` continuou respondendo **HTTP 200** com recomendação coerente (nunca 500). | Feito |
+| 15.6 — Documentar o setup | Este README (seção abaixo). | Feito |
+| 15.7 — Rodar o projeto inteiro sem mocks, ponta a ponta | Ollama real + backend real + frontend real cobertos (15.1–15.5). Falta autenticar com uma conta Spotify real no navegador — não automatizável nesta sessão (sem credenciais). Ver checklist manual abaixo. | Parcial |
+
+### Setup do Ollama local
+
+```bash
+# 1. Instalar o Ollama (https://ollama.com/download) e confirmar que subiu:
+ollama list                 # deve listar o(s) modelo(s) já baixado(s)
+curl http://localhost:11434/api/version
+
+# 2. Baixar o modelo padrão do projeto (se ainda não tiver):
+ollama pull qwen2.5:7b-instruct-q4_K_M
+
+# 3. Variáveis de ambiente (defaults já assumidos pelo código se omitidas):
+LLM_BACKEND=ollama                              # ou "claude" pra usar o backend hospedado
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
+
+# 4. Rodar o backend normalmente (ver "Rodar o backend" acima) — o boot já
+#    loga se o LLM configurado está disponível (health-check no lifespan).
+```
+
+Sem GPU dedicada, a primeira chamada depois do processo do Ollama subir
+tende a ser mais lenta (carrega o modelo em memória) — as chamadas
+seguintes ficam consistentemente mais rápidas (~3s medidos aqui). Se o
+Ollama local não estiver disponível na sua máquina, defina
+`LLM_BACKEND=claude` com uma `ANTHROPIC_API_KEY` válida pra usar o backend
+hospedado alternativo sem mexer em nenhum outro código.
+
+### Checklist manual — partes que dependem de login Spotify real (15.4, 15.7)
+
+Não automatizável nesta sessão (exige e-mail/senha e consentimento numa
+conta Spotify real). Pra fechar 15.4/15.7, com o backend e o frontend de pé:
+
+- [ ] Fazer login com o Spotify pelo frontend real (botão "Conectar Spotify"
+      ou pelo QR code — 13.13).
+- [ ] Pedir uma recomendação no chat e confirmar que "Salvar no Spotify"
+      (12.1/12.2) cria a playlist de verdade.
+- [ ] Abrir o painel "Explorar Spotify" (13.1–13.11) e navegar por busca,
+      minhas playlists, meus dados e o player — com um dispositivo Spotify
+      ativo, testar play/pause/skip.
+- [ ] Tocar a prévia de 30s de uma faixa recomendada no chat (13.12).
+
+Testes automatizados: `pytest` — 303 testes no total (era 190 antes do
+Épico 13), rede/LLM mockados nos testes; as validações reais contra Ollama
+e a chamada `/chat` sem mock (Épico 15) foram feitas manualmente e estão
+documentadas acima, não fazem parte da suíte automatizada.

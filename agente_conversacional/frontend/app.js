@@ -67,8 +67,8 @@ function saveSessionId(sessionId) {
   }
 }
 
-function resetSession() {
-  const newSessionId = generateUUID();
+async function resetSession() {
+  const newSessionId = (await criarSessaoRemota()) || generateUUID();
   saveSessionId(newSessionId);
   return newSessionId;
 }
@@ -93,6 +93,15 @@ function loadChatHistory(sessionId) {
   }
 }
 
+function clearChatHistory(sessionId) {
+  if (!sessionId) return;
+  try {
+    localStorage.removeItem(HISTORY_STORAGE_PREFIX + sessionId);
+  } catch (e) {
+    console.warn('Falha ao limpar histórico do localStorage:', e);
+  }
+}
+
 // ==========================================
 // 2. Módulo de API e Catálogo Demo
 // ==========================================
@@ -101,110 +110,146 @@ const API_BASE_URL =
     ? ''
     : 'http://127.0.0.1:8000';
 
-const OFFLINE_CATALOGO = {
-  pagode: [
-    { track_id: '3n3Ppam7vgaVa1iaRUc9Lp', nome: 'Deixa Acontecer', artista: 'Grupo Revelação', album: 'Ao Vivo', genero: 'pagode' },
-    { track_id: '2OzhsB92lF4N4Ynxy7P9hP', nome: 'Pé Na Areia', artista: 'Diogo Nogueira', album: 'Munduê', genero: 'pagode' },
-    { track_id: '5gB82p5T9z7Xw8Q7F1oE7B', nome: 'Falta Você', artista: 'Thiaguinho', album: 'Meu Nome É Thiago André', genero: 'pagode' },
-  ],
-  rock: [
-    { track_id: '08mG3Y1vljYA6bvNXEsOh9', nome: "Sweet Child O' Mine", artista: "Guns N' Roses", album: 'Appetite For Destruction', genero: 'rock' },
-    { track_id: '2VxeLyX666F8uXCJ0dZF8B', nome: "Livin' On A Prayer", artista: 'Bon Jovi', album: 'Slippery When Wet', genero: 'rock' },
-    { track_id: '7w8OXQ8oo6b5gPshx842Xk', nome: 'Back In Black', artista: 'AC/DC', album: 'Back In Black', genero: 'rock' },
-  ],
-  chill: [
-    { track_id: '3U4isOIWM3VvDubwSI3y7a', nome: 'Weightless', artista: 'Marconi Union', album: 'Weightless (Vol. 2)', genero: 'chill' },
-    { track_id: '4GfK1A2GZJvD1YwV61y6hA', nome: 'Sunset Lover', artista: 'Petit Biscuit', album: 'Presence', genero: 'chill' },
-    { track_id: '1A7F0J3F5F4h8C4G7x1A2B', nome: 'Coffee', artista: 'beabadoobee', album: 'Loveworm', genero: 'chill' },
-  ],
-  pop: [
-    { track_id: '0VjIjW4GlUZAMYd2vXMi3b', nome: 'Blinding Lights', artista: 'The Weeknd', album: 'After Hours', genero: 'pop' },
-    { track_id: '4Dvkj6JhhA12EX05fT7y2e', nome: 'As It Was', artista: 'Harry Styles', album: "Harry's House", genero: 'pop' },
-    { track_id: '1BxfuPKGuaTgP7aM0XbdMe', nome: 'Levitating', artista: 'Dua Lipa', album: 'Future Nostalgia', genero: 'pop' },
-  ],
-  mpb: [
-    { track_id: '4d1X9F8j4h2k8f1g3h5j6k', nome: 'Oceano', artista: 'Djavan', album: 'Djavan', genero: 'mpb' },
-    { track_id: '5h2j8k1l4f6g7h8j9k0l1m', nome: 'Aquarela', artista: 'Toquinho', album: 'Aquarela', genero: 'mpb' },
-    { track_id: '6k3l9m2n5g7h8j9k0l1m2n', nome: 'Como Nossos Pais', artista: 'Elis Regina', album: 'Falso Brilhante', genero: 'mpb' },
-  ]
-};
-
-function resolverMockLocal(sessionId, mensagem) {
-  const msg = mensagem.toLowerCase();
-  let faixas = [];
-  let texto = '';
-  let genero = 'misto';
-
-  if (msg.includes('pagode') || msg.includes('samba') || msg.includes('churrasco')) {
-    faixas = OFFLINE_CATALOGO.pagode;
-    texto = 'Selecionei clássicos do pagode com energia lá em cima para animar o seu churrasco!';
-    genero = 'pagode';
-  } else if (msg.includes('rock') || msg.includes('80') || msg.includes('guitarra')) {
-    faixas = OFFLINE_CATALOGO.rock;
-    texto = 'Aqui estão hinos do rock clássico com solos marcantes e energia contagiante:';
-    genero = 'rock';
-  } else if (msg.includes('chill') || msg.includes('lofi') || msg.includes('lo-fi') || msg.includes('relax') || msg.includes('foco') || msg.includes('calm') || msg.includes('estud')) {
-    faixas = OFFLINE_CATALOGO.chill;
-    texto = 'Encontrei faixas perfeitas com clima relaxante e alta acústica para você desacelerar ou focar:';
-    genero = 'chill';
-  } else if (msg.includes('mpb') || msg.includes('djavan') || msg.includes('caetano')) {
-    faixas = OFFLINE_CATALOGO.mpb;
-    texto = 'Obras primas da MPB selecionadas do catálogo com rica harmonia acústica:';
-    genero = 'mpb';
-  } else if (msg.includes('pop') || msg.includes('danc') || msg.includes('trein')) {
-    faixas = OFFLINE_CATALOGO.pop;
-    texto = 'Músicas pop com batidas vibrantes e alta dançabilidade separadas do dataset:';
-    genero = 'pop';
-  } else if (msg.includes('oi') || msg.includes('olá') || msg.includes('ola') || msg.includes('ajuda')) {
-    texto = 'Olá! Sou o agente musical do Grupo 8 ResIA. Como posso ajudar seu dia com música? Experimente pedir por gênero (pagode, rock, pop, chill, MPB) ou momento!';
-    faixas = [];
-  } else {
-    faixas = [OFFLINE_CATALOGO.pop[0], OFFLINE_CATALOGO.chill[1], OFFLINE_CATALOGO.mpb[0]];
-    texto = `Entendi seu pedido! Busquei no acervo de 114k faixas do Spotify algumas recomendações que combinam com "${mensagem}":`;
+/**
+ * Erro do backend padronizado pelo Ticket 8.3 (HTTP 5xx com corpo {"erro": "..."}).
+ * Sinalizado com uma classe própria pra não cair no fallback silencioso de mock:
+ * o Ticket 4.8 (KAN-75) exige feedback visível ao usuário nesse caso, não um
+ * console.warn escondido atrás de uma resposta falsa de sucesso.
+ */
+class ErroBackend extends Error {
+  constructor(mensagem, status) {
+    super(mensagem);
+    this.name = 'ErroBackend';
+    this.status = status;
   }
-
-  return {
-    session_id: sessionId,
-    mensagem: texto,
-    faixas: faixas,
-    diversidade_generos: faixas.length > 0 ? 1 : 0,
-    cobertura_sessao: 1.0,
-    consulta_efetiva: { genero: genero, consulta: mensagem },
-    _offline: true,
-  };
 }
 
-async function enviarMensagem(sessionId, mensagem) {
+async function enviarMensagem(sessionId, mensagem, extras = {}) {
   const url = `${API_BASE_URL}/chat`;
+  const controller = new AbortController();
+  // Ollama local pode fazer 2 chamadas de LLM por turno (extração + geração,
+  // ver chat/pipeline.py), cada uma com ate LLM_TIMEOUT_SECONDS (20s no
+  // .env) do backend — latencia real medida variou de ~12s a ~28.5s entre
+  // chamadas (CPU sob carga, sem GPU), entao 25s aqui no cliente ainda
+  // abortava antes da resposta chegar. 60s cobre o pior caso (2 chamadas
+  // no limite do timeout do backend) sem deixar a espera indefinida.
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
+
+  let response;
+  try {
+    response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      // Ticket 12.4 (KAN-107): `extras` carrega faixas_ja_mostradas quando o
+      // pedido vem do botão "Gerar outra recomendação" — o backend hoje
+      // ignora chaves que ChatRequest não declara (comportamento padrão do
+      // pydantic), então isso é inofensivo enquanto o schema não abraça o
+      // campo, e já fica pronto pro dia em que abraçar.
+      body: JSON.stringify({
+        session_id: sessionId,
+        mensagem: mensagem,
+        // Ticket 16: preferência local de excluir faixas explícitas por padrão.
+        excluir_explicit: loadSettings().excludeExplicit,
+        ...extras,
+      }),
+      signal: controller.signal,
+    });
+  } catch (err) {
+    clearTimeout(timeoutId);
+    console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
+    await new Promise((r) => setTimeout(r, 650));
+    // Não apresenta um catálogo local como se fosse uma recomendação
+    // confirmada. A interface trata esta falha com uma mensagem clara.
+    throw err;
+  }
+  clearTimeout(timeoutId);
+
+  // Ticket 4.9 (KAN-76): limite de mensagens atingido (rate limiting do
+  // ticket 8.4, quando ligado no backend). Fica fora do try/catch acima de
+  // propósito — não deve cair no fallback offline, que mascararia do
+  // usuário que ele precisa esperar antes de tentar de novo.
+  if (response.status === 429) {
+    const rateLimitError = new Error('Limite de mensagens atingido (HTTP 429).');
+    rateLimitError.isRateLimit = true;
+    throw rateLimitError;
+  }
+
+  if (response.status >= 500) {
+    let corpo = null;
+    try {
+      corpo = await response.json();
+    } catch (_) {
+      // resposta 500 sem JSON válido — segue com mensagem genérica abaixo
+    }
+    throw new ErroBackend((corpo && corpo.erro) || 'erro interno do servidor', response.status);
+  }
+
+  if (!response.ok) {
+    throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Cria uma sessão no backend (POST /session) e devolve o `session_id` gerado por ele.
+ * O backend nunca aceita um `session_id` inventado pelo cliente (SessionStore só reconhece
+ * ids que ele mesmo gerou via uuid4) — sem essa chamada, todo POST /chat cai em 404
+ * `sessao_invalida`, mesmo em uma conversa nova. Retorna `null` se o backend estiver
+ * inacessível (rede/timeout); os chamadores decidem o fallback (id local, offline).
+ */
+async function criarSessaoRemota() {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${API_BASE_URL}/session`, {
+      method: 'POST',
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.session_id || null;
+  } catch (e) {
+    console.warn('Não foi possível criar sessão no backend, mantendo id local:', e);
+    return null;
+  }
+}
+
+/**
+ * Consulta o histórico salvo no backend para a sessão atual (Ticket 4.6, GET /chat/historico).
+ * Retorna `null` quando o backend está inacessível (falha de rede/timeout) — nesse caso o
+ * chamador deve recorrer ao cache local, preservando o comportamento resiliente já existente
+ * em enviarMensagem(). Retorna `{ valida: false }` quando a sessão não existe mais no backend
+ * (HTTP 404), sem lançar erro visível ao usuário.
+ */
+async function buscarHistoricoRemoto(sessionId) {
+  const url = `${API_BASE_URL}/chat/historico?session_id=${encodeURIComponent(sessionId)}`;
 
   try {
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
-    const response = await fetch(url, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        session_id: sessionId,
-        mensagem: mensagem,
-        excluir_explicit: loadSettings().excludeExplicit,
-      }),
-      signal: controller.signal,
-    });
+    const response = await fetch(url, { method: 'GET', signal: controller.signal });
 
     clearTimeout(timeoutId);
 
-    if (!response.ok) {
-      throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
+    if (response.status === 404) {
+      // Sessão inválida/expirada: cai pro estado de conversa nova, sem erro visível ao usuário.
+      return { valida: false, mensagens: [] };
     }
 
-    return await response.json();
+    if (!response.ok) {
+      throw new Error(`Erro ao consultar histórico: HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    return { valida: true, mensagens: mapearHistoricoRemoto(data.historico) };
   } catch (err) {
-    console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
-    await new Promise((r) => setTimeout(r, 650));
-    return resolverMockLocal(sessionId, mensagem);
+    console.warn('Histórico remoto indisponível, utilizando cache local como fallback:', err);
+    return null;
   }
 }
 
@@ -288,6 +333,240 @@ function saveCreatedPlaylist(playlist) {
   }
 }
 
+/**
+ * Converte o formato de histórico devolvido pelo backend (roles 'usuario'/'agente'/'sistema')
+ * para o formato de mensagem usado pela interface de chat (roles 'user'/'agent').
+ * Ticket 4.6/KAN-73: `faixas` traz os metadados completos (nome/artista/álbum/gênero),
+ * reconstruídos no backend a partir de faixas_citadas — os cards de faixa reaparecem
+ * normalmente ao restaurar o histórico, não só o texto.
+ */
+function mapearHistoricoRemoto(historico) {
+  const ROLE_MAP = { usuario: 'user', agente: 'agent', sistema: 'agent' };
+  if (!Array.isArray(historico)) return [];
+
+  return historico.map((item, indice) => ({
+    id: `historico-${indice}-${item.timestamp || indice}`,
+    role: ROLE_MAP[item.role] || 'agent',
+    conteudo: item.conteudo,
+    faixas: Array.isArray(item.faixas) ? item.faixas : [],
+    timestamp: item.timestamp,
+  }));
+}
+
+/**
+ * Ticket 12.2 (KAN-105): consulta GET /auth/status pra saber se a sessão
+ * atual está autenticada com o Spotify (ticket 12.1, GET /auth/status).
+ * Falha de rede/timeout resolve pra `false` (fail-closed) — não mostra ação
+ * que exige login sem ter certeza de que ele existe.
+ */
+async function verificarStatusSpotify(sessionId) {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+    const response = await fetch(`${API_BASE_URL}/auth/status?session_id=${encodeURIComponent(sessionId)}`, {
+      signal: controller.signal,
+    });
+    clearTimeout(timeoutId);
+    if (!response.ok) return false;
+    const data = await response.json();
+    return Boolean(data.autenticado);
+  } catch (err) {
+    console.warn('Não foi possível verificar o status de autenticação com o Spotify:', err);
+    return false;
+  }
+}
+
+/**
+ * Ticket 20.8 (KAN-167) + 20.9 (KAN-168): busca `display_name` e foto de
+ * perfil (`images[0].url`) do usuário Spotify logado (`GET /explorer/me`,
+ * ticket 13.10) numa única chamada, pra mostrar os dois no header. Só é
+ * chamada ao (re)autenticar — nunca a cada render do botão. Falha de
+ * rede/parse resolve pra `{ displayName: null, avatarUrl: null }`, e quem
+ * chama cai nos fallbacks genéricos (rótulo padrão / placeholder de avatar).
+ */
+async function buscarPerfilSpotify(sessionId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/explorer/me?session_id=${encodeURIComponent(sessionId)}`);
+    if (!response.ok) return { displayName: null, avatarUrl: null };
+    const data = await response.json();
+    return {
+      displayName: (data && data.display_name) || null,
+      avatarUrl: (data && data.images && data.images[0] && data.images[0].url) || null,
+    };
+  } catch (err) {
+    console.warn('Não foi possível obter o perfil do usuário Spotify:', err);
+    return { displayName: null, avatarUrl: null };
+  }
+}
+
+/**
+ * Ticket 20.10 (KAN-169): monta o avatar de uma mensagem do usuário —
+ * reaproveita `spotifyAvatarUrl` (já buscado em 20.8/20.9 no login, sem
+ * chamada nova por mensagem) quando há sessão Spotify conectada com foto de
+ * perfil pública; ícone neutro genérico caso contrário — o chat funciona
+ * sem login, então o avatar nunca pode depender de estar conectado.
+ */
+function renderizarAvatarUsuario(avatarEl) {
+  if (spotifyAvatarUrl) {
+    avatarEl.innerHTML = `<img src="${escapeHtml(spotifyAvatarUrl)}" alt="" class="message-avatar-img">`;
+    avatarEl.title = spotifyDisplayName || 'Você';
+  } else {
+    avatarEl.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      </svg>
+    `;
+    avatarEl.title = 'Você';
+  }
+}
+
+/**
+ * Corrige os avatares de usuário já renderizados quando o perfil Spotify
+ * termina de carregar depois do histórico inicial (init() só resolve
+ * verificarStatusSpotify/buscarPerfilSpotify após carregarHistoricoInicial
+ * — sem isso, bolhas restauradas de uma sessão já conectada nasceriam com
+ * o placeholder genérico e nunca ganhariam a foto real).
+ */
+function atualizarAvataresUsuario() {
+  document.querySelectorAll('.message-row.user .message-avatar').forEach(renderizarAvatarUsuario);
+}
+
+/**
+ * Ticket 4.5 (KAN-40): chama POST /auth/logout (ticket 5.8,
+ * spotify_auth/routes.py) pra descartar os tokens Spotify da sessão atual.
+ * Não recebe `session_id` no corpo — a rota espera query param, como
+ * /auth/status logo acima.
+ */
+async function logoutSpotify(sessionId) {
+  const response = await fetch(`${API_BASE_URL}/auth/logout?session_id=${encodeURIComponent(sessionId)}`, {
+    method: 'POST',
+  });
+
+  if (!response.ok) {
+    throw new Error(`Erro ao desconectar do Spotify: HTTP ${response.status}`);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Lê o parâmetro `?spotify_login=` deixado pelo redirect de
+ * spotify_auth/routes.py (GET /auth/callback) depois do fluxo OAuth (ticket
+ * 4.7 / KAN-74), mostra um toast com o resultado e limpa a URL — sem isso o
+ * parâmetro ficaria preso na barra de endereço após um reload.
+ */
+function tratarRetornoLoginSpotify() {
+  const params = new URLSearchParams(window.location.search);
+  const resultado = params.get('spotify_login');
+  if (!resultado) return;
+
+  const MENSAGENS_POR_RESULTADO = {
+    success: 'Conectado ao Spotify com sucesso!',
+    cancelled: 'Login com o Spotify cancelado.',
+    failed: 'Não foi possível conectar ao Spotify. Tente novamente.',
+    state_mismatch: 'Falha de segurança ao conectar ao Spotify. Tente novamente.',
+  };
+  const mensagem = MENSAGENS_POR_RESULTADO[resultado];
+  if (mensagem) showToast(mensagem);
+
+  params.delete('spotify_login');
+  const query = params.toString();
+  const novaUrl = `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`;
+  window.history.replaceState({}, '', novaUrl);
+}
+
+/**
+ * Ticket 12.1 (KAN-104): chama POST /playlist/criar com as faixas da
+ * sessão atual. `nome`/`descricao` (ticket 12.6) — opcionais, vêm do modal
+ * de confirmação (playlistSaveModal.js), que pré-preenche com uma sugestão
+ * do LLM mas deixa o usuário editar antes de confirmar. Propaga erro
+ * (mensagem do backend, quando houver) pro chamador tratar visivelmente —
+ * nunca falha silenciosa em console.log.
+ */
+async function criarPlaylistSpotify(trackIds, { nome, descricao } = {}) {
+  const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ session_id: currentSessionId, faixas: trackIds, nome, descricao }),
+  });
+
+  if (!response.ok) {
+    let corpo = null;
+    try {
+      corpo = await response.json();
+    } catch (_) {
+      // resposta sem JSON válido — segue com a mensagem genérica abaixo
+    }
+    const mensagem = (corpo && corpo.detail && corpo.detail.mensagem) || 'Não foi possível salvar a playlist no Spotify.';
+    throw new Error(mensagem);
+  }
+
+  return await response.json();
+}
+
+/**
+ * Handler do clique em "Salvar no Spotify" (ticket 12.2/12.6): abre o modal
+ * de confirmação (playlistSaveModal.js) com a lista de faixas e uma
+ * sugestão de título/descrição gerada pelo LLM — a criação de verdade só
+ * acontece se o usuário confirmar dentro do modal.
+ */
+function handleSalvarSpotify(faixas) {
+  if (!faixas || faixas.length === 0) return;
+
+  if (!window.ResIAPlaylistModal || typeof window.ResIAPlaylistModal.open !== 'function') {
+    console.error('Modal de salvar playlist indisponível (playlistSaveModal.js não carregado).');
+    return;
+  }
+  window.ResIAPlaylistModal.open(faixas);
+}
+
+/**
+ * Handler de logout (Ticket 4.5 / KAN-40): acionado ao clicar no botão de
+ * Spotify quando a sessão já está conectada (ver setupEventListeners).
+ * Critérios de aceite: (1) após o logout a UI volta ao estado anônimo —
+ * `isSpotifyAuthenticated` some, o botão e as ações Spotify-gated somem
+ * junto; (2) o histórico da conversa atual permanece intacto — não toca em
+ * `messages` nem re-renderiza os balões, só a UI/estado de autenticação.
+ * Falha na chamada vira showErrorBanner (nunca falha silenciosa), reaproveitando
+ * o mesmo padrão do Ticket 4.8 (KAN-75).
+ */
+async function handleLogoutSpotify() {
+  if (!btnSpotifyAuth || btnSpotifyAuth.disabled) return;
+
+  btnSpotifyAuth.disabled = true;
+  const label = btnSpotifyAuth.querySelector('span');
+  if (label) label.textContent = 'Desconectando...';
+
+  try {
+    await logoutSpotify(currentSessionId);
+    isSpotifyAuthenticated = false;
+    spotifyDisplayName = null;
+    spotifyAvatarUrl = null;
+    removerAcoesSpotifyGated();
+    showToast('Desconectado do Spotify.');
+  } catch (err) {
+    console.error('Erro ao desconectar do Spotify:', err);
+    showErrorBanner('Não foi possível desconectar do Spotify. Tente novamente.', handleLogoutSpotify);
+  } finally {
+    btnSpotifyAuth.disabled = false;
+    // Ressincroniza label/classe/title com o `isSpotifyAuthenticated` atual —
+    // volta ao estado anônimo em caso de sucesso, ou restaura "conectado" se
+    // a chamada falhou (nada mudou no backend nesse caso).
+    atualizarBotaoSpotifyAuth();
+  }
+}
+
+/**
+ * Remove as ações "Salvar no Spotify" já renderizadas em respostas
+ * anteriores da conversa atual (Ticket 4.5 / KAN-40) — depois do logout elas
+ * dariam 401 se clicadas. O texto e os cards de faixa das mensagens
+ * permanecem intactos; some só essa ação Spotify-gated (critério de aceite
+ * de UI voltar ao estado anônimo, sem apagar a conversa).
+ */
+function removerAcoesSpotifyGated() {
+  document.querySelectorAll('.btn-salvar-spotify').forEach((btn) => btn.remove());
+}
+
 // ==========================================
 // 3. Controlador da Interface e Estado
 // ==========================================
@@ -299,12 +578,41 @@ let activePanel = null;
 let lastPanelTrigger = null;
 let discoveries = { genres: new Map(), artists: new Map(), turns: [] };
 let settings = loadSettings();
+// Ticket 12.2 (KAN-105): reflete se a sessão atual tem login Spotify ativo
+// no backend (GET /auth/status) — controla se o botão "Salvar no Spotify"
+// aparece nos cards de resposta. Começa false (fail-closed): enquanto não
+// confirmamos com o backend, não mostramos ação que exige autenticação.
+let isSpotifyAuthenticated = false;
+// Ticket 20.8 (KAN-167) + 20.9 (KAN-168): display_name e foto de perfil do
+// usuário Spotify logado, pra mostrar no header em vez do rótulo/ícone
+// genérico. Cache em memória — só busca de novo ao (re)autenticar
+// (init/logout), não a cada render do botão.
+let spotifyDisplayName = null;
+let spotifyAvatarUrl = null;
+// Ticket 12.4 (KAN-107): track_ids de toda faixa já mostrada nesta sessão
+// (acumulado no cliente a partir de msg.faixas de cada resposta do agente),
+// usado pelo botão "Gerar outra recomendação" pra pedir uma busca nova sem
+// repetir o que já apareceu.
+const faixasMostradasSessao = new Set();
+// Ticket 20.10 (KAN-169): role da última mensagem renderizada (histórico ou
+// nova), pra agrupar visualmente avatares consecutivos do mesmo autor sem
+// repeti-los a cada bolha.
+let ultimoAutorRenderizado = null;
+
+function atualizarFaixasMostradas(faixas) {
+  if (!Array.isArray(faixas)) return;
+  faixas.forEach((faixa) => {
+    if (faixa && faixa.track_id) faixasMostradasSessao.add(faixa.track_id);
+  });
+}
 
 // Elementos DOM
 const sessionIdDisplay = document.getElementById('session-id-display');
 const btnCopySession = document.getElementById('btn-copy-session');
 const btnNewChat = document.getElementById('btn-new-chat');
 const btnSpotifyAuth = document.getElementById('btn-spotify-auth');
+const spotifyAuthIcon = document.getElementById('spotify-auth-icon');
+const spotifyAuthAvatar = document.getElementById('spotify-auth-avatar');
 const chatScrollArea = document.getElementById('chat-scroll-area');
 const heroEmptyState = document.getElementById('hero-empty-state');
 const messagesContainer = document.getElementById('messages-container');
@@ -325,22 +633,227 @@ const panelDefinitions = {
   about: { panel: document.getElementById('about-panel'), content: document.getElementById('about-panel-content') },
   playlists: { panel: document.getElementById('playlists-panel'), content: document.getElementById('playlists-panel-content') },
 };
+const btnThemeToggle = document.getElementById('btn-theme-toggle');
+const iconThemeDark = document.getElementById('icon-theme-dark');
+const iconThemeLight = document.getElementById('icon-theme-light');
+const btnHeaderMenu = document.getElementById('btn-header-menu');
+const headerMenuPanel = document.querySelector('.header-menu-panel');
 
-function init() {
+// ==========================================
+// 2.1 Módulo de Tema Claro/Escuro (Ticket 12.5 / KAN-108)
+// ==========================================
+const THEME_STORAGE_KEY = 'resia_theme';
+
+function getStoredTheme() {
+  try {
+    return localStorage.getItem(THEME_STORAGE_KEY);
+  } catch (e) {
+    console.warn('Falha ao ler preferência de tema do localStorage:', e);
+    return null;
+  }
+}
+
+function saveStoredTheme(theme) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, theme);
+  } catch (e) {
+    console.warn('Falha ao salvar preferência de tema no localStorage:', e);
+  }
+}
+
+/**
+ * Aplica o tema imediatamente (sem reload — critério de aceite do ticket
+ * 12.5) alternando `data-theme` na raiz do documento; style.css cuida do
+ * resto via `[data-theme="light"]` sobrescrevendo os tokens de cor.
+ */
+function applyTheme(theme) {
+  if (theme === 'light') {
+    document.documentElement.setAttribute('data-theme', 'light');
+  } else {
+    document.documentElement.removeAttribute('data-theme');
+  }
+  if (iconThemeDark) iconThemeDark.style.display = theme === 'light' ? 'none' : '';
+  if (iconThemeLight) iconThemeLight.style.display = theme === 'light' ? '' : 'none';
+  if (btnThemeToggle) {
+    btnThemeToggle.setAttribute('aria-pressed', theme === 'light' ? 'true' : 'false');
+    btnThemeToggle.title = theme === 'light' ? 'Mudar para tema escuro' : 'Mudar para tema claro';
+  }
+}
+
+function toggleTheme() {
+  const temaAtual = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  const novoTema = temaAtual === 'light' ? 'dark' : 'light';
+  applyTheme(novoTema);
+  saveStoredTheme(novoTema);
+}
+
+// ==========================================
+// 2.2 Menu "···" de ações secundárias do header (Ticket 20.6 / KAN-165)
+// ==========================================
+function closeHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  headerMenuPanel.classList.remove('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', 'false');
+}
+
+function toggleHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  const isOpen = headerMenuPanel.classList.toggle('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
+async function init() {
+  // Ticket 12.5 (KAN-108): sincroniza os ícones/estado do botão com o
+  // `data-theme` que o script inline no <head> já aplicou na raiz do
+  // documento antes da primeira pintura (evita flash de tema errado).
+  applyTheme(document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark');
+
   currentSessionId = getSessionId();
   updateSessionDisplay();
+  setupEventListeners();
+  tratarRetornoLoginSpotify();
 
-  messages = loadChatHistory(currentSessionId);
+  // Bloqueia novo input enquanto o histórico é recuperado (Ticket 4.6, critério de aceite:
+  // "mensagens anteriores aparecem antes de qualquer novo envio").
+  isProcessing = true;
+  if (btnSend) btnSend.disabled = true;
+
+  // Garante que `currentSessionId` existe de verdade no backend antes de qualquer
+  // chamada que dependa dele — um id gerado só no cliente (getSessionId acima)
+  // nunca foi registrado via POST /session, e tanto /auth/status quanto /chat
+  // rejeitam session_id desconhecido.
+  await carregarHistoricoInicial();
+
+  // Ticket 12.2 (KAN-105): resolve o status de autenticação Spotify antes de
+  // renderizar qualquer bolha de mensagem, pra já nascer com o botão
+  // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
+  isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
+  if (isSpotifyAuthenticated) {
+    const perfil = await buscarPerfilSpotify(currentSessionId);
+    spotifyDisplayName = perfil.displayName;
+    spotifyAvatarUrl = perfil.avatarUrl;
+  } else {
+    spotifyDisplayName = null;
+    spotifyAvatarUrl = null;
+  }
+  atualizarBotaoSpotifyAuth();
+  // Ticket 20.10 (KAN-169): o histórico já renderizou com placeholder
+  // (carregarHistoricoInicial roda antes do perfil resolver, ver acima) —
+  // corrige agora que `spotifyAvatarUrl` está definitivo.
+  atualizarAvataresUsuario();
+
+  isProcessing = false;
+  if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
+}
+
+/**
+ * Reflete `isSpotifyAuthenticated` no botão do header (ticket 12.2) — feedback
+ * visível de que a sessão já está conectada, sem precisar clicar de novo.
+ *
+ * Também dispara `resia:spotify-auth-changed` (Ticket 20.7 / KAN-166): é o
+ * único ponto do app que muda `isSpotifyAuthenticated` (init/logout), então
+ * é o lugar certo pra avisar quem precisa nascer/sumir com o estado de auth
+ * — ex. o widget "Tocando agora" (components/nowPlaying.js), que nunca pode
+ * aparecer pra usuário anônimo.
+ */
+function atualizarBotaoSpotifyAuth() {
+  if (!btnSpotifyAuth) return;
+  const label = btnSpotifyAuth.querySelector('span');
+  if (isSpotifyAuthenticated) {
+    btnSpotifyAuth.classList.add('btn-spotify-auth--connected');
+    // Ticket 4.5 (KAN-40): o botão agora também é a ação de logout.
+    btnSpotifyAuth.title = 'Clique para desconectar do Spotify';
+    // Ticket 20.8 (KAN-167): mostra o nome de quem está logado quando
+    // disponível; cai no rótulo genérico se a conta não tem nome público.
+    if (label) label.textContent = spotifyDisplayName || 'Spotify conectado';
+    // Ticket 20.9 (KAN-168): avatar no lugar do ícone genérico do Spotify.
+    // Placeholder com a inicial do nome quando a conta não tem foto pública
+    // (`images` vazio) — nunca uma <img> quebrada.
+    if (spotifyAuthIcon) spotifyAuthIcon.hidden = true;
+    if (spotifyAuthAvatar) {
+      spotifyAuthAvatar.hidden = false;
+      spotifyAuthAvatar.textContent = '';
+      if (spotifyAvatarUrl) {
+        const img = document.createElement('img');
+        img.src = spotifyAvatarUrl;
+        img.alt = '';
+        img.className = 'spotify-auth-avatar-img';
+        spotifyAuthAvatar.appendChild(img);
+      } else {
+        spotifyAuthAvatar.textContent = (spotifyDisplayName || '?').trim().charAt(0).toUpperCase();
+      }
+    }
+  } else {
+    btnSpotifyAuth.classList.remove('btn-spotify-auth--connected');
+    btnSpotifyAuth.title = 'Conectar com o Spotify para recomendações personalizadas';
+    if (label) label.textContent = 'Conectar Spotify';
+    // Ticket 20.9 (KAN-168): sem sessão Spotify não existe avatar — volta o
+    // ícone padrão do botão.
+    if (spotifyAuthIcon) spotifyAuthIcon.hidden = false;
+    if (spotifyAuthAvatar) {
+      spotifyAuthAvatar.hidden = true;
+      spotifyAuthAvatar.textContent = '';
+    }
+  }
+  window.dispatchEvent(new CustomEvent('resia:spotify-auth-changed', { detail: { authenticated: isSpotifyAuthenticated } }));
+}
+
+/**
+ * Recupera o histórico ao reabrir a conversa (Ticket 4.6):
+ * 1. Tenta buscar o histórico salvo no backend (GET /chat/historico).
+ * 2. Sessão válida: usa o histórico do backend e sincroniza o cache local.
+ * 3. Sessão inválida/expirada (404): estado de conversa nova, sem erro visível ao usuário.
+ * 4. Backend inacessível (rede/timeout): mantém o comportamento anterior, restaurando do
+ *    localStorage — não regride a experiência quando offline.
+ */
+async function carregarHistoricoInicial(resultado) {
+  // `init` já consulta o backend para validar/criar a sessão antes de chamar
+  // esta função. Mantemos a leitura aqui como fallback para usos futuros que
+  // chamem a função isoladamente.
+  if (resultado === undefined) {
+    resultado = await buscarHistoricoRemoto(currentSessionId);
+  }
+
+  if (resultado === null) {
+    messages = loadChatHistory(currentSessionId);
+  } else if (resultado.valida) {
+    messages = resultado.mensagens;
+    saveChatHistory(currentSessionId, messages);
+  } else {
+    // Sessão local não existe no backend (id gerado pelo cliente, ou expirada) —
+    // registra uma sessão de verdade agora, pra POST /chat não cair em 404
+    // sessao_invalida no primeiro envio.
+    const idAntigo = currentSessionId;
+    const novoId = await criarSessaoRemota();
+    if (novoId) {
+      currentSessionId = novoId;
+      saveSessionId(novoId);
+      updateSessionDisplay();
+    }
+    messages = [];
+    clearChatHistory(idAntigo);
+  }
+
+  // Ticket 12.4 (KAN-107): semeia o set de faixas já mostradas a partir do
+  // histórico restaurado — cache local e histórico do backend (ticket
+  // 4.6/KAN-73) contribuem igual agora que mapearHistoricoRemoto traz
+  // msg.faixas completo em ambos os casos.
+  messages.forEach((msg) => atualizarFaixasMostradas(msg.faixas));
+
+  // Ticket 4.12 (KAN-79): sessão restaurada já tem histórico -> não mostra onboarding.
+  // (a checagem de messages.length abaixo já cobre isso; sem novo fetch local aqui,
+  // que sobrescreveria o resultado do 4.6 acima com o cache desatualizado.)
   if (messages.length > 0) {
     if (heroEmptyState) heroEmptyState.style.display = 'none';
     messages.forEach((msg) => renderMessageBubble(msg, false));
     scrollToBottom();
   }
 
+  // Ticket 17: reconstrói o índice de descobertas a partir do histórico restaurado.
   rebuildDiscoveries();
   applyTheme(settings.theme);
-
-  setupEventListeners();
 }
 
 function updateSessionDisplay() {
@@ -369,6 +882,51 @@ function showToast(message, duration = 3000) {
 }
 window.showToast = showToast;
 
+/**
+ * Banner/toast genérico de erro (Ticket 4.8 / KAN-75).
+ * Reaproveita o container de toasts existente em vez de criar um novo componente.
+ * Diferente de showToast(), não some sozinho: fica visível até o usuário fechar
+ * ou tentar de novo, e nunca bloqueia o restante da tela/chat.
+ */
+function showErrorBanner(message, onRetry) {
+  if (!toastContainer) {
+    window.alert(message);
+    return;
+  }
+
+  const toast = document.createElement('div');
+  toast.className = 'toast-notification toast-error';
+  toast.setAttribute('role', 'alert');
+
+  const textElem = document.createElement('span');
+  textElem.className = 'toast-error-text';
+  textElem.textContent = message;
+  toast.appendChild(textElem);
+
+  if (typeof onRetry === 'function') {
+    const retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.className = 'toast-retry-btn';
+    retryBtn.textContent = 'Tentar novamente';
+    retryBtn.addEventListener('click', () => {
+      toast.remove();
+      onRetry();
+    });
+    toast.appendChild(retryBtn);
+  }
+
+  const closeBtn = document.createElement('button');
+  closeBtn.type = 'button';
+  closeBtn.className = 'toast-close-btn';
+  closeBtn.setAttribute('aria-label', 'Fechar aviso');
+  closeBtn.textContent = '×';
+  closeBtn.addEventListener('click', () => toast.remove());
+  toast.appendChild(closeBtn);
+
+  toastContainer.appendChild(toast);
+}
+window.showErrorBanner = showErrorBanner;
+
 function setupEventListeners() {
   document.getElementById('btn-profile-panel')?.addEventListener('click', (event) => openPanel('profile', event.currentTarget));
   document.getElementById('btn-history-panel')?.addEventListener('click', (event) => openPanel('history', event.currentTarget));
@@ -388,12 +946,15 @@ function setupEventListeners() {
     }
   });
 
-  btnNewChat?.addEventListener('click', () => {
+  btnNewChat?.addEventListener('click', async () => {
     if (isProcessing) return;
     cancelEditMessage();
-    currentSessionId = resetSession();
+    currentSessionId = await resetSession();
     messages = [];
+    faixasMostradasSessao.clear();
+    ultimoAutorRenderizado = null;
     messagesContainer.innerHTML = '';
+    // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
     if (heroEmptyState) heroEmptyState.style.display = 'flex';
     updateSessionDisplay();
     showToast('Nova conversa iniciada!');
@@ -401,7 +962,49 @@ function setupEventListeners() {
   });
 
   btnSpotifyAuth?.addEventListener('click', () => {
-    showToast('Autenticação Spotify OAuth pronta para integração (Épico 5).');
+    // Ticket 4.5 (KAN-40): sessão já conectada -> o mesmo botão desconecta
+    // em vez de iniciar um novo fluxo OAuth (evita duplicar todo o padrão
+    // de botão de auth só pra um logout). Ticket 20.11 (KAN-170): antes de
+    // desconectar de fato, confirma com o usuário — evita clique acidental.
+    if (isSpotifyAuthenticated) {
+      if (window.ResIALogoutConfirmModal) {
+        window.ResIALogoutConfirmModal.open(handleLogoutSpotify);
+      } else {
+        handleLogoutSpotify();
+      }
+      return;
+    }
+
+    // Ticket 4.7 (KAN-74): antes de qualquer redirect real pro Spotify, o
+    // usuário passa pela página de consentimento própria do backend
+    // (GET /auth/login → spotify_auth/consent.py), que lista os scopes
+    // lidos e a política de dados (ticket 5.10) e só depois linka pro
+    // redirect de fato (GET /auth/login/start). Abrimos essa página em vez
+    // de replicar o texto aqui pra não divergir do que o backend descreve.
+    window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
+  });
+
+  btnThemeToggle?.addEventListener('click', toggleTheme);
+
+  // Ticket 20.6 (KAN-165): abre/fecha o menu "···" e fecha em clique fora,
+  // Esc ou seleção de qualquer item (tema, QR login, Explorar Spotify).
+  btnHeaderMenu?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu();
+  });
+
+  headerMenuPanel?.addEventListener('click', (e) => {
+    if (e.target.closest('.header-menu-item')) closeHeaderMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!headerMenuPanel || !headerMenuPanel.classList.contains('is-open')) return;
+    if (headerMenuPanel.contains(e.target) || btnHeaderMenu?.contains(e.target)) return;
+    closeHeaderMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeHeaderMenu();
   });
 
   btnMic?.addEventListener('click', () => {
@@ -717,6 +1320,23 @@ function formatarHora(timestamp) {
   return data.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 }
 
+function criarResumoDiversidadeECobertura(resposta) {
+  // Ticket 6.2: os números já calculados pelo backend aparecem junto das
+  // recomendações, em linguagem simples. O indicador também deixa explícito
+  // quando popularidade participa do ranqueamento, sem esconder esse sinal.
+  const diversidade = Number(resposta.diversidade_generos) || 0;
+  const cobertura = Math.max(0, Math.min(1, Number(resposta.cobertura_sessao) || 0));
+  const resumo = document.createElement('aside');
+  resumo.className = 'recommendation-metrics';
+  resumo.setAttribute('aria-label', 'Resumo de diversidade e novidade das recomendações');
+  resumo.innerHTML = `
+    <span><strong>${diversidade}</strong> gênero${diversidade === 1 ? '' : 's'} na seleção</span>
+    <span><strong>${Math.round(cobertura * 100)}%</strong> de faixas novas nesta conversa</span>
+    <small>O resultado combina seu pedido com sinais como popularidade, sem definir sozinho a recomendação.</small>
+  `;
+  return resumo;
+}
+
 function escapeHtml(text) {
   if (!text) return '';
   const div = document.createElement('div');
@@ -854,27 +1474,37 @@ function renderMessageBubble(msg, animar = true) {
   const row = document.createElement('div');
   row.className = `message-row ${msg.role}`;
   if (!animar) row.style.animation = 'none';
+  // Ticket 20.10 (KAN-169): agrupa visualmente mensagens consecutivas do
+  // mesmo autor — some só o avatar (mantém o espaço reservado pra bolha
+  // não perder o alinhamento), o texto/timestamp de cada bolha continua
+  // completo.
+  if (msg.role === ultimoAutorRenderizado) {
+    row.classList.add('message-row--grouped');
+  }
+  ultimoAutorRenderizado = msg.role;
 
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
   if (msg.role === 'agent') {
+    // Mesmo ícone/gradiente do mascote ResIA usado em .brand-icon-wrapper
+    // no header (ticket 20.10 pede reaproveitar esse ícone, não um novo).
     avatar.innerHTML = `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.485 17.307c-.215.353-.675.466-1.027.25-2.813-1.718-6.353-2.107-10.523-1.155-.403.092-.806-.16-.898-.564-.092-.403.16-.806.564-.898 4.566-1.042 8.487-.6 11.634 1.34.352.216.465.675.25 1.027zm1.464-3.26c-.27.44-.847.58-1.288.31-3.22-1.98-8.127-2.55-11.936-1.393-.497.15-1.028-.135-1.18-.63-.15-.497.135-1.028.63-1.18 4.354-1.32 9.774-.688 13.464 1.584.44.27.58.847.31 1.288zm.126-3.41c-3.86-2.29-10.224-2.5-13.882-1.39-.59.18-1.22-.16-1.4-.75-.18-.59.16-1.22.75-1.4 4.21-1.28 11.23-1.04 15.68 1.6.53.31.7.99.39 1.52-.31.53-.99.7-1.52.39z"/>
       </svg>
     `;
     avatar.title = 'Agente ResIA';
   } else {
-    avatar.innerHTML = `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-      </svg>
-    `;
-    avatar.title = 'Você';
+    renderizarAvatarUsuario(avatar);
   }
 
   const bubble = document.createElement('div');
   bubble.className = 'message-bubble';
+  // Ticket 4.9 (KAN-76): marca visualmente a mensagem de limite de taxa
+  // (HTTP 429) como distinta de uma resposta normal do agente.
+  if (msg.isRateLimitError) {
+    bubble.classList.add('message-bubble--rate-limit');
+  }
 
   const textElem = document.createElement('div');
   textElem.className = 'message-text';
@@ -897,6 +1527,44 @@ function renderMessageBubble(msg, animar = true) {
 
     if (tracksSection) {
       bubble.appendChild(tracksSection);
+    }
+
+    if (msg.metricas) {
+      bubble.appendChild(criarResumoDiversidadeECobertura(msg.metricas));
+    }
+
+    // Ações logo abaixo dos cards de faixa — só faz sentido pra respostas do
+    // agente (nunca numa mensagem do próprio usuário).
+    if (msg.role === 'agent') {
+      const actionsRow = document.createElement('div');
+      actionsRow.className = 'response-actions';
+
+      // Ticket 12.4 (KAN-107): "Gerar outra recomendação" aparece em toda
+      // resposta com faixas, sessão autenticada ou não.
+      const btnOutraRecomendacao = document.createElement('button');
+      btnOutraRecomendacao.type = 'button';
+      btnOutraRecomendacao.className = 'btn-response-action btn-outra-recomendacao';
+      btnOutraRecomendacao.textContent = 'Gerar outra recomendação';
+      btnOutraRecomendacao.addEventListener('click', () => {
+        if (isProcessing) return;
+        enviarMensagemUsuario('Gere outra recomendação, sem repetir as músicas já mostradas.', {
+          extras: { faixas_ja_mostradas: Array.from(faixasMostradasSessao) },
+        });
+      });
+      actionsRow.appendChild(btnOutraRecomendacao);
+
+      // Ticket 12.2 (KAN-105): "Salvar no Spotify" só aparece pra sessão
+      // autenticada — nunca tenta a ação sabendo de antemão que vai dar 401.
+      if (isSpotifyAuthenticated) {
+        const btnSalvar = document.createElement('button');
+        btnSalvar.type = 'button';
+        btnSalvar.className = 'btn-response-action btn-salvar-spotify';
+        btnSalvar.textContent = 'Salvar no Spotify';
+        btnSalvar.addEventListener('click', () => handleSalvarSpotify(msg.faixas));
+        actionsRow.appendChild(btnSalvar);
+      }
+
+      bubble.appendChild(actionsRow);
     }
   }
 
@@ -927,27 +1595,33 @@ function renderMessageBubble(msg, animar = true) {
   messagesContainer.appendChild(row);
 }
 
-async function enviarMensagemUsuario(texto) {
+async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {}) {
   if (isProcessing) return;
   isProcessing = true;
 
-  chatInput.value = '';
-  ajustarAlturaInput();
+  if (!isRetry) {
+    chatInput.value = '';
+    ajustarAlturaInput();
+  }
   btnSend.disabled = true;
 
+  // Ticket 4.12 (KAN-79): sugestões somem assim que o usuário envia a primeira
+  // mensagem — feito aqui, antes da chamada à API, para sumir de imediato.
   if (heroEmptyState) {
     heroEmptyState.style.display = 'none';
   }
 
-  const userMsg = {
-    id: `user-${Date.now()}`,
-    role: 'user',
-    conteudo: texto,
-    timestamp: new Date().toISOString(),
-  };
-  messages.push(userMsg);
-  renderMessageBubble(userMsg, true);
-  scrollToBottom();
+  if (!isRetry) {
+    const userMsg = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      conteudo: texto,
+      timestamp: new Date().toISOString(),
+    };
+    messages.push(userMsg);
+    renderMessageBubble(userMsg, true);
+    scrollToBottom();
+  }
 
   if (typingIndicator) {
     typingIndicator.style.display = 'flex';
@@ -977,7 +1651,7 @@ async function enviarMensagemUsuario(texto) {
   }
 
   try {
-    const resposta = await enviarMensagem(currentSessionId, texto);
+    const resposta = await enviarMensagem(currentSessionId, texto, extras);
 
     const agentMsg = {
       id: `agent-${Date.now()}`,
@@ -986,10 +1660,12 @@ async function enviarMensagemUsuario(texto) {
       faixas: resposta.faixas || [],
       diversidade_generos: resposta.diversidade_generos,
       cobertura_sessao: resposta.cobertura_sessao,
+      metricas: resposta,
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
     recordDiscoveries({ ...resposta, timestamp: agentMsg.timestamp });
+    atualizarFaixasMostradas(agentMsg.faixas);
     saveChatHistory(currentSessionId, messages);
 
     // Remover skeleton antes de renderizar resposta real
@@ -1007,16 +1683,39 @@ async function enviarMensagemUsuario(texto) {
     }
     if (typingIndicator) typingIndicator.style.display = 'none';
 
-    const errorMsg = {
-      id: `error-${Date.now()}`,
-      role: 'agent',
-      conteudo: 'Desculpe, ocorreu uma instabilidade temporária. Por favor tente novamente.',
-      timestamp: new Date().toISOString(),
-    };
-    messages.push(errorMsg);
-    renderMessageBubble(errorMsg, true);
-    scrollToBottom();
+    if (error && error.isRateLimit) {
+      // Ticket 4.9 (KAN-76): HTTP 429 recebe mensagem própria, clara sobre o
+      // limite de mensagens, em vez do erro genérico/banner do ticket 4.8 (KAN-75).
+      const errorMsg = {
+        id: `error-${Date.now()}`,
+        role: 'agent',
+        conteudo: 'Você atingiu o limite de mensagens. Aguarde um instante e tente novamente.',
+        isRateLimitError: true,
+        timestamp: new Date().toISOString(),
+      };
+      messages.push(errorMsg);
+      renderMessageBubble(errorMsg, true);
+      scrollToBottom();
+    } else if (error instanceof ErroBackend) {
+      // Ticket 4.8 (KAN-75): erro 500 padronizado do backend (ticket 8.3) vira
+      // banner/toast genérico e recuperável — não trava o chat, não exige reload.
+      showErrorBanner('Ocorreu um erro no servidor. Tente novamente em instantes.', () => {
+        enviarMensagemUsuario(texto, { isRetry: true });
+      });
+    } else {
+      const errorMsg = {
+        id: `error-${Date.now()}`,
+        role: 'agent',
+        conteudo: 'Desculpe, ocorreu uma instabilidade temporária. Por favor tente novamente.',
+        timestamp: new Date().toISOString(),
+      };
+      messages.push(errorMsg);
+      renderMessageBubble(errorMsg, true);
+      scrollToBottom();
+    }
   } finally {
+    // Critério de aceite (KAN-76): o input do chat continua disponível para
+    // uma nova tentativa, mesmo após um 429 — nada aqui desabilita o campo.
     isProcessing = false;
     btnSend.disabled = chatInput.value.trim().length === 0;
     chatInput.focus();
@@ -1027,20 +1726,34 @@ async function enviarMensagemUsuario(texto) {
 window.ResIA = {
   getSessionId,
   saveSessionId,
-  resetSession,
   enviarMensagem,
-    buscarHistorico,
-    buscarPerfil,
-    criarPlaylistResIA,
-    loadSettings,
-    saveSettings,
-    applyTheme,
-    loadCreatedPlaylists,
-    saveCreatedPlaylist,
+  buscarHistorico,
+  buscarPerfil,
+  criarPlaylistResIA,
+  loadSettings,
+  saveSettings,
+  applyTheme,
+  loadCreatedPlaylists,
+  saveCreatedPlaylist,
   enviarMensagemUsuario,
   renderMarkdownSafe,
   startEditLastMessage,
   cancelEditMessage,
+  buscarHistoricoRemoto,
+  criarSessaoRemota,
+  ErroBackend,
+  showErrorBanner,
+  verificarStatusSpotify,
+  buscarPerfilSpotify,
+  criarPlaylistSpotify,
+  logoutSpotify,
+  atualizarFaixasMostradas,
+  toggleTheme,
+  // Ticket 13.12 (KAN-121): trackCard.js consulta isto antes de tentar
+  // GET /explorer/track/{id} pra prévia — evita um 401 garantido (e
+  // ruído no console) em todo clique de prévia quando ninguém logou com
+  // Spotify ainda, indo direto pro fallback do YouTube nesse caso.
+  isSpotifyAuthenticated: () => isSpotifyAuthenticated,
 };
 
 if (document.readyState === 'loading') {

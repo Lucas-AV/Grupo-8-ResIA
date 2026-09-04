@@ -13,15 +13,15 @@ TEMPLATES_DIR = SITE_DIR / "templates"
 STATIC_DIR = SITE_DIR / "static"
 DIST_DIR = SITE_DIR / "dist"
 
-GENRE_CSV = ROOT / "data" / "occurrences_by_genre.csv"
+GENRE_CSV = ROOT / "data" / "analytics" / "occurrences_by_genre.csv"
 GENRE_PNGS = [ROOT / "images" / "genre_popularity.png", ROOT / "images" / "genre_energy_dance.png"]
 
-PROFILE_JSON = ROOT / "data" / "dataset_profile.json"
-MULTI_GENRE_CSV = ROOT / "data" / "dataset_multi_genre_tracks.csv"
+PROFILE_JSON = ROOT / "data" / "analytics" / "dataset_profile.json"
+MULTI_GENRE_CSV = ROOT / "data" / "analytics" / "dataset_multi_genre_tracks.csv"
 ARTIST_DIST_PNG = ROOT / "images" / "artist_track_distribution.png"
 ALBUM_DIST_PNG = ROOT / "images" / "album_track_distribution.png"
 
-CORRELATIONS_CSV = ROOT / "data" / "correlations_top_pairs.csv"
+CORRELATIONS_CSV = ROOT / "data" / "analytics" / "correlations_top_pairs.csv"
 CORRELATION_HEATMAP_PNG = ROOT / "images" / "correlation_heatmap.png"
 
 MARKET_DIR = ROOT / "analise_mercado_streaming"
@@ -43,6 +43,12 @@ MARKET_PNGS = [
     MARKET_DIR / "output_market_share.png",
 ]
 MARKET_REPORT_PDF = MARKET_DIR / "relatorio-sinal-do-streaming.pdf"
+
+REPO_URL = "https://github.com/Lucas-AV/Grupo-8-ResIA"
+# Ainda nao ha hospedagem publica do agente (Epico 8, ticket 8.7, bloqueado —
+# ver agente_conversacional/README.md): o CTA "Testar o Agente" do ticket
+# 12.6 linka pro passo a passo de como rodar localmente, nao pra um demo ao vivo.
+AGENTE_DEMO_URL = f"{REPO_URL}/tree/main/agente_conversacional#readme"
 
 TEAM = [
     {"name": "Lucas Alves Vilela", "github": "Lucas-AV"},
@@ -94,7 +100,7 @@ PITCH_CARDS = [
         "label": "Por que o risco tecnico e controlavel",
         "body": (
             "Qualquer que seja o desenho final, o motor de recomendacao vai "
-            "trabalhar em cima do que ja existe nas 31,8 mil faixas do "
+            "trabalhar em cima do catalogo local ampliado de "
             "catalogo (metadado e caracteristicas de audio) — nao depende de "
             "um historico de escuta de milhoes de usuarios que hoje nao "
             "temos."
@@ -462,8 +468,23 @@ def build() -> None:
         team=TEAM,
         tiles=load_home_tiles(PROFILE_JSON),
         pitch=PITCH_CARDS,
+        hero_tracks=f"{load_dataset_profile(PROFILE_JSON)['total_tracks']:,}".replace(",", "."),
+        hero_genres=load_dataset_profile(PROFILE_JSON)["unique_genres"],
     )
     (DIST_DIR / "index.html").write_text(index_html, encoding="utf-8")
+
+    pitch_by_label = {card["label"]: card for card in PITCH_CARDS}
+    landing_html = env.get_template("landing.html").render(
+        title="Landing",
+        current_page="landing.html",
+        pitch=PITCH_CARDS,
+        problema=pitch_by_label["Problema"],
+        solucao=pitch_by_label["A solucao — arquitetura definida"],
+        tiles=load_home_tiles(PROFILE_JSON),
+        repo_url=REPO_URL,
+        agente_url=AGENTE_DEMO_URL,
+    )
+    (DIST_DIR / "landing.html").write_text(landing_html, encoding="utf-8")
 
     rows = load_genre_rows(GENRE_CSV)
     genero_html = env.get_template("genero.html").render(
