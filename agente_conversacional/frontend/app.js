@@ -293,6 +293,29 @@ async function verificarStatusSpotify(sessionId) {
 }
 
 /**
+ * Ticket 20.8 (KAN-167) + 20.9 (KAN-168): busca `display_name` e foto de
+ * perfil (`images[0].url`) do usuário Spotify logado (`GET /explorer/me`,
+ * ticket 13.10) numa única chamada, pra mostrar os dois no header. Só é
+ * chamada ao (re)autenticar — nunca a cada render do botão. Falha de
+ * rede/parse resolve pra `{ displayName: null, avatarUrl: null }`, e quem
+ * chama cai nos fallbacks genéricos (rótulo padrão / placeholder de avatar).
+ */
+async function buscarPerfilSpotify(sessionId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/explorer/me?session_id=${encodeURIComponent(sessionId)}`);
+    if (!response.ok) return { displayName: null, avatarUrl: null };
+    const data = await response.json();
+    return {
+      displayName: (data && data.display_name) || null,
+      avatarUrl: (data && data.images && data.images[0] && data.images[0].url) || null,
+    };
+  } catch (err) {
+    console.warn('Não foi possível obter o perfil do usuário Spotify:', err);
+    return { displayName: null, avatarUrl: null };
+  }
+}
+
+/**
  * Ticket 4.5 (KAN-40): chama POST /auth/logout (ticket 5.8,
  * spotify_auth/routes.py) pra descartar os tokens Spotify da sessão atual.
  * Não recebe `session_id` no corpo — a rota espera query param, como
@@ -401,6 +424,8 @@ async function handleLogoutSpotify() {
   try {
     await logoutSpotify(currentSessionId);
     isSpotifyAuthenticated = false;
+    spotifyDisplayName = null;
+    spotifyAvatarUrl = null;
     removerAcoesSpotifyGated();
     showToast('Desconectado do Spotify.');
   } catch (err) {
@@ -437,6 +462,12 @@ let isProcessing = false;
 // aparece nos cards de resposta. Começa false (fail-closed): enquanto não
 // confirmamos com o backend, não mostramos ação que exige autenticação.
 let isSpotifyAuthenticated = false;
+// Ticket 20.8 (KAN-167) + 20.9 (KAN-168): display_name e foto de perfil do
+// usuário Spotify logado, pra mostrar no header em vez do rótulo/ícone
+// genérico. Cache em memória — só busca de novo ao (re)autenticar
+// (init/logout), não a cada render do botão.
+let spotifyDisplayName = null;
+let spotifyAvatarUrl = null;
 // Ticket 12.4 (KAN-107): track_ids de toda faixa já mostrada nesta sessão
 // (acumulado no cliente a partir de msg.faixas de cada resposta do agente),
 // usado pelo botão "Gerar outra recomendação" pra pedir uma busca nova sem
@@ -455,6 +486,8 @@ const sessionIdDisplay = document.getElementById('session-id-display');
 const btnCopySession = document.getElementById('btn-copy-session');
 const btnNewChat = document.getElementById('btn-new-chat');
 const btnSpotifyAuth = document.getElementById('btn-spotify-auth');
+const spotifyAuthIcon = document.getElementById('spotify-auth-icon');
+const spotifyAuthAvatar = document.getElementById('spotify-auth-avatar');
 const chatScrollArea = document.getElementById('chat-scroll-area');
 const heroEmptyState = document.getElementById('hero-empty-state');
 const messagesContainer = document.getElementById('messages-container');
@@ -467,6 +500,8 @@ const toastContainer = document.getElementById('toast-container');
 const btnThemeToggle = document.getElementById('btn-theme-toggle');
 const iconThemeDark = document.getElementById('icon-theme-dark');
 const iconThemeLight = document.getElementById('icon-theme-light');
+const btnHeaderMenu = document.getElementById('btn-header-menu');
+const headerMenuPanel = document.querySelector('.header-menu-panel');
 
 // ==========================================
 // 2.1 Módulo de Tema Claro/Escuro (Ticket 12.5 / KAN-108)
@@ -516,6 +551,23 @@ function toggleTheme() {
   saveStoredTheme(novoTema);
 }
 
+// ==========================================
+// 2.2 Menu "···" de ações secundárias do header (Ticket 20.6 / KAN-165)
+// ==========================================
+function closeHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  headerMenuPanel.classList.remove('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', 'false');
+}
+
+function toggleHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  const isOpen = headerMenuPanel.classList.toggle('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
 async function init() {
   // Ticket 12.5 (KAN-108): sincroniza os ícones/estado do botão com o
   // `data-theme` que o script inline no <head> já aplicou na raiz do
@@ -542,6 +594,14 @@ async function init() {
   // renderizar qualquer bolha de mensagem, pra já nascer com o botão
   // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
   isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
+  if (isSpotifyAuthenticated) {
+    const perfil = await buscarPerfilSpotify(currentSessionId);
+    spotifyDisplayName = perfil.displayName;
+    spotifyAvatarUrl = perfil.avatarUrl;
+  } else {
+    spotifyDisplayName = null;
+    spotifyAvatarUrl = null;
+  }
   atualizarBotaoSpotifyAuth();
 
   isProcessing = false;
@@ -551,6 +611,12 @@ async function init() {
 /**
  * Reflete `isSpotifyAuthenticated` no botão do header (ticket 12.2) — feedback
  * visível de que a sessão já está conectada, sem precisar clicar de novo.
+ *
+ * Também dispara `resia:spotify-auth-changed` (Ticket 20.7 / KAN-166): é o
+ * único ponto do app que muda `isSpotifyAuthenticated` (init/logout), então
+ * é o lugar certo pra avisar quem precisa nascer/sumir com o estado de auth
+ * — ex. o widget "Tocando agora" (components/nowPlaying.js), que nunca pode
+ * aparecer pra usuário anônimo.
  */
 function atualizarBotaoSpotifyAuth() {
   if (!btnSpotifyAuth) return;
@@ -559,12 +625,39 @@ function atualizarBotaoSpotifyAuth() {
     btnSpotifyAuth.classList.add('btn-spotify-auth--connected');
     // Ticket 4.5 (KAN-40): o botão agora também é a ação de logout.
     btnSpotifyAuth.title = 'Clique para desconectar do Spotify';
-    if (label) label.textContent = 'Spotify conectado';
+    // Ticket 20.8 (KAN-167): mostra o nome de quem está logado quando
+    // disponível; cai no rótulo genérico se a conta não tem nome público.
+    if (label) label.textContent = spotifyDisplayName || 'Spotify conectado';
+    // Ticket 20.9 (KAN-168): avatar no lugar do ícone genérico do Spotify.
+    // Placeholder com a inicial do nome quando a conta não tem foto pública
+    // (`images` vazio) — nunca uma <img> quebrada.
+    if (spotifyAuthIcon) spotifyAuthIcon.hidden = true;
+    if (spotifyAuthAvatar) {
+      spotifyAuthAvatar.hidden = false;
+      spotifyAuthAvatar.textContent = '';
+      if (spotifyAvatarUrl) {
+        const img = document.createElement('img');
+        img.src = spotifyAvatarUrl;
+        img.alt = '';
+        img.className = 'spotify-auth-avatar-img';
+        spotifyAuthAvatar.appendChild(img);
+      } else {
+        spotifyAuthAvatar.textContent = (spotifyDisplayName || '?').trim().charAt(0).toUpperCase();
+      }
+    }
   } else {
     btnSpotifyAuth.classList.remove('btn-spotify-auth--connected');
     btnSpotifyAuth.title = 'Conectar com o Spotify para recomendações personalizadas';
     if (label) label.textContent = 'Conectar Spotify';
+    // Ticket 20.9 (KAN-168): sem sessão Spotify não existe avatar — volta o
+    // ícone padrão do botão.
+    if (spotifyAuthIcon) spotifyAuthIcon.hidden = false;
+    if (spotifyAuthAvatar) {
+      spotifyAuthAvatar.hidden = true;
+      spotifyAuthAvatar.textContent = '';
+    }
   }
+  window.dispatchEvent(new CustomEvent('resia:spotify-auth-changed', { detail: { authenticated: isSpotifyAuthenticated } }));
 }
 
 /**
@@ -732,6 +825,27 @@ function setupEventListeners() {
   });
 
   btnThemeToggle?.addEventListener('click', toggleTheme);
+
+  // Ticket 20.6 (KAN-165): abre/fecha o menu "···" e fecha em clique fora,
+  // Esc ou seleção de qualquer item (tema, QR login, Explorar Spotify).
+  btnHeaderMenu?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu();
+  });
+
+  headerMenuPanel?.addEventListener('click', (e) => {
+    if (e.target.closest('.header-menu-item')) closeHeaderMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!headerMenuPanel || !headerMenuPanel.classList.contains('is-open')) return;
+    if (headerMenuPanel.contains(e.target) || btnHeaderMenu?.contains(e.target)) return;
+    closeHeaderMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeHeaderMenu();
+  });
 
   btnMic?.addEventListener('click', () => {
     showToast('Entrada de voz Convora: gravação ativada (modo demo).');
@@ -1022,6 +1136,7 @@ window.ResIA = {
   ErroBackend,
   showErrorBanner,
   verificarStatusSpotify,
+  buscarPerfilSpotify,
   criarPlaylistSpotify,
   logoutSpotify,
   atualizarFaixasMostradas,
