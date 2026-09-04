@@ -56,6 +56,25 @@
           </svg>
           <span>Conectar Spotify</span>
         </button>
+
+        <button id="btn-profile-panel" class="btn-header-icon" title="Abrir Meu Perfil" aria-label="Abrir Meu Perfil">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="8" r="4"></circle>
+            <path d="M4 21a8 8 0 0 1 16 0"></path>
+          </svg>
+        </button>
+        <button id="btn-history-panel" class="btn-header-icon" title="Abrir Minhas Conversas" aria-label="Abrir Minhas Conversas">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M3 12a9 9 0 1 0 3-6.7"></path>
+            <path d="M3 4v5h5"></path>
+            <path d="M12 7v5l3 2"></path>
+          </svg>
+        </button>
+        <button id="btn-discoveries-panel" class="btn-header-icon" title="Abrir Descobertas" aria-label="Abrir Descobertas">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="m12 3 1.9 5.8H20l-4.9 3.6 1.9 5.8-5-3.6-5 3.6 1.9-5.8L4 8.8h6.1z"></path>
+          </svg>
+        </button>
       </div>
     </header>
 
@@ -194,6 +213,40 @@
       </div>
     </div>
   </div>
+
+  <div id="panel-backdrop" class="panel-backdrop" hidden></div>
+  <aside id="profile-panel" class="side-panel" aria-labelledby="profile-panel-title" aria-hidden="true" hidden>
+    <div class="panel-header">
+      <div>
+        <span class="panel-kicker">Personalização</span>
+        <h2 id="profile-panel-title">Meu Perfil</h2>
+      </div>
+      <button class="panel-close" data-close-panel title="Fechar painel" aria-label="Fechar painel">&times;</button>
+    </div>
+    <div id="profile-panel-content" class="panel-content"></div>
+  </aside>
+
+  <aside id="history-panel" class="side-panel" aria-labelledby="history-panel-title" aria-hidden="true" hidden>
+    <div class="panel-header">
+      <div>
+        <span class="panel-kicker">Sessão atual</span>
+        <h2 id="history-panel-title">Minhas Conversas</h2>
+      </div>
+      <button class="panel-close" data-close-panel title="Fechar painel" aria-label="Fechar painel">&times;</button>
+    </div>
+    <div id="history-panel-content" class="panel-content"></div>
+  </aside>
+
+  <aside id="discoveries-panel" class="side-panel" aria-labelledby="discoveries-panel-title" aria-hidden="true" hidden>
+    <div class="panel-header">
+      <div>
+        <span class="panel-kicker">Recomendações da sessão</span>
+        <h2 id="discoveries-panel-title">Descobertas</h2>
+      </div>
+      <button class="panel-close" data-close-panel title="Fechar painel" aria-label="Fechar painel">&times;</button>
+    </div>
+    <div id="discoveries-panel-content" class="panel-content"></div>
+  </aside>
 
   <!-- Container de Toasts -->
   <div id="toast-container"></div>

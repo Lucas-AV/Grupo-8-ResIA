@@ -205,6 +205,20 @@ async function enviarMensagem(sessionId, mensagem) {
   }
 }
 
+async function buscarJson(path) {
+  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
+  return response.json();
+}
+
+async function buscarHistorico(sessionId) {
+  return buscarJson(`/chat/historico?session_id=${encodeURIComponent(sessionId)}`);
+}
+
+async function buscarPerfil(sessionId) {
+  return buscarJson(`/perfil?session_id=${encodeURIComponent(sessionId)}`);
+}
+
 // ==========================================
 // 3. Controlador da Interface e Estado
 // ==========================================
@@ -212,6 +226,9 @@ let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
 let isEditingMessage = false; // Estado de edição (Ticket 16.2)
+let activePanel = null;
+let lastPanelTrigger = null;
+let discoveries = { genres: new Map(), artists: new Map(), turns: [] };
 
 // Elementos DOM
 const sessionIdDisplay = document.getElementById('session-id-display');
@@ -229,6 +246,12 @@ const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
 const editMessageBanner = document.getElementById('edit-message-banner');
 const btnCancelEdit = document.getElementById('btn-cancel-edit');
+const panelBackdrop = document.getElementById('panel-backdrop');
+const panelDefinitions = {
+  profile: { panel: document.getElementById('profile-panel'), content: document.getElementById('profile-panel-content') },
+  history: { panel: document.getElementById('history-panel'), content: document.getElementById('history-panel-content') },
+  discoveries: { panel: document.getElementById('discoveries-panel'), content: document.getElementById('discoveries-panel-content') },
+};
 
 function init() {
   currentSessionId = getSessionId();
@@ -240,6 +263,8 @@ function init() {
     messages.forEach((msg) => renderMessageBubble(msg, false));
     scrollToBottom();
   }
+
+  rebuildDiscoveries();
 
   setupEventListeners();
 }
@@ -271,6 +296,12 @@ function showToast(message, duration = 3000) {
 window.showToast = showToast;
 
 function setupEventListeners() {
+  document.getElementById('btn-profile-panel')?.addEventListener('click', (event) => openPanel('profile', event.currentTarget));
+  document.getElementById('btn-history-panel')?.addEventListener('click', (event) => openPanel('history', event.currentTarget));
+  document.getElementById('btn-discoveries-panel')?.addEventListener('click', (event) => openPanel('discoveries', event.currentTarget));
+  panelBackdrop?.addEventListener('click', closePanel);
+  document.querySelectorAll('[data-close-panel]').forEach((button) => button.addEventListener('click', closePanel));
+
   btnCopySession?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(currentSessionId);
@@ -372,6 +403,10 @@ function setupEventListeners() {
 
   // Atalho global "/" para focar no input (Ticket 16.4)
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && activePanel) {
+      closePanel();
+      return;
+    }
     // Ignorar se já estiver em um campo de texto ou textarea
     const tag = document.activeElement?.tagName?.toLowerCase();
     if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) {
@@ -383,6 +418,145 @@ function setupEventListeners() {
       chatInput?.focus();
     }
   });
+}
+
+function openPanel(name, trigger) {
+  const definition = panelDefinitions[name];
+  if (!definition) return;
+
+  if (activePanel) closePanel();
+  activePanel = name;
+  lastPanelTrigger = trigger || null;
+  definition.panel.hidden = false;
+  definition.panel.classList.add('is-open');
+  definition.panel.setAttribute('aria-hidden', 'false');
+  panelBackdrop.hidden = false;
+  panelBackdrop.classList.add('is-visible');
+
+  if (name === 'profile') renderProfilePanel();
+  if (name === 'history') renderHistoryPanel();
+  if (name === 'discoveries') renderDiscoveriesPanel();
+  definition.panel.querySelector('[data-close-panel]')?.focus();
+}
+
+function closePanel() {
+  if (!activePanel) return;
+  const definition = panelDefinitions[activePanel];
+  definition.panel.classList.remove('is-open');
+  definition.panel.setAttribute('aria-hidden', 'true');
+  definition.panel.hidden = true;
+  panelBackdrop.classList.remove('is-visible');
+  panelBackdrop.hidden = true;
+  const trigger = lastPanelTrigger;
+  activePanel = null;
+  lastPanelTrigger = null;
+  trigger?.focus();
+}
+
+function rebuildDiscoveries() {
+  discoveries = { genres: new Map(), artists: new Map(), turns: [] };
+  messages.filter((message) => message.role === 'agent' && Array.isArray(message.faixas)).forEach((message) => recordDiscoveries(message));
+}
+
+function recordDiscoveries(response) {
+  const tracks = Array.isArray(response.faixas) ? response.faixas : [];
+  const genres = new Set();
+  const artists = new Set();
+  tracks.forEach((track) => {
+    if (track.genero) genres.add(track.genero);
+    if (track.artista) artists.add(track.artista);
+  });
+  genres.forEach((genre) => discoveries.genres.set(genre, (discoveries.genres.get(genre) || 0) + 1));
+  artists.forEach((artist) => discoveries.artists.set(artist, (discoveries.artists.get(artist) || 0) + 1));
+  if (tracks.length) discoveries.turns.push({
+    timestamp: response.timestamp || new Date().toISOString(),
+    genres: [...genres],
+    artists: [...artists],
+    diversidade_generos: response.diversidade_generos,
+    cobertura_sessao: response.cobertura_sessao,
+  });
+}
+
+function renderPanelMessage(content, message, type = '') {
+  content.innerHTML = `<div class="panel-state ${type}">${escapeHtml(message)}</div>`;
+}
+
+function renderProfilePanel() {
+  const content = panelDefinitions.profile.content;
+  renderPanelMessage(content, 'Carregando seu perfil...', 'panel-state-loading');
+  buscarPerfil(currentSessionId).then((profile) => {
+    const vector = profile?.vetor_features_normalizado || profile?.perfil_usuario || profile?.vetor || null;
+    if (!vector) {
+      renderPanelMessage(content, 'Ainda não há histórico suficiente para montar um perfil personalizado.', 'panel-state-empty');
+      return;
+    }
+    const entries = Object.entries(vector).filter(([, value]) => typeof value === 'number' && Number.isFinite(value));
+    content.innerHTML = `
+      <section class="profile-summary">
+        <span class="panel-kicker">Seu gosto musical</span>
+        <p>Características normalizadas a partir do seu histórico casado.</p>
+      </section>
+      <section class="feature-list" aria-label="Características do perfil">
+        ${entries.map(([label, value]) => `
+          <div class="feature-row">
+            <div><span>${escapeHtml(label.replaceAll('_', ' '))}</span><strong>${value.toFixed(2)}</strong></div>
+            <div class="feature-meter"><span style="width: ${Math.max(0, Math.min(100, value * 100))}%"></span></div>
+          </div>
+        `).join('')}
+      </section>
+      ${renderMetricHistory()}
+    `;
+  }).catch((error) => {
+    console.warn('Falha ao carregar perfil:', error);
+    renderPanelMessage(content, 'Não foi possível carregar o perfil agora.', 'panel-state-error');
+  });
+}
+
+function renderMetricHistory() {
+  const metricTurns = discoveries.turns.filter((turn) => turn.diversidade_generos !== undefined);
+  if (!metricTurns.length) return '';
+  return `<section class="metric-history"><h3>Histórico da sessão</h3>${metricTurns.map((turn) => `
+    <div class="metric-row"><time>${escapeHtml(formatarHora(turn.timestamp))}</time><span>${turn.diversidade_generos} gêneros</span><strong>${Math.round(turn.cobertura_sessao * 100)}% novas</strong></div>
+  `).join('')}</section>`;
+}
+
+function renderHistoryPanel() {
+  const content = panelDefinitions.history.content;
+  renderPanelMessage(content, 'Carregando histórico...', 'panel-state-loading');
+  buscarHistorico(currentSessionId).then((data) => {
+    const history = Array.isArray(data) ? data : (data?.historico || data?.mensagens || []);
+    const panelMessages = history.length ? history : messages;
+    if (!panelMessages.length) {
+      renderPanelMessage(content, 'Nenhuma conversa nesta sessão.', 'panel-state-empty');
+      return;
+    }
+    content.innerHTML = panelMessages.map((message) => `
+    <article class="history-item ${message.role}">
+      <span class="history-role">${message.role === 'user' ? 'Você' : 'ResIA'}</span>
+      <p>${escapeHtml(message.conteudo)}</p>
+      <time>${escapeHtml(formatarHora(message.timestamp))}</time>
+    </article>
+    `).join('');
+  }).catch((error) => {
+    console.warn('Falha ao carregar histórico:', error);
+    if (messages.length) {
+      content.innerHTML = `<div class="panel-state panel-state-info">API indisponível. Exibindo o histórico local desta sessão.</div>${messages.map((message) => `
+        <article class="history-item ${message.role}"><span class="history-role">${message.role === 'user' ? 'Você' : 'ResIA'}</span><p>${escapeHtml(message.conteudo)}</p><time>${escapeHtml(formatarHora(message.timestamp))}</time></article>
+      `).join('')}`;
+    } else {
+      renderPanelMessage(content, 'Não foi possível carregar o histórico.', 'panel-state-error');
+    }
+  });
+}
+
+function renderDiscoveriesPanel() {
+  const content = panelDefinitions.discoveries.content;
+  if (!discoveries.turns.length) {
+    renderPanelMessage(content, 'As novas descobertas da sua sessão aparecerão aqui.', 'panel-state-empty');
+    return;
+  }
+  const renderList = (title, values) => `<section class="discovery-group"><h3>${title}</h3><ul>${[...values.entries()].map(([label, count]) => `<li><span>${escapeHtml(label)}</span><strong>${count}</strong></li>`).join('')}</ul></section>`;
+  content.innerHTML = `${renderList('Gêneros', discoveries.genres)}${renderList('Artistas', discoveries.artists)}`;
 }
 
 function ajustarAlturaInput() {
@@ -668,9 +842,12 @@ async function enviarMensagemUsuario(texto) {
       role: 'agent',
       conteudo: resposta.mensagem || 'Recomendações prontas!',
       faixas: resposta.faixas || [],
+      diversidade_generos: resposta.diversidade_generos,
+      cobertura_sessao: resposta.cobertura_sessao,
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
+    recordDiscoveries({ ...resposta, timestamp: agentMsg.timestamp });
     saveChatHistory(currentSessionId, messages);
 
     // Remover skeleton antes de renderizar resposta real
@@ -710,6 +887,8 @@ window.ResIA = {
   saveSessionId,
   resetSession,
   enviarMensagem,
+    buscarHistorico,
+    buscarPerfil,
   enviarMensagemUsuario,
   renderMarkdownSafe,
   startEditLastMessage,
