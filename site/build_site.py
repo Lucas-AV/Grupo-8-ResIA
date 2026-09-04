@@ -28,6 +28,9 @@ ALBUM_DIST_PNG = ROOT / "images" / "album_track_distribution.png"
 CORRELATIONS_CSV = ROOT / "data" / "analytics" / "correlations_top_pairs.csv"
 CORRELATION_HEATMAP_PNG = ROOT / "images" / "correlation_heatmap.png"
 
+SIMILARIDADE_COSSENO_PNG = ROOT / "images" / "similaridade_cosseno.png"
+SIMILARIDADE_COSSENO_PDF = ROOT / "docs" / "ilustracao_similaridade_cosseno.pdf"
+
 MARKET_DIR = ROOT / "analise_mercado_streaming"
 MARKET_SHARE_CSV = MARKET_DIR / "data" / "platform_market_share.csv"
 MARKET_DATA_CSVS = [
@@ -183,6 +186,13 @@ ANALYSES = [
         "nav": "Personas",
         "description": "Quatro perfis de usuario que ilustram os principais caminhos do pipeline conversacional (Proposta B).",
         "href": "personas.html",
+    },
+    {
+        "id": "similaridade-cosseno",
+        "title": "Similaridade por Cosseno",
+        "nav": "Similaridade",
+        "description": "Como o motor de recomendacao compara o perfil do usuario com cada faixa do catalogo.",
+        "href": "similaridade-cosseno.html",
     },
     {
         "id": "notebook",
@@ -861,6 +871,40 @@ def build() -> None:
     )
     (DIST_DIR / "personas.html").write_text(personas_html, encoding="utf-8")
 
+    similaridade_html = env.get_template("analise.html").render(
+        title="Similaridade por Cosseno",
+        current_page="similaridade-cosseno.html",
+        eyebrow="Motor de recomendacao · agente_conversacional/recomendacao/indice.py",
+        heading="Similaridade por Cosseno",
+        description=(
+            "Cada faixa do catalogo vira um vetor com 9 features de audio "
+            "padronizadas (danceability, energy, loudness, speechiness, "
+            "acousticness, instrumentalness, liveness, valence, tempo). O "
+            "motor compara o vetor do perfil do usuario com o de cada faixa "
+            "pelo cosseno do angulo entre eles — nao pela distancia — e "
+            "ordena pela maior similaridade."
+        ),
+        download={"href": SIMILARIDADE_COSSENO_PDF.name, "label": "Baixar ilustracao em PDF"},
+        figures=[
+            {
+                "image": SIMILARIDADE_COSSENO_PNG.name,
+                "alt": "Diagrama explicando similaridade por cosseno: intuicao geometrica do angulo entre vetores e o pipeline de calculo do indice de similaridade",
+                "caption": "Da intuicao geometrica ao pipeline real do indice de similaridade",
+                "leitura": (
+                    "Duas faixas podem ter o mesmo \"formato\" de audio em proporcao "
+                    "mesmo com magnitudes absolutas diferentes — por isso o motor usa "
+                    "cosseno, nao distancia euclidiana: cos(theta)=1 e formato "
+                    "identico, 0 e sem relacao, -1 e oposto. Na implementacao, a "
+                    "matriz de features e normalizada (norma L2) uma unica vez na "
+                    "construcao do indice; cada consulta so precisa normalizar o "
+                    "vetor alvo e fazer um produto escalar, que ja da o cosseno "
+                    "direto."
+                ),
+            }
+        ],
+    )
+    (DIST_DIR / "similaridade-cosseno.html").write_text(similaridade_html, encoding="utf-8")
+
     notebook_body, pygments_css = render_notebook_html(NOTEBOOK_PATH)
     notebook_html = env.get_template("notebook.html").render(
         title="Notebook de Analise Exploratoria",
@@ -881,12 +925,13 @@ def build() -> None:
     all_pngs = (
         GENRE_PNGS
         + [fig["path"] for analysis in STATIC_ANALYSES for fig in analysis["figures"]]
-        + [ARTIST_DIST_PNG, ALBUM_DIST_PNG, CORRELATION_HEATMAP_PNG]
+        + [ARTIST_DIST_PNG, ALBUM_DIST_PNG, CORRELATION_HEATMAP_PNG, SIMILARIDADE_COSSENO_PNG]
         + MARKET_PNGS
     )
     for png in all_pngs:
         shutil.copy(png, DIST_DIR / png.name)
     shutil.copy(MARKET_REPORT_PDF, DIST_DIR / MARKET_REPORT_PDF.name)
+    shutil.copy(SIMILARIDADE_COSSENO_PDF, DIST_DIR / SIMILARIDADE_COSSENO_PDF.name)
     for csv_path in MARKET_DATA_CSVS:
         shutil.copy(csv_path, DIST_DIR / csv_path.name)
 
