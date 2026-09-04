@@ -1342,42 +1342,31 @@ function renderWelcomePanel() {
   });
 }
 
-function renderProfilePanel() {
+async function renderProfilePanel() {
   const content = panelDefinitions.profile.content;
   renderPanelMessage(content, 'Carregando sua conta...', 'panel-state-loading');
 
-  verificarStatusSpotify(currentSessionId).then((conectado) => {
-    if (!conectado) {
-      renderPanelMessage(
-        content,
-        'Conecte sua conta do Spotify (botão "Conectar Spotify" no topo) para ver seus dados aqui.',
-        'panel-state-empty'
-      );
+  const mensagemDesconectado = 'Conecte sua conta do Spotify (botão "Conectar Spotify" no topo) para ver seus dados aqui.';
+
+  const conectado = await verificarStatusSpotify(currentSessionId);
+  if (!conectado) {
+    renderPanelMessage(content, mensagemDesconectado, 'panel-state-empty');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/explorer/me?session_id=${encodeURIComponent(currentSessionId)}`);
+    if (response.status === 401) {
+      renderPanelMessage(content, mensagemDesconectado, 'panel-state-empty');
       return;
     }
-
-    fetch(`${API_BASE_URL}/explorer/me?session_id=${encodeURIComponent(currentSessionId)}`)
-      .then((response) => {
-        if (response.status === 401) {
-          renderPanelMessage(
-            content,
-            'Conecte sua conta do Spotify (botão "Conectar Spotify" no topo) para ver seus dados aqui.',
-            'panel-state-empty'
-          );
-          return null;
-        }
-        if (!response.ok) throw new Error(`HTTP ${response.status}`);
-        return response.json();
-      })
-      .then((conta) => {
-        if (!conta) return;
-        renderContaSpotify(content, conta);
-      })
-      .catch((error) => {
-        console.warn('Falha ao carregar dados da conta Spotify:', error);
-        renderPanelMessage(content, 'Não foi possível carregar sua conta agora.', 'panel-state-error');
-      });
-  });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const conta = await response.json();
+    renderContaSpotify(content, conta);
+  } catch (error) {
+    console.warn('Falha ao carregar dados da conta Spotify:', error);
+    renderPanelMessage(content, 'Não foi possível carregar sua conta agora.', 'panel-state-error');
+  }
 }
 
 const PRODUTO_SPOTIFY_LABEL = { premium: 'Premium', free: 'Gratuito' };
