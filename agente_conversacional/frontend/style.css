@@ -1018,6 +1018,103 @@ body {
   color: var(--text-secondary);
 }
 
+/* 9.1 Widget "Tocando agora" (Ticket 20.7 / KAN-166) — mini-barra flutuante
+   acima do dock de input, só existe no DOM (components/nowPlaying.js)
+   enquanto há sessão Spotify conectada e uma faixa tocando. */
+.now-playing-widget[hidden] {
+  display: none;
+}
+
+.now-playing-widget {
+  position: absolute;
+  left: 20px;
+  bottom: 118px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 280px;
+  padding: 6px 14px 6px 6px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  animation: fadeIn 0.25s ease-out;
+  transition: var(--transition-fast);
+}
+
+.now-playing-widget:hover {
+  border-color: var(--spotify-green);
+  transform: translateY(-2px);
+}
+
+.now-playing-cover {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-surface-elevated);
+}
+
+.now-playing-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.now-playing-track,
+.now-playing-artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.now-playing-track {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.now-playing-artist {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.now-playing-eq {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.now-playing-eq span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background-color: var(--spotify-green);
+  animation: wave-bar 1.1s ease-in-out infinite alternate;
+}
+
+.now-playing-eq span:nth-child(1) { animation-delay: 0.1s; }
+.now-playing-eq span:nth-child(2) { animation-delay: 0.3s; }
+.now-playing-eq span:nth-child(3) { animation-delay: 0.2s; }
+
+.now-playing-widget.is-paused .now-playing-eq span {
+  animation-play-state: paused;
+  opacity: 0.4;
+  transform: scaleY(0.5);
+}
+
 /* 10. Dock Inferior Flutuante (Input Box estilo Knotes / Spotify) */
 .input-dock-wrapper {
   position: absolute;
@@ -1238,6 +1335,15 @@ body {
   .btn-spotify-auth span {
     display: none;
   }
+  .now-playing-widget {
+    left: 12px;
+    bottom: 108px;
+    max-width: 220px;
+  }
+  .now-playing-track,
+  .now-playing-artist {
+    max-width: 120px;
+  }
 }
 
 /* Telas muito estreitas (~375px — smartphones em geral) */
@@ -1253,6 +1359,20 @@ body {
   }
   .session-pill {
     padding: 5px 10px;
+  }
+  .now-playing-widget {
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    bottom: 100px;
+  }
+  .now-playing-track,
+  .now-playing-artist {
+    max-width: none;
+  }
+  .now-playing-info {
+    flex: 1;
+    min-width: 0;
   }
 }
 
