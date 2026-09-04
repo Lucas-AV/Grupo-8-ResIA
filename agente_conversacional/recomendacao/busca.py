@@ -39,7 +39,7 @@ def buscar_recomendacoes(
     faixas novas nele.
 
     Quando a busca local volta vazia ou mais escassa que `n_resultados`
-    (cobertura insuficiente no dataset de ~31.8k faixas pro genero/artista
+    (cobertura insuficiente no catalogo local pro genero/artista
     pedido), complementa com a Spotify Search API (ticket KAN-95) — ver
     `_completar_com_spotify`. Faixas assim entram marcadas com
     `_origem: "spotify_fallback"`; faixas do dataset local nao ganham essa
@@ -83,8 +83,8 @@ def buscar_recomendacoes(
 def _completar_com_spotify(consulta, faixas_locais):
     """Escassez = menos faixas locais do que o `n_resultados` (ja validado
     e limitado a 1..30) pedido — cobre tanto o caso vazio quanto o
-    parcialmente coberto, sem precisar de um piso arbitrario separado (o
-    dataset local tem ~31.8k faixas, entao na pratica so fica escasso
+    parcialmente coberto, sem precisar de um piso arbitrario separado (na
+    pratica, o resultado so fica escasso
     quando o filtro de genero/artista restringe demais). So dispara quando
     ha genero ou artista_referencia validos pra virar uma query de texto —
     sem nenhum sinal, nao ha o que perguntar pro Spotify (ver

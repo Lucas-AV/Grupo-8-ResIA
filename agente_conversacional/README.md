@@ -210,8 +210,8 @@ cobertura e a suíte formal de testes de edge cases.
 
 | Ticket | O que cobre | Status |
 |---|---|---|
-| 1.1 — Carregar dataset e normalizar features de áudio | `recomendacao/dataset.py` — `carregar_dataset()` lê `data/dataset.csv` uma vez (cacheado com `functools.lru_cache`), marca `track_id_duplicado` sem remover linhas, e adiciona colunas `*_norm` com as 9 features de áudio contínuas padronizadas (z-score), preservando as colunas originais em escala crua pros filtros/buckets do ticket 1.3. | Feito |
-| 1.2 — Índice de similaridade (k-NN / cosseno) | `recomendacao/indice.py` — `construir_indice()` monta, uma única vez (cacheado), a matriz de features normalizada linha a linha (norma L2); `IndiceSimilaridade.mais_similares(vetor_alvo, n)` devolve as `n` faixas mais próximas por cosseno via produto escalar vetorizado (numpy puro, sem nova dependência). Busca no dataset real (~31,8 mil faixas) roda em milissegundos, bem abaixo do limite de ~1s. | Feito |
+| 1.1 — Carregar dataset e normalizar features de áudio | `recomendacao/dataset.py` — `carregar_dataset()` lê `data/processed/dataset.csv` uma vez (cacheado com `functools.lru_cache`), marca `track_id_duplicado` sem remover linhas, e adiciona colunas `*_norm` com as 9 features de áudio contínuas padronizadas (z-score), preservando as colunas originais em escala crua pros filtros/buckets do ticket 1.3. | Feito |
+| 1.2 — Índice de similaridade por cosseno | `recomendacao/indice.py` — `construir_indice()` monta, uma única vez (cacheado), a matriz de features normalizada linha a linha (norma L2); `IndiceSimilaridade.mais_similares(vetor_alvo, n)` devolve as `n` faixas mais próximas por cosseno via produto escalar vetorizado (NumPy puro, sem serviço externo). O conjunto atual contém 128.830 registros e 97.534 faixas únicas. | Feito |
 | 1.3 — `buscar_recomendacoes(...)` completa | `recomendacao/busca.py` — assinatura completa (`genero`, `energia`, `valencia`, `dancabilidade`, `artista_referencia`, `excluir_explicit`, `n_resultados`, `perfil_usuario`, `faixas_ja_mostradas`); validação defensiva de cada campo (nunca levanta exceção); filtros rígidos (gênero, `excluir_explicit`, dedup de `track_id`) antes da similaridade; vetor-alvo pelos 3 casos (artista de referência → centróide, buckets categóricos, blend 70/30 com `perfil_usuario`); fallback por popularidade quando não há sinal nenhum; `n_resultados` sempre em `[1, 30]`. Ver decisões assumidas abaixo. | Feito |
 | 1.4 — Cálculo de diversidade e cobertura | `diversidade_generos` (nº de gêneros distintos no resultado) e `cobertura_sessao` (proporção de faixas cujo `track_id` não está em `faixas_ja_mostradas`) calculados dentro de `buscar_recomendacoes` e sempre presentes na resposta — inclusive no fallback de popularidade e no caso de resultado vazio (`0` e `0.0`, respectivamente). | Feito |
 | 1.5 — Testes unitários de `buscar_recomendacoes` | `test_recomendacoes_edge_cases.py` fecha as combinações que faltavam contra a tabela de edge cases (§7 do pipeline) e os critérios do ticket: atributo só (dançabilidade, valência — energia já estava em 1.3), gênero/artista inválido em combinação, dedup na busca por similaridade (não só no fallback), e resultado vazio nos dois caminhos (fallback e similaridade). O resto dos critérios (combinação de sinal, `n_resultados` fora da faixa, gênero/artista inválido isolado, dedup no fallback) já tinha saído coberto organicamente em 1.3/1.4. | Feito |
@@ -278,10 +278,9 @@ tickets 2.1–2.8:**
   texto genérico de resultado vazio/com resultado do template (2.4) ou o
   texto livre da geração (2.5), que pode ou não mencionar isso dependendo
   do que o LLM escrever.
-- O roteador (2.1) cobre os gêneros **reais** do dataset carregado neste
-  repositório (`data/dataset.csv`, 32 gêneros de `acoustic` a `electro` —
-  um recorte alfabético do dataset completo do Kaggle). Exemplos do
-  próprio backlog como "pagode"/"sertanejo" não existem nesse recorte;
+- O roteador (2.1) cobre os gêneros **reais** do conjunto processado neste
+  repositório (`data/processed/dataset.csv`, 118 gêneros). Exemplos como
+  "pagode" e "sertanejo" podem ser reconhecidos diretamente quando presentes;
   o roteador não tem sinônimo pra eles (cai pra extração via LLM, que
   também não vai achar o gênero — `buscar_recomendacoes` degrada pra
   filtros/popularidade sem esse gênero, não quebra).

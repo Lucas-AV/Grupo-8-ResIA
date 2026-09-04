@@ -15,3 +15,6 @@ agente_conversacional/spotify_tokens.db
 .worktrees/
 spotify_explorer/frontend/node_modules/
 spotify_explorer/static/frontend/
+scripts/apresentacao/node_modules/
+.presentation-build/
+.chart-data-*/
