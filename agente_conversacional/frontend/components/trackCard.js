@@ -104,6 +104,8 @@ function createTrackCardElement(faixa, index = 0) {
 
     <!-- Ações Rápidas: Abrir e Copiar Link -->
     <div class="track-actions-group">
+      <button type="button" class="btn-track-action btn-track-details" title="Detalhes e preview">ⓘ</button>
+      <button type="button" class="btn-track-action btn-track-preview" title="Preview de 30 segundos">▶</button>
       <button type="button" class="btn-track-action btn-copy-track-link" title="Copiar link do Spotify" data-url="${spotifyUrl}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -138,6 +140,22 @@ function createTrackCardElement(faixa, index = 0) {
       }
     });
   }
+  const detailsBtn = card.querySelector('.btn-track-details');
+  detailsBtn?.addEventListener('click', () => window.ResIASpotify?.details('track', trackId));
+  const previewBtn = card.querySelector('.btn-track-preview');
+  previewBtn?.addEventListener('click', async () => {
+    // Cards do motor próprio só têm o ID; busca o preview oficial sob demanda.
+    if (!faixa.preview_url && trackId) {
+      previewBtn.disabled = true;
+      try { const detail = await window.ResIASpotify?.details('track', trackId); faixa.preview_url = detail?.track?.preview_url || ''; }
+      finally { previewBtn.disabled = false; }
+    }
+    if (!faixa.preview_url) { window.showToast?.('Esta faixa não disponibiliza preview de 30 segundos.'); return; }
+    const audio = card._previewAudio || new Audio(faixa.preview_url); card._previewAudio = audio;
+    if (audio.paused) { document.querySelectorAll('.track-card').forEach(c => c._previewAudio?.pause()); audio.play(); previewBtn.textContent = 'Ⅱ'; }
+    else { audio.pause(); previewBtn.textContent = '▶'; }
+    audio.onended = () => { previewBtn.textContent = '▶'; };
+  });
 
   return card;
 }

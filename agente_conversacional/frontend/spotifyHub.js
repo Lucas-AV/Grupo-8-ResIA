@@ -1,0 +1,39 @@
+/* Central Spotify — Épico 13. UI independente do chat e sem tokens no cliente. */
+(function () {
+  const base = () => (window.location.port && !['5500', '3000'].includes(window.location.port) ? '' : 'http://127.0.0.1:8000');
+  const sid = () => (typeof getSessionId === 'function' ? getSessionId() : localStorage.getItem('resia_chat_session_id'));
+  const esc = (s) => { const n = document.createElement('span'); n.textContent = s || ''; return n.innerHTML; };
+  async function api(path, options = {}) {
+    const join = path.includes('?') ? '&' : '?';
+    const response = await fetch(`${base()}${path}${join}session_id=${encodeURIComponent(sid())}`, options);
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data.detail?.mensagem || data.detail || 'Não foi possível falar com o Spotify.');
+    return data;
+  }
+  function panel(title) {
+    document.getElementById('spotify-panel')?.remove();
+    const node = document.createElement('aside'); node.id = 'spotify-panel'; node.className = 'spotify-panel';
+    node.innerHTML = `<header><h2>${esc(title)}</h2><button aria-label="Fechar">×</button></header><div class="spotify-panel-content" aria-live="polite">Carregando…</div>`;
+    node.querySelector('button').onclick = () => node.remove(); document.body.appendChild(node); return node.querySelector('.spotify-panel-content');
+  }
+  const item = (x, kind = 'track') => `<button class="spotify-item" data-kind="${kind}" data-id="${esc(x.id)}"><img src="${esc(x.images?.[2]?.url || x.album?.images?.[2]?.url || '')}" alt=""><span><strong>${esc(x.name)}</strong><small>${esc((x.artists || []).map(a => a.name).join(', ') || x.owner?.display_name || x.type || '')}</small></span></button>`;
+  async function search() {
+    const content = panel('Buscar no Spotify');
+    content.innerHTML = `<form class="spotify-search"><input autofocus placeholder="Faixa, artista, álbum ou playlist" required><select><option value="track,artist,album,playlist">Tudo</option><option value="track">Faixas</option><option value="artist">Artistas</option><option value="album">Álbuns</option><option value="playlist">Playlists</option></select><button>Buscar</button></form><div class="spotify-results"></div>`;
+    content.querySelector('form').onsubmit = async (e) => { e.preventDefault(); const form = e.currentTarget, out = content.querySelector('.spotify-results'); out.textContent = 'Buscando…'; try { const data = await api(`/spotify/search?q=${encodeURIComponent(form.querySelector('input').value)}&type=${form.querySelector('select').value}`); out.innerHTML = ['tracks','artists','albums','playlists'].flatMap(k => (data[k]?.items || []).map(x => item(x, k.slice(0,-1)))).join('') || 'Nenhum resultado.'; bindItems(out); } catch (err) { out.textContent = err.message; } };
+  }
+  function bindItems(root) { root.querySelectorAll('.spotify-item').forEach(b => b.onclick = () => details(b.dataset.kind, b.dataset.id)); }
+  async function details(kind, id) {
+    const content = panel(`Detalhes de ${kind}`); try { const data = await api(`/spotify/${kind}s/${encodeURIComponent(id)}`); const main = data.track || data.artist || data; const tracks = data.top_tracks?.tracks || data.tracks?.items || data.items?.map(i => i.track) || [];
+      content.innerHTML = `<section class="spotify-detail"><h3>${esc(main.name || data.name)}</h3><p>${esc(main.description || main.genres?.join(' · ') || '')}</p>${main.preview_url ? `<audio controls src="${esc(main.preview_url)}">Preview indisponível</audio>` : ''}${data.audio_features ? `<p>Energia: ${Math.round(data.audio_features.energy * 100)}% · Dançabilidade: ${Math.round(data.audio_features.danceability * 100)}%</p>` : ''}<div class="spotify-results">${tracks.map(x => item(x, 'track')).join('')}</div></section>`; bindItems(content); return data;
+    } catch (err) { content.textContent = err.message; } }
+  async function collection(label, endpoint, field = 'items', kind = 'playlist') { const content = panel(label); try { const data = await api(endpoint); const root = field.split('.').reduce((o,k) => o?.[k], data) || []; content.innerHTML = root.map(x => item(x.track || x, kind)).join('') || 'Nada para mostrar.'; bindItems(content); } catch(e) { content.textContent=e.message; } }
+  async function me() { const content=panel('Meus dados Spotify'); try { const d=await api('/spotify/me'); content.innerHTML=`<h3>${esc(d.profile.display_name)}</h3><h4>Top faixas</h4>${(d.top_tracks.items||[]).map(x=>item(x)).join('')}<h4>Top artistas</h4>${(d.top_artists.items||[]).map(x=>item(x,'artist')).join('')}<h4>Recentemente tocadas</h4>${(d.recently_played.items||[]).map(x=>item(x.track)).join('')}`; bindItems(content); } catch(e){content.textContent=e.message;} }
+  async function releases(){ return collection('Lançamentos recentes','/spotify/new-releases','albums.items','album'); }
+  async function recommendations(trackId){ const content=panel('Recomendações nativas do Spotify'); try { const d=await api(`/spotify/recommendations?seed_tracks=${encodeURIComponent(trackId)}`); content.innerHTML=`<p>Fonte: API nativa do Spotify — diferente do motor ResIA.</p>${(d.tracks||[]).map(x=>item(x)).join('')}`; bindItems(content); }catch(e){content.textContent=e.message;} }
+  async function player(action, extra='', value=null) { try { await api(`/spotify/player/${action}${extra}`, {method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid(), value})}); window.showToast?.('Comando enviado ao Spotify Connect.'); } catch(e){window.showToast?.(e.message);} }
+  async function playerPanel(){ const c=panel('Spotify Connect (Premium)'); c.innerHTML=`<div class="player-controls"><button data-a="previous">◀</button><button data-a="play">▶</button><button data-a="pause">Ⅱ</button><button data-a="next">▶</button><label>Volume <input type="range" min="0" max="100" value="50"></label><button data-a="shuffle">Shuffle</button><button data-a="repeat">Repetir</button></div><form class="spotify-queue"><input placeholder="URI Spotify para adicionar à fila"><button>Adicionar à fila</button></form><p>Controla o dispositivo Spotify ativo; não é o preview de 30s.</p>`; c.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>player(b.dataset.a, b.dataset.a==='shuffle'?'?state=true':b.dataset.a==='repeat'?'?state=context':'')); c.querySelector('input[type=range]').onchange=e=>player('volume',`?volume_percent=${e.target.value}`); c.querySelector('form').onsubmit=e=>{e.preventDefault(); player('queue','',c.querySelector('.spotify-queue input').value);}; }
+  async function qr(){ const c=panel('Conectar via QR'); try { const d=await api('/auth/qr',{method:'POST'}); c.innerHTML=`<p>Escaneie no celular. Após autorizar, confirme aqui — isso evita sequestro por screenshot.</p><div class="qr">${d.qr_svg}</div><button id="qr-approve" disabled>Confirmar pareamento</button>`; const timer=setInterval(async()=>{try { const s=await api(`/auth/qr/${d.code}/status`); if(s.status==='pending_approval'){clearInterval(timer); const b=c.querySelector('#qr-approve'); b.disabled=false; b.textContent='Confirmar pareamento'; b.onclick=async()=>{await api(`/auth/qr/${d.code}/approve`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({session_id:sid()})}); window.location.reload();}; }}catch(_){clearInterval(timer)}},2500); }catch(e){c.textContent=e.message;} }
+  function init(){ const nav=document.getElementById('spotify-tools'); if(!nav)return; nav.addEventListener('click', e=>{const a=e.target.closest('[data-spotify]')?.dataset.spotify; if(!a)return; ({search, playlists:()=>collection('Minhas playlists','/spotify/me/playlists'), following:()=>collection('Artistas que sigo','/spotify/me/following','artists.items','artist'), releases, me, player:playerPanel, qr}[a])?.();}); }
+  window.ResIASpotify={details,recommendations,player}; document.addEventListener('DOMContentLoaded',init);
+})();

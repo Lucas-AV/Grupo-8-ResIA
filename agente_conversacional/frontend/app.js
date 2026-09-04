@@ -10,17 +10,6 @@
 const SESSION_STORAGE_KEY = 'resia_chat_session_id';
 const HISTORY_STORAGE_PREFIX = 'resia_chat_history_';
 
-function generateUUID() {
-  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-    const r = (Math.random() * 16) | 0;
-    const v = c === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
-
 function getCookie(name) {
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
   return match ? decodeURIComponent(match[2]) : null;
@@ -43,11 +32,6 @@ function getSessionId() {
     sessionId = getCookie(SESSION_STORAGE_KEY);
   }
 
-  if (!sessionId) {
-    sessionId = generateUUID();
-    saveSessionId(sessionId);
-  }
-
   return sessionId;
 }
 
@@ -63,12 +47,6 @@ function saveSessionId(sessionId) {
   } catch (e) {
     console.warn('Falha ao salvar no cookie:', e);
   }
-}
-
-function resetSession() {
-  const newSessionId = generateUUID();
-  saveSessionId(newSessionId);
-  return newSessionId;
 }
 
 function saveChatHistory(sessionId, messages) {
@@ -107,79 +85,6 @@ const API_BASE_URL =
   window.location.protocol.startsWith('http') && window.location.port !== '5500' && window.location.port !== '3000'
     ? ''
     : 'http://127.0.0.1:8000';
-
-const OFFLINE_CATALOGO = {
-  pagode: [
-    { track_id: '3n3Ppam7vgaVa1iaRUc9Lp', nome: 'Deixa Acontecer', artista: 'Grupo Revelação', album: 'Ao Vivo', genero: 'pagode' },
-    { track_id: '2OzhsB92lF4N4Ynxy7P9hP', nome: 'Pé Na Areia', artista: 'Diogo Nogueira', album: 'Munduê', genero: 'pagode' },
-    { track_id: '5gB82p5T9z7Xw8Q7F1oE7B', nome: 'Falta Você', artista: 'Thiaguinho', album: 'Meu Nome É Thiago André', genero: 'pagode' },
-  ],
-  rock: [
-    { track_id: '08mG3Y1vljYA6bvNXEsOh9', nome: "Sweet Child O' Mine", artista: "Guns N' Roses", album: 'Appetite For Destruction', genero: 'rock' },
-    { track_id: '2VxeLyX666F8uXCJ0dZF8B', nome: "Livin' On A Prayer", artista: 'Bon Jovi', album: 'Slippery When Wet', genero: 'rock' },
-    { track_id: '7w8OXQ8oo6b5gPshx842Xk', nome: 'Back In Black', artista: 'AC/DC', album: 'Back In Black', genero: 'rock' },
-  ],
-  chill: [
-    { track_id: '3U4isOIWM3VvDubwSI3y7a', nome: 'Weightless', artista: 'Marconi Union', album: 'Weightless (Vol. 2)', genero: 'chill' },
-    { track_id: '4GfK1A2GZJvD1YwV61y6hA', nome: 'Sunset Lover', artista: 'Petit Biscuit', album: 'Presence', genero: 'chill' },
-    { track_id: '1A7F0J3F5F4h8C4G7x1A2B', nome: 'Coffee', artista: 'beabadoobee', album: 'Loveworm', genero: 'chill' },
-  ],
-  pop: [
-    { track_id: '0VjIjW4GlUZAMYd2vXMi3b', nome: 'Blinding Lights', artista: 'The Weeknd', album: 'After Hours', genero: 'pop' },
-    { track_id: '4Dvkj6JhhA12EX05fT7y2e', nome: 'As It Was', artista: 'Harry Styles', album: "Harry's House", genero: 'pop' },
-    { track_id: '1BxfuPKGuaTgP7aM0XbdMe', nome: 'Levitating', artista: 'Dua Lipa', album: 'Future Nostalgia', genero: 'pop' },
-  ],
-  mpb: [
-    { track_id: '4d1X9F8j4h2k8f1g3h5j6k', nome: 'Oceano', artista: 'Djavan', album: 'Djavan', genero: 'mpb' },
-    { track_id: '5h2j8k1l4f6g7h8j9k0l1m', nome: 'Aquarela', artista: 'Toquinho', album: 'Aquarela', genero: 'mpb' },
-    { track_id: '6k3l9m2n5g7h8j9k0l1m2n', nome: 'Como Nossos Pais', artista: 'Elis Regina', album: 'Falso Brilhante', genero: 'mpb' },
-  ]
-};
-
-function resolverMockLocal(sessionId, mensagem) {
-  const msg = mensagem.toLowerCase();
-  let faixas = [];
-  let texto = '';
-  let genero = 'misto';
-
-  if (msg.includes('pagode') || msg.includes('samba') || msg.includes('churrasco')) {
-    faixas = OFFLINE_CATALOGO.pagode;
-    texto = 'Selecionei clássicos do pagode com energia lá em cima para animar o seu churrasco!';
-    genero = 'pagode';
-  } else if (msg.includes('rock') || msg.includes('80') || msg.includes('guitarra')) {
-    faixas = OFFLINE_CATALOGO.rock;
-    texto = 'Aqui estão hinos do rock clássico com solos marcantes e energia contagiante:';
-    genero = 'rock';
-  } else if (msg.includes('chill') || msg.includes('lofi') || msg.includes('lo-fi') || msg.includes('relax') || msg.includes('foco') || msg.includes('calm') || msg.includes('estud')) {
-    faixas = OFFLINE_CATALOGO.chill;
-    texto = 'Encontrei faixas perfeitas com clima relaxante e alta acústica para você desacelerar ou focar:';
-    genero = 'chill';
-  } else if (msg.includes('mpb') || msg.includes('djavan') || msg.includes('caetano')) {
-    faixas = OFFLINE_CATALOGO.mpb;
-    texto = 'Obras primas da MPB selecionadas do catálogo com rica harmonia acústica:';
-    genero = 'mpb';
-  } else if (msg.includes('pop') || msg.includes('danc') || msg.includes('trein')) {
-    faixas = OFFLINE_CATALOGO.pop;
-    texto = 'Músicas pop com batidas vibrantes e alta dançabilidade separadas do dataset:';
-    genero = 'pop';
-  } else if (msg.includes('oi') || msg.includes('olá') || msg.includes('ola') || msg.includes('ajuda')) {
-    texto = 'Olá! Sou o agente musical do Grupo 8 ResIA. Como posso ajudar seu dia com música? Experimente pedir por gênero (pagode, rock, pop, chill, MPB) ou momento!';
-    faixas = [];
-  } else {
-    faixas = [OFFLINE_CATALOGO.pop[0], OFFLINE_CATALOGO.chill[1], OFFLINE_CATALOGO.mpb[0]];
-    texto = `Entendi seu pedido! Busquei no acervo de 114k faixas do Spotify algumas recomendações que combinam com "${mensagem}":`;
-  }
-
-  return {
-    session_id: sessionId,
-    mensagem: texto,
-    faixas: faixas,
-    diversidade_generos: faixas.length > 0 ? 1 : 0,
-    cobertura_sessao: 1.0,
-    consulta_efetiva: { genero: genero, consulta: mensagem },
-    _offline: true,
-  };
-}
 
 /**
  * Erro do backend padronizado pelo Ticket 8.3 (HTTP 5xx com corpo {"erro": "..."}).
@@ -220,12 +125,12 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
       signal: controller.signal,
     });
   } catch (err) {
-    // Falha de rede/timeout (backend fora do ar): mantém a resiliência existente
-    // e responde com o catálogo offline em vez de travar o chat.
     clearTimeout(timeoutId);
-    console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
-    await new Promise((r) => setTimeout(r, 650));
-    return resolverMockLocal(sessionId, mensagem);
+    // Não exibe catálogo local como se fosse resposta do motor: isso poderia
+    // apresentar faixas não verificadas. O chamador já mostra uma mensagem
+    // humana e recuperável para falhas de rede/timeout.
+    console.warn('Backend inacessível ou offline:', err);
+    throw err;
   }
   clearTimeout(timeoutId);
 
@@ -254,6 +159,32 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
   }
 
   return await response.json();
+}
+
+/**
+ * Cria a sessão no backend, que é a fonte de verdade do histórico. O UUID
+ * armazenado no navegador serve apenas para reencontrar uma sessão existente;
+ * ele nunca substitui a criação da sessão no servidor.
+ */
+async function criarSessaoRemota() {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  try {
+    const response = await fetch(`${API_BASE_URL}/session`, {
+      method: 'POST',
+      signal: controller.signal,
+    });
+    if (!response.ok) {
+      throw new Error(`Não foi possível criar a sessão: HTTP ${response.status}`);
+    }
+    const data = await response.json();
+    if (!data || typeof data.session_id !== 'string' || !data.session_id) {
+      throw new Error('O servidor não devolveu um identificador de sessão válido.');
+    }
+    return data.session_id;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 /**
@@ -484,6 +415,7 @@ function removerAcoesSpotifyGated() {
 let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
+let sessaoPronta = false;
 // Ticket 12.2 (KAN-105): reflete se a sessão atual tem login Spotify ativo
 // no backend (GET /auth/status) — controla se o botão "Salvar no Spotify"
 // aparece nos cards de resposta. Começa false (fail-closed): enquanto não
@@ -584,16 +516,36 @@ async function init() {
   isProcessing = true;
   if (btnSend) btnSend.disabled = true;
 
+  // Um ID salvo no navegador pode ser de uma sessão expirada ou anterior a
+  // um restart do backend. Valida-o antes de liberar o chat; se não existir,
+  // cria uma sessão real via POST /session em vez de tentar conversar com um
+  // UUID criado apenas no cliente.
+  let historicoRemoto = currentSessionId
+    ? await buscarHistoricoRemoto(currentSessionId)
+    : { valida: false, mensagens: [] };
+  if (historicoRemoto && !historicoRemoto.valida) {
+    try {
+      currentSessionId = await criarSessaoRemota();
+      saveSessionId(currentSessionId);
+      updateSessionDisplay();
+      historicoRemoto = { valida: true, mensagens: [] };
+    } catch (error) {
+      console.warn('Não foi possível criar uma sessão no backend:', error);
+      showErrorBanner('Não foi possível iniciar a conversa agora. Verifique o servidor e tente novamente.');
+    }
+  }
+  sessaoPronta = Boolean(historicoRemoto && historicoRemoto.valida && currentSessionId);
+
   // Ticket 12.2 (KAN-105): resolve o status de autenticação Spotify antes de
   // renderizar qualquer bolha de mensagem, pra já nascer com o botão
   // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
   isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
   atualizarBotaoSpotifyAuth();
 
-  await carregarHistoricoInicial();
+  await carregarHistoricoInicial(historicoRemoto);
 
   isProcessing = false;
-  if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
+  if (btnSend) btnSend.disabled = !sessaoPronta || !chatInput || chatInput.value.trim().length === 0;
 }
 
 /**
@@ -620,11 +572,17 @@ function atualizarBotaoSpotifyAuth() {
  * 1. Tenta buscar o histórico salvo no backend (GET /chat/historico).
  * 2. Sessão válida: usa o histórico do backend e sincroniza o cache local.
  * 3. Sessão inválida/expirada (404): estado de conversa nova, sem erro visível ao usuário.
- * 4. Backend inacessível (rede/timeout): mantém o comportamento anterior, restaurando do
- *    localStorage — não regride a experiência quando offline.
+ * 4. Backend inacessível (rede/timeout): pode restaurar o cache local apenas
+ *    para leitura; novos envios permanecem bloqueados até existir uma sessão
+ *    confirmada no servidor, sem simular recomendações.
  */
-async function carregarHistoricoInicial() {
-  const resultado = await buscarHistoricoRemoto(currentSessionId);
+async function carregarHistoricoInicial(resultado) {
+  // `init` já consulta o backend para validar/criar a sessão antes de chamar
+  // esta função. Mantemos a leitura aqui como fallback para usos futuros que
+  // chamem a função isoladamente.
+  if (resultado === undefined) {
+    resultado = await buscarHistoricoRemoto(currentSessionId);
+  }
 
   if (resultado === null) {
     messages = loadChatHistory(currentSessionId);
@@ -734,10 +692,27 @@ function setupEventListeners() {
     }
   });
 
-  btnNewChat?.addEventListener('click', () => {
+  btnNewChat?.addEventListener('click', async () => {
     if (isProcessing) return;
-    currentSessionId = resetSession();
+    isProcessing = true;
+    btnNewChat.disabled = true;
+    let novaSessao;
+    try {
+      novaSessao = await criarSessaoRemota();
+    } catch (error) {
+      console.warn('Não foi possível iniciar uma nova sessão:', error);
+      showErrorBanner('Não foi possível iniciar uma nova conversa agora. Tente novamente em instantes.');
+      return;
+    } finally {
+      isProcessing = false;
+      btnNewChat.disabled = false;
+    }
+
+    currentSessionId = novaSessao;
+    saveSessionId(currentSessionId);
+    sessaoPronta = true;
     messages = [];
+    faixasMostradasSessao.clear();
     messagesContainer.innerHTML = '';
     // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
     if (heroEmptyState) heroEmptyState.style.display = 'flex';
@@ -747,6 +722,10 @@ function setupEventListeners() {
   });
 
   btnSpotifyAuth?.addEventListener('click', () => {
+    if (!sessaoPronta) {
+      showErrorBanner('Inicie a conversa com o servidor antes de conectar sua conta Spotify.');
+      return;
+    }
     // Ticket 4.5 (KAN-40): sessão já conectada -> o mesmo botão desconecta
     // em vez de iniciar um novo fluxo OAuth (evita duplicar todo o padrão
     // de botão de auth só pra um logout).
@@ -785,7 +764,7 @@ function setupEventListeners() {
   chatInput?.addEventListener('input', () => {
     ajustarAlturaInput();
     const temTexto = chatInput.value.trim().length > 0;
-    btnSend.disabled = !temTexto || isProcessing;
+    btnSend.disabled = !temTexto || isProcessing || !sessaoPronta;
   });
 
   chatInput?.addEventListener('keydown', (e) => {
@@ -825,6 +804,23 @@ function scrollToBottom() {
 function formatarHora(timestamp) {
   const data = timestamp ? new Date(timestamp) : new Date();
   return data.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+}
+
+function criarResumoDiversidadeECobertura(resposta) {
+  // Ticket 6.2: os números já calculados pelo backend aparecem junto das
+  // recomendações, em linguagem simples. O indicador também deixa explícito
+  // quando popularidade participa do ranqueamento, sem esconder esse sinal.
+  const diversidade = Number(resposta.diversidade_generos) || 0;
+  const cobertura = Math.max(0, Math.min(1, Number(resposta.cobertura_sessao) || 0));
+  const resumo = document.createElement('aside');
+  resumo.className = 'recommendation-metrics';
+  resumo.setAttribute('aria-label', 'Resumo de diversidade e novidade das recomendações');
+  resumo.innerHTML = `
+    <span><strong>${diversidade}</strong> gênero${diversidade === 1 ? '' : 's'} na seleção</span>
+    <span><strong>${Math.round(cobertura * 100)}%</strong> de faixas novas nesta conversa</span>
+    <small>O resultado combina seu pedido com sinais como popularidade, sem definir sozinho a recomendação.</small>
+  `;
+  return resumo;
 }
 
 function escapeHtml(text) {
@@ -884,6 +880,10 @@ function renderMessageBubble(msg, animar = true) {
       bubble.appendChild(tracksSection);
     }
 
+    if (msg.metricas) {
+      bubble.appendChild(criarResumoDiversidadeECobertura(msg.metricas));
+    }
+
     // Ações logo abaixo dos cards de faixa — só faz sentido pra respostas do
     // agente (nunca numa mensagem do próprio usuário).
     if (msg.role === 'agent') {
@@ -932,6 +932,10 @@ function renderMessageBubble(msg, animar = true) {
 
 async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {}) {
   if (isProcessing) return;
+  if (!sessaoPronta) {
+    showErrorBanner('A conversa ainda não foi iniciada no servidor. Tente recarregar a página.');
+    return;
+  }
   isProcessing = true;
 
   if (!isRetry) {
@@ -971,6 +975,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
       role: 'agent',
       conteudo: resposta.mensagem || 'Recomendações prontas!',
       faixas: resposta.faixas || [],
+      metricas: resposta,
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
@@ -1018,7 +1023,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
     // Critério de aceite (KAN-76): o input do chat continua disponível para
     // uma nova tentativa, mesmo após um 429 — nada aqui desabilita o campo.
     isProcessing = false;
-    btnSend.disabled = chatInput.value.trim().length === 0;
+    btnSend.disabled = !sessaoPronta || chatInput.value.trim().length === 0;
     chatInput.focus();
   }
 }
@@ -1027,10 +1032,10 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
 window.ResIA = {
   getSessionId,
   saveSessionId,
-  resetSession,
   enviarMensagem,
   enviarMensagemUsuario,
   buscarHistoricoRemoto,
+  criarSessaoRemota,
   ErroBackend,
   showErrorBanner,
   verificarStatusSpotify,

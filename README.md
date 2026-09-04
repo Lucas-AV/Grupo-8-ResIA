@@ -225,9 +225,9 @@ Testes: `pytest`
       índice de similaridade, `buscar_recomendacoes` completa, diversidade/
       cobertura, fallback via Spotify Search API quando o catálogo local não
       cobre o pedido
-- [ ] Épico 2 — Pipeline conversacional (roteador determinístico → extração
-      via LLM → geração) — ainda não iniciado, é o que falta pra `POST /chat`
-      parar de responder `pipeline_indisponivel`
+- [x] Épico 2 — Pipeline conversacional (roteador determinístico → extração
+      via LLM → busca → geração/auditoria), integrado ao `POST /chat` com
+      fallback seguro e testes ponta a ponta
 - [x] Épico 3 — Backend/API de sessões (`POST /session`, `POST /chat`,
       `GET /chat/historico`) — ver
       [`agente_conversacional/docs/KAN-8_BACKEND_API.md`](agente_conversacional/docs/KAN-8_BACKEND_API.md)

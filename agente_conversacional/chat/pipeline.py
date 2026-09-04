@@ -15,15 +15,11 @@ responde com uma pergunta de esclarecimento por template sem nunca
 chamar `buscar_recomendacoes` com uma consulta vazia/inexistente.
 """
 
-import logging
 import time
 
-from chat import auditoria, extrator, gerador, roteador, template, validador
+from chat import auditoria, extrator, gerador, observabilidade, roteador, template, validador
 from recomendacao.busca import buscar_recomendacoes
 from sessions.models import Track, TurnResult
-
-logger = logging.getLogger("agente.chat.pipeline")
-
 
 class ChatPipeline:
     """Implementação concreta de `chat.contracts.TurnProcessor`."""
@@ -33,15 +29,23 @@ class ChatPipeline:
         rota = roteador.rotear(mensagem)
 
         if rota is not None and rota.tipo == "saudacao":
-            logger.info("turno resolvido pelo roteador: saudação")
+            _registrar_turno(
+                inicio, rota="saudacao", extracao="nao_necessaria",
+                busca="nao_necessaria", geracao="template",
+                auditoria="nao_necessaria", resultado="sucesso",
+            )
             return _resultado_sem_busca(template.saudacao())
 
         if rota is not None and rota.tipo == "fora_escopo":
-            logger.info("turno resolvido pelo roteador: fora de escopo")
+            _registrar_turno(
+                inicio, rota="fora_escopo", extracao="nao_necessaria",
+                busca="nao_necessaria", geracao="template",
+                auditoria="nao_necessaria", resultado="sucesso",
+            )
             return _resultado_sem_busca(template.fora_de_escopo())
 
         if rota is not None and rota.tipo == "consulta":
-            logger.info("turno resolvido pelo roteador: consulta simples")
+            origem = "roteador"
             consulta_bruta = rota.consulta
         else:
             consulta_bruta = extrator.extrair_consulta(mensagem, contexto.historico)
@@ -49,32 +53,61 @@ class ChatPipeline:
                 # Ticket 2.7 — fallback total: roteador não resolveu E a
                 # extração via LLM falhou/está indisponível. Nunca chama
                 # buscar_recomendacoes com consulta vazia/garbage.
-                logger.info("roteador não resolveu e extração via LLM falhou -> fallback total")
+                _registrar_turno(
+                    inicio, rota="nao_resolvida", extracao="falhou",
+                    busca="nao_executada", geracao="template",
+                    auditoria="nao_necessaria", resultado="fallback",
+                )
                 return _resultado_sem_busca(template.esclarecimento())
-            logger.info("turno resolvido pela extração via LLM")
+            origem = "extracao_llm"
 
-        consulta = validador.validar_consulta(consulta_bruta)
-        resultado = buscar_recomendacoes(
-            genero=consulta["genero"],
-            energia=consulta["energia"],
-            valencia=consulta["valencia"],
-            dancabilidade=consulta["dancabilidade"],
-            artista_referencia=consulta["artista_referencia"],
-            excluir_explicit=consulta["excluir_explicit"],
-            n_resultados=consulta["n_resultados"],
-            perfil_usuario=contexto.perfil_usuario,
-            faixas_ja_mostradas=contexto.faixas_ja_mostradas,
-        )
+        try:
+            consulta = validador.validar_consulta(consulta_bruta)
+            resultado = buscar_recomendacoes(
+                genero=consulta["genero"],
+                energia=consulta["energia"],
+                valencia=consulta["valencia"],
+                dancabilidade=consulta["dancabilidade"],
+                artista_referencia=consulta["artista_referencia"],
+                excluir_explicit=consulta["excluir_explicit"],
+                n_resultados=consulta["n_resultados"],
+                perfil_usuario=contexto.perfil_usuario,
+                faixas_ja_mostradas=contexto.faixas_ja_mostradas,
+            )
+        except Exception:
+            _registrar_turno(
+                inicio, rota=origem,
+                extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+                busca="falhou", geracao="nao_executada", auditoria="nao_executada",
+                resultado="falha",
+            )
+            raise
 
-        texto, citadas_brutas = gerador.gerar(mensagem, contexto.historico, resultado)
-        auditoria_resultado = auditoria.auditar_citacoes(citadas_brutas, resultado["faixas"])
+        try:
+            texto, citadas_brutas = gerador.gerar(mensagem, contexto.historico, resultado)
+        except Exception:
+            _registrar_turno(
+                inicio, rota=origem,
+                extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+                busca="sucesso", geracao="falhou", auditoria="nao_executada", resultado="falha",
+            )
+            raise
+        try:
+            auditoria_resultado = auditoria.auditar_citacoes(citadas_brutas, resultado["faixas"])
+        except Exception:
+            _registrar_turno(
+                inicio, rota=origem,
+                extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+                busca="sucesso", geracao="sucesso", auditoria="falhou", resultado="falha",
+            )
+            raise
 
-        duracao_ms = (time.monotonic() - inicio) * 1000
-        logger.info(
-            "turno concluído em %.0fms — %d faixa(s), %d citação(ões) divergente(s)",
-            duracao_ms,
-            len(resultado["faixas"]),
-            len(auditoria_resultado.divergentes),
+        _registrar_turno(
+            inicio, rota=origem,
+            extracao="nao_necessaria" if origem == "roteador" else "sucesso",
+            busca="sucesso", geracao="sucesso",
+            auditoria="divergencia" if auditoria_resultado.divergentes else "sucesso",
+            resultado="sucesso",
         )
 
         return TurnResult(
@@ -107,4 +140,11 @@ def _resultado_sem_busca(texto):
         cobertura_sessao=0.0,
         consulta_efetiva={},
         faixas_citadas=(),
+    )
+
+
+def _registrar_turno(inicio, **etapas):
+    observabilidade.registrar_turno(
+        **etapas,
+        duracao_ms=(time.monotonic() - inicio) * 1000,
     )

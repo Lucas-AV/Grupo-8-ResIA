@@ -52,8 +52,8 @@ uvicorn app:app --reload
   `{"disponivel": bool, "backend": str, "erro": str|None}`. Nunca derruba o
   processo, mesmo com o LLM fora do ar (ticket 0.4).
 - `POST /session`, `POST /chat`, `GET /chat/historico` — sessão e conversa
-  (Épico 3, ver seção abaixo). `POST /chat` responde `503
-  pipeline_indisponivel` até o Épico 2 existir.
+  (Épicos 2 e 3, ver seção abaixo). `POST /chat` usa o pipeline real por
+  padrão e preserva o fallback seguro quando o LLM não está disponível.
 - `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`,
   `GET /auth/status` — fluxo OAuth do Spotify (Épico 5, ver seção abaixo).
 - `GET /recomendar`, `POST /playlist/criar` — funcionalidades extras do
@@ -125,7 +125,7 @@ argumentos, usa `SessionStore()` e `ChatPipeline()` de verdade.
 python -m pytest
 ```
 
-190 testes cobrindo o dispatcher `chamar_llm`, os backends, o boot do
+Uma suíte automatizada cobrindo o dispatcher `chamar_llm`, os backends, o boot do
 FastAPI, sessões, expiração, contratos HTTP do Épico 3, motor de
 recomendação (Épico 1), fluxo OAuth (Épico 5), CORS, tratamento de erros e
 rate limiter (Épico 8), e as funcionalidades extras do Épico 12. Todos usam
@@ -194,7 +194,7 @@ redirecionar direto, se fizer mais sentido.
 | 5.4 — Armazenamento/renovação de tokens | `spotify_auth/token_store.py` (SQLite + Fernet) e `client.get_valid_access_token` (renova quando falta <60s; se o refresh falhar, sessão cai pra anônima). | Feito |
 | 5.5 — Busca do histórico | `spotify_auth/history.py` — top tracks, recently played, saved tracks (paginado). 429/timeout tratados como histórico parcial, não bloqueiam o login. | Feito |
 | 5.6 — Matching com dataset local | `recomendacao/historico_match.py` (`casar_historico_com_dataset`) — match por `track_id` exato e fallback por nome+artista normalizados (`recomendacao/normalizacao.py`, mesma função de 2.3). Cobertura calculada e logada. | Feito |
-| 5.7 — Perfil de gosto (centróide) | `recomendacao/perfil.py` (`calcular_perfil_usuario`) — centróide das features normalizadas das faixas casadas (5.6), injetado em `buscar_recomendacoes(perfil_usuario=...)` com o blend 70/30 (`recomendacao/busca.py`). Cobertura zero devolve `None`, mesmo comportamento do anônimo. Ainda sem hook automático no `/chat` — pronto pra uso, falta o Épico 2 chamar. | Feito |
+| 5.7 — Perfil de gosto (centróide) | `recomendacao/perfil.py` (`calcular_perfil_usuario`) — centróide das features normalizadas das faixas casadas (5.6), injetado em `buscar_recomendacoes(perfil_usuario=...)` com o blend 70/30 (`recomendacao/busca.py`). Cobertura zero devolve `None`, mesmo comportamento do anônimo. O `ChatPipeline` recebe esse perfil pelo contexto da sessão e o repassa à busca. | Feito |
 | 5.8 — `POST /auth/logout` | `spotify_auth/routes.py` — descarta os tokens da sessão. | Feito |
 | 5.9 — Casos de falha do OAuth | Tabela da seção 3.7 do pipeline coberta: `state` inválido, `error=access_denied`, refresh revogado, 429, timeout — todos testados com mocks (`test_spotify_client.py`, `test_spotify_history.py`, `test_spotify_routes.py`). | Feito |
 | 5.10 — Aviso de privacidade antes do login | `spotify_auth/consent.py` — `GET /auth/login` mostra os scopes lidos e a política de dados (§9 do pipeline) antes do link pra `/auth/login/start`. Implementado no backend por falta do Épico 4; ver desvio de fluxo acima. | Feito (via backend, adiantado do Épico 4) |
@@ -241,7 +241,7 @@ Jira tinha esse nível de detalhe). Vale o time confirmar:
   zero sem esconder que não há faixas novas nem antigas, simplesmente
   não há faixas.
 
-Testes: `pytest` — 109 testes (103 anteriores + 6 do ticket 1.5), todos
+Testes: `pytest` — cobertura automatizada dos casos do motor, todos
 sem depender de rede ou de serviços externos. Épico 1 completo.
 
 ## Épico 2 — Pipeline conversacional (status por ticket)
@@ -312,7 +312,7 @@ Módulo `api/` + `sessions/` — sessões de conversa em memória, endpoints
 | Ticket | O que cobre | Status |
 |---|---|---|
 | 3.1 — `POST /session` | `api/routes.py` — cria sessão, devolve `session_id` (UUID4). | Feito |
-| 3.2 — `POST /chat` | `api/routes.py` — orquestra o turno; sem o Épico 2, responde `503 pipeline_indisponivel` (nunca inventa recomendação). Ponto de integração: `chat/contracts.py` (`TurnProcessor`). | Feito (aguardando Épico 2 pra parar de responder 503) |
+| 3.2 — `POST /chat` | `api/routes.py` — orquestra o turno com `ChatPipeline`; interpreta, busca, gera e audita antes de gravar o histórico. `503 pipeline_indisponivel` fica restrito a uma dependência explicitamente indisponível em teste/integração. | Feito |
 | 3.3 — `GET /chat/historico` | `api/routes.py` — devolve mensagens auditáveis (`role`, `conteudo`, `faixas_citadas`, timestamp UTC). | Feito |
 | 3.4 — Gerenciador de sessão | `sessions/store.py` — sessão inválida/expirada nunca derruba o backend, devolve `404 sessao_invalida`. | Feito |
 | 3.5 — Timeout de inatividade | Sessão expira após `SESSION_TIMEOUT_MINUTES` (30min padrão); tokens OAuth (Épico 5) ficam em armazenamento separado, não são afetados. | Feito |
@@ -348,10 +348,11 @@ Módulo `api/` + `sessions/` — sessões de conversa em memória, endpoints
 | 12.1 — Criar playlist no Spotify | `spotify_auth/playlist.py` (`create_playlist_with_tracks`) + rota `POST /playlist/criar` — resolve o usuário logado, cria a playlist e adiciona as faixas recomendadas (lotes de até 100 URIs). | Feito |
 | 12.2 — Botão "Salvar no Spotify" | Aparece só quando `GET /auth/status` confirma sessão autenticada; feedback de sucesso/erro na UI. | Feito |
 | 12.3 — Endpoint de recomendação sem LLM | `GET /recomendar` (`api/routes.py`) — chama `buscar_recomendacoes` direto, sem depender do roteador/LLM/Épico 2. Útil pra demo e debug. | Feito |
-| 12.4 — Botão "Gerar outra recomendação" | Reenvia com `faixas_ja_mostradas` preenchido, evitando repetir faixas já exibidas na sessão. | Feito |
+| 12.4 — Botão "Gerar outra recomendação" | Reenvia uma nova solicitação e o backend usa as faixas já mostradas para calcular a cobertura da sessão; a lista permanece rastreável no histórico. | Feito |
 | 12.5 — Dark mode | Toggle de tema com preferência salva em `localStorage`. | Feito |
 | 12.6 — Landing page do projeto | `site/templates/landing.html` — pitch cards reaproveitados de `site/build_site.py`, CTA pro passo a passo do agente (ainda sem hosting público, ver 8.7) e link pro dashboard de análises. | Feito |
 
 Épico 12 completo.
 
-Testes: `pytest` — 190 testes no total, todos com rede/LLM mockados.
+Testes: `pytest` — todos usam rede/LLM mockados quando necessário e não
+dependem de serviços externos rodando.
