@@ -11,6 +11,9 @@ from spotify_auth.consent import render_consent_page
 from spotify_auth.errors import SpotifyNotAuthenticatedError, SpotifyPlaylistError, SpotifyTokenExchangeError
 from spotify_auth.playlist import create_playlist_with_tracks
 from spotify_auth.token_store import TokenStore
+from spotify_auth.history import fetch_recently_played, fetch_saved_tracks, fetch_top_tracks
+from recomendacao.historico_match import casar_historico_com_dataset
+from recomendacao.perfil import calcular_perfil_usuario
 from sessions.store import SessionNotFound
 
 logger = logging.getLogger("agente.spotify_auth")
@@ -34,6 +37,32 @@ def _get_token_store():
     if _token_store is None:
         _token_store = TokenStore()
     return _token_store
+
+
+def _perfil_e_cobertura_do_historico(access_token):
+    """Calcula o perfil e registra somente números agregados do matching.
+
+    O log não contém token, sessão, nomes de faixas nem informações da conta.
+    Falhas aqui nunca impedem a pessoa de concluir o login.
+    """
+    try:
+        historico = [
+            *fetch_top_tracks(access_token),
+            *fetch_recently_played(access_token),
+            *fetch_saved_tracks(access_token),
+        ]
+        cobertura = casar_historico_com_dataset(historico)
+        perfil = calcular_perfil_usuario(historico)
+        logger.info(
+            "cobertura_matching_oauth=%.1f%% faixas_casadas=%d faixas_historico=%d",
+            cobertura["taxa_cobertura"] * 100,
+            cobertura["total_casadas"],
+            cobertura["total_historico"],
+        )
+        return perfil
+    except Exception:
+        logger.warning("não foi possível calcular a cobertura do matching OAuth; seguindo sem perfil", exc_info=True)
+        return None
 
 
 @router.get("/auth/login")
@@ -74,7 +103,10 @@ def callback(
     session_store = getattr(request.app.state, "session_store", None)
     if session_store is not None:
         try:
-            session_store.mark_authenticated(pending["session_id"])
+            session_store.mark_authenticated(
+                pending["session_id"],
+                _perfil_e_cobertura_do_historico(tokens["access_token"]),
+            )
         except SessionNotFound:
             logger.info("sessao de chat nao existe mais; tokens OAuth permanecem armazenados")
     return RedirectResponse("/?spotify_login=success")

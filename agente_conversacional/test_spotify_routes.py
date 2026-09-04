@@ -31,7 +31,7 @@ class _FakeSessionStore:
     def __init__(self):
         self.authenticated_sessions = []
 
-    def mark_authenticated(self, session_id):
+    def mark_authenticated(self, session_id, perfil_usuario=None):
         self.authenticated_sessions.append(session_id)
 
 
@@ -95,6 +95,7 @@ def test_callback_happy_path_saves_tokens_and_redirects_success(client, monkeypa
         "exchange_code_for_tokens",
         lambda code, code_verifier: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
     )
+    monkeypatch.setattr(routes, "_perfil_e_cobertura_do_historico", lambda token: (0.1, 0.2))
 
     response = client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
 
@@ -102,6 +103,22 @@ def test_callback_happy_path_saves_tokens_and_redirects_success(client, monkeypa
     session_id, access_token, refresh_token, _ = client.fake_store.saved
     assert (session_id, access_token, refresh_token) == ("sess-1", "at", "rt")
     assert client.fake_session_store.authenticated_sessions == ["sess-1"]
+
+
+def test_login_com_historico_registra_cobertura_sem_expor_token(monkeypatch, caplog):
+    monkeypatch.setattr(routes, "fetch_top_tracks", lambda token: [{"id": "t1"}])
+    monkeypatch.setattr(routes, "fetch_recently_played", lambda token: [])
+    monkeypatch.setattr(routes, "fetch_saved_tracks", lambda token: [])
+    monkeypatch.setattr(routes, "casar_historico_com_dataset", lambda historico: {
+        "taxa_cobertura": 0.5, "total_casadas": 1, "total_historico": 2,
+    })
+    monkeypatch.setattr(routes, "calcular_perfil_usuario", lambda historico: None)
+
+    with caplog.at_level("INFO", logger="agente.spotify_auth"):
+        assert routes._perfil_e_cobertura_do_historico("token-secreto") is None
+
+    assert "cobertura_matching_oauth=50.0%" in caplog.records[-1].message
+    assert "token-secreto" not in caplog.records[-1].message
 
 
 def test_callback_redirects_to_failed_when_token_exchange_fails(client, monkeypatch):
