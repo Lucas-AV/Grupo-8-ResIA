@@ -287,6 +287,25 @@ async function verificarStatusSpotify(sessionId) {
 }
 
 /**
+ * Ticket 20.8 (KAN-167): busca o `display_name` do usuário Spotify logado
+ * (`GET /explorer/me`, ticket 13.10) pra mostrar no header. Só é chamada ao
+ * (re)autenticar — nunca a cada render do botão. Falha de rede/parse ou
+ * `display_name` vazio resolve pra `null`, e quem chama cai no rótulo
+ * genérico ("Spotify conectado") em vez de mostrar um botão vazio.
+ */
+async function buscarNomeUsuarioSpotify(sessionId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/explorer/me?session_id=${encodeURIComponent(sessionId)}`);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data && data.display_name ? data.display_name : null;
+  } catch (err) {
+    console.warn('Não foi possível obter o nome do usuário Spotify:', err);
+    return null;
+  }
+}
+
+/**
  * Ticket 4.5 (KAN-40): chama POST /auth/logout (ticket 5.8,
  * spotify_auth/routes.py) pra descartar os tokens Spotify da sessão atual.
  * Não recebe `session_id` no corpo — a rota espera query param, como
@@ -405,6 +424,7 @@ async function handleLogoutSpotify() {
   try {
     await logoutSpotify(currentSessionId);
     isSpotifyAuthenticated = false;
+    spotifyDisplayName = null;
     removerAcoesSpotifyGated();
     showToast('Desconectado do Spotify.');
   } catch (err) {
@@ -441,6 +461,10 @@ let isProcessing = false;
 // aparece nos cards de resposta. Começa false (fail-closed): enquanto não
 // confirmamos com o backend, não mostramos ação que exige autenticação.
 let isSpotifyAuthenticated = false;
+// Ticket 20.8 (KAN-167): display_name do usuário Spotify logado, pra mostrar
+// no header em vez do rótulo genérico. Cache em memória — só busca de novo
+// ao (re)autenticar (init/logout), não a cada render do botão.
+let spotifyDisplayName = null;
 // Ticket 12.4 (KAN-107): track_ids de toda faixa já mostrada nesta sessão
 // (acumulado no cliente a partir de msg.faixas de cada resposta do agente),
 // usado pelo botão "Gerar outra recomendação" pra pedir uma busca nova sem
@@ -565,6 +589,7 @@ async function init() {
   // renderizar qualquer bolha de mensagem, pra já nascer com o botão
   // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
   isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
+  spotifyDisplayName = isSpotifyAuthenticated ? await buscarNomeUsuarioSpotify(currentSessionId) : null;
   atualizarBotaoSpotifyAuth();
 
   isProcessing = false;
@@ -582,7 +607,9 @@ function atualizarBotaoSpotifyAuth() {
     btnSpotifyAuth.classList.add('btn-spotify-auth--connected');
     // Ticket 4.5 (KAN-40): o botão agora também é a ação de logout.
     btnSpotifyAuth.title = 'Clique para desconectar do Spotify';
-    if (label) label.textContent = 'Spotify conectado';
+    // Ticket 20.8 (KAN-167): mostra o nome de quem está logado quando
+    // disponível; cai no rótulo genérico se a conta não tem nome público.
+    if (label) label.textContent = spotifyDisplayName || 'Spotify conectado';
   } else {
     btnSpotifyAuth.classList.remove('btn-spotify-auth--connected');
     btnSpotifyAuth.title = 'Conectar com o Spotify para recomendações personalizadas';
@@ -1068,6 +1095,7 @@ window.ResIA = {
   ErroBackend,
   showErrorBanner,
   verificarStatusSpotify,
+  buscarNomeUsuarioSpotify,
   criarPlaylistSpotify,
   logoutSpotify,
   atualizarFaixasMostradas,

@@ -300,6 +300,15 @@ body {
   cursor: pointer;
   transition: var(--transition-fast);
   box-shadow: 0 2px 10px var(--spotify-green-glow);
+  max-width: 220px;
+}
+
+/* Ticket 20.8 (KAN-167): trunca o nome do usuário Spotify no header em vez
+   de quebrar o layout quando o nome é longo. */
+.btn-spotify-auth span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .btn-spotify-auth:hover {
