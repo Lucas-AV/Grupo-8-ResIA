@@ -626,6 +626,7 @@ const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
 const editMessageBanner = document.getElementById('edit-message-banner');
 const btnCancelEdit = document.getElementById('btn-cancel-edit');
+const btnScrollBottom = document.getElementById('btn-scroll-bottom');
 const panelBackdrop = document.getElementById('panel-backdrop');
 const panelDefinitions = {
   welcome: { panel: document.getElementById('welcome-panel'), content: document.getElementById('welcome-panel-content') },
@@ -1206,6 +1207,18 @@ function setupEventListeners() {
       chatInput?.focus();
     }
   });
+
+  // Controle de visibilidade e rolagem do botão flutuante
+  chatScrollArea?.addEventListener('scroll', () => {
+    if (!chatScrollArea || !btnScrollBottom) return;
+    const distanceFromBottom = chatScrollArea.scrollHeight - chatScrollArea.scrollTop - chatScrollArea.clientHeight;
+    btnScrollBottom.hidden = distanceFromBottom <= 140;
+  });
+
+  btnScrollBottom?.addEventListener('click', () => {
+    chatScrollArea?.scrollTo({ top: chatScrollArea.scrollHeight, behavior: 'smooth' });
+    btnScrollBottom.hidden = true;
+  });
 }
 
 function openPanel(name, trigger) {
@@ -1372,9 +1385,42 @@ function renderMetricHistory() {
   `).join('')}</section>`;
 }
 
+function renderHistorySkeleton() {
+  return `
+    <div class="history-skeleton-container" aria-label="Carregando histórico de conversas..." aria-busy="true">
+      <div class="skeleton-history-item user">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-80"></div>
+        <div class="skeleton-time"></div>
+      </div>
+      <div class="skeleton-history-item agent">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-full"></div>
+        <div class="skeleton-line w-60"></div>
+        <div class="skeleton-time"></div>
+      </div>
+      <div class="skeleton-history-item user">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-60"></div>
+        <div class="skeleton-time"></div>
+      </div>
+      <div class="skeleton-history-item agent">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-full"></div>
+        <div class="skeleton-line w-40"></div>
+        <div class="skeleton-time"></div>
+      </div>
+    </div>
+  `;
+}
+
 function renderHistoryPanel() {
   const content = panelDefinitions.history.content;
-  renderPanelMessage(content, 'Carregando histórico...', 'panel-state-loading');
+  content.innerHTML = renderHistorySkeleton();
   buscarHistorico(currentSessionId).then((data) => {
     const history = Array.isArray(data) ? data : (data?.historico || data?.mensagens || []);
     const panelMessages = history.length ? history : messages;

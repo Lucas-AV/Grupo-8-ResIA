@@ -610,7 +610,14 @@ body {
   display: block;
 }
 
-/* 7. Balões de Mensagem */
+/* 7. Lista e Balões de Mensagem */
+#messages-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  width: 100%;
+}
+
 .message-row {
   display: flex;
   gap: 12px;
@@ -670,9 +677,12 @@ body {
   object-fit: cover;
 }
 
-/* Ticket 20.10 (KAN-169): agrupa mensagens consecutivas do mesmo autor —
-   o avatar some (mantendo o espaço reservado, pra bolha não perder o
-   alinhamento com a coluna de avatares) em vez de repetir a cada bolha. */
+/* Agrupamento de mensagens consecutivas do mesmo autor:
+   avatar invisível e espaçamento vertical compacto de 8px (24px container gap - 16px). */
+.message-row--grouped {
+  margin-top: -16px;
+}
+
 .message-row--grouped .message-avatar {
   visibility: hidden;
 }
@@ -683,8 +693,9 @@ body {
   font-size: 0.92rem;
   line-height: 1.55;
   position: relative;
-  max-width: 620px;
+  max-width: 640px;
   word-break: break-word;
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast), border-color var(--transition-fast);
 }
 
 .message-row.user .message-bubble {
@@ -692,6 +703,10 @@ body {
   color: var(--text-primary);
   border: 1px solid var(--user-bubble-border);
   border-top-right-radius: 4px;
+}
+
+.message-row.user .message-bubble:hover {
+  border-color: rgba(255, 255, 255, 0.2);
 }
 
 .message-row.agent .message-bubble {
@@ -702,8 +717,12 @@ body {
   box-shadow: var(--shadow-sm);
 }
 
-/* Ticket 4.9 (KAN-76): mensagem de limite de mensagens (HTTP 429) —
-   visualmente distinta de uma resposta normal e do erro genérico (KAN-75). */
+.message-row.agent .message-bubble:hover {
+  border-color: rgba(255, 255, 255, 0.16);
+  box-shadow: var(--shadow-md);
+}
+
+/* Ticket 4.9 (KAN-76): mensagem de limite de mensagens (HTTP 429) */
 .message-bubble--rate-limit {
   border-color: #b8860b;
   background: rgba(184, 134, 11, 0.12);
@@ -714,6 +733,55 @@ body {
   color: var(--text-muted);
   margin-top: 6px;
   display: block;
+}
+
+/* Ações de resposta (Ticket 12.2 / 12.4) */
+.response-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 14px;
+}
+
+.btn-response-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: var(--radius-pill);
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+  border: 1px solid var(--border-subtle);
+}
+
+.btn-outra-recomendacao {
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+}
+
+.btn-outra-recomendacao:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--overlay-strong);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+}
+
+.btn-salvar-spotify {
+  background: var(--spotify-green);
+  color: #000000;
+  border-color: var(--spotify-green);
+}
+
+.btn-salvar-spotify:hover {
+  background: var(--spotify-green-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 14px var(--spotify-green-glow);
+}
+
+.btn-response-action:active {
+  transform: translateY(0) scale(0.98);
 }
 
 /* Ticket 6.2 — transparência da seleção, sem competir com os cards. */
@@ -1666,7 +1734,130 @@ body {
 .panel-content { flex: 1; overflow-y: auto; padding: 22px 26px 40px; }
 .panel-state { padding: 30px 8px; color: var(--text-secondary); line-height: 1.5; text-align: center; }
 .panel-state-error { color: #fca5a5; }
-.panel-state-loading { color: var(--spotify-green); }
+.panel-state-loading { color: var(--spotify-green); display: flex; align-items: center; justify-content: center; gap: 8px; }
+
+/* Skeleton Loading State — Minhas Conversas */
+.history-skeleton-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 6px 0;
+}
+
+.skeleton-history-item {
+  padding: 16px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+}
+
+.skeleton-history-item.user {
+  border-left: 3px solid var(--overlay-medium);
+}
+
+.skeleton-history-item.agent {
+  border-left: 3px solid rgba(29, 185, 84, 0.4);
+}
+
+.skeleton-shimmer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.05) 50%,
+    transparent 100%
+  );
+  animation: skeletonShimmer 1.5s infinite;
+  transform: translateX(-100%);
+}
+
+[data-theme='light'] .skeleton-shimmer {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(0, 0, 0, 0.05) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes skeletonShimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+.skeleton-badge {
+  width: 54px;
+  height: 12px;
+  border-radius: 4px;
+  background: var(--overlay-medium);
+}
+
+.skeleton-line {
+  height: 13px;
+  border-radius: 4px;
+  background: var(--overlay-weak);
+}
+
+.skeleton-line.w-full { width: 100%; }
+.skeleton-line.w-80 { width: 80%; }
+.skeleton-line.w-60 { width: 60%; }
+.skeleton-line.w-40 { width: 40%; }
+
+.skeleton-time {
+  width: 44px;
+  height: 10px;
+  border-radius: 4px;
+  background: var(--overlay-weak);
+  margin-top: 2px;
+}
+
+/* Botão Flutuante de Rolar para o Final (Chat) */
+.btn-scroll-bottom {
+  position: fixed;
+  bottom: 110px;
+  right: 28px;
+  z-index: 45;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity var(--transition-fast), transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+  animation: scrollBtnIn 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes scrollBtnIn {
+  from { opacity: 0; transform: translateY(8px) scale(0.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.btn-scroll-bottom:hover {
+  background: var(--spotify-green);
+  color: #000000;
+  border-color: var(--spotify-green);
+  transform: translateY(-2px);
+  box-shadow: 0 10px 28px var(--spotify-green-glow);
+}
+
+.btn-scroll-bottom[hidden] {
+  display: none !important;
+}
 .profile-summary { padding-bottom: 22px; border-bottom: 1px solid var(--border-subtle); }
 .profile-summary p { color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; margin-top: 8px; }
 .feature-list { display: grid; gap: 16px; padding: 22px 0; }
