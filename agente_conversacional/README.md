@@ -52,8 +52,8 @@ uvicorn app:app --reload
   `{"disponivel": bool, "backend": str, "erro": str|None}`. Nunca derruba o
   processo, mesmo com o LLM fora do ar (ticket 0.4).
 - `POST /session`, `POST /chat`, `GET /chat/historico` — sessão e conversa
-  (Épico 3, ver seção abaixo). `POST /chat` responde `503
-  pipeline_indisponivel` até o Épico 2 existir.
+  (Épicos 2 e 3, ver seção abaixo). `POST /chat` usa o pipeline real por
+  padrão e preserva o fallback seguro quando o LLM não está disponível.
 - `GET /auth/login`, `GET /auth/callback`, `POST /auth/logout`,
   `GET /auth/status` — fluxo OAuth do Spotify (Épico 5, ver seção abaixo).
 - `GET /recomendar`, `POST /playlist/criar` — funcionalidades extras do
@@ -312,7 +312,7 @@ Módulo `api/` + `sessions/` — sessões de conversa em memória, endpoints
 | Ticket | O que cobre | Status |
 |---|---|---|
 | 3.1 — `POST /session` | `api/routes.py` — cria sessão, devolve `session_id` (UUID4). | Feito |
-| 3.2 — `POST /chat` | `api/routes.py` — orquestra o turno; sem o Épico 2, responde `503 pipeline_indisponivel` (nunca inventa recomendação). Ponto de integração: `chat/contracts.py` (`TurnProcessor`). | Feito (aguardando Épico 2 pra parar de responder 503) |
+| 3.2 — `POST /chat` | `api/routes.py` — orquestra o turno com `ChatPipeline`; interpreta, busca, gera e audita antes de gravar o histórico. `503 pipeline_indisponivel` fica restrito a uma dependência explicitamente indisponível em teste/integração. | Feito |
 | 3.3 — `GET /chat/historico` | `api/routes.py` — devolve mensagens auditáveis (`role`, `conteudo`, `faixas_citadas`, timestamp UTC). | Feito |
 | 3.4 — Gerenciador de sessão | `sessions/store.py` — sessão inválida/expirada nunca derruba o backend, devolve `404 sessao_invalida`. | Feito |
 | 3.5 — Timeout de inatividade | Sessão expira após `SESSION_TIMEOUT_MINUTES` (30min padrão); tokens OAuth (Épico 5) ficam em armazenamento separado, não são afetados. | Feito |

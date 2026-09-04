@@ -168,3 +168,34 @@ def test_fallback_total_via_api_quando_llm_indisponivel(tmp_path, monkeypatch):
     body = response.json()
     assert body["faixas"] == []
     assert "não entendi" in body["mensagem"].lower()
+
+
+def test_turnos_reais_preservam_contexto_e_historico_auditavel(tmp_path, monkeypatch):
+    """Integração KAN-8 + Épico 2: o segundo turno recebe as faixas do
+    primeiro pelo contexto da sessão, e ambos só entram no histórico depois
+    de respostas completas e auditadas."""
+    _preparar_dataset(tmp_path, monkeypatch)
+
+    def fake_call(mensagens, formato_json=None, timeout=None):
+        return '{"texto": "Seleção confirmada.", "faixas_citadas": ["t1", "t2"]}'
+
+    monkeypatch.setattr("llm.backends.ollama_backend.call", fake_call)
+
+    with _client(monkeypatch) as client:
+        session_id = client.post("/session").json()["session_id"]
+        primeiro = client.post("/chat", json={"session_id": session_id, "mensagem": "quero blues"})
+        segundo = client.post("/chat", json={"session_id": session_id, "mensagem": "quero blues"})
+        historico = client.get("/chat/historico", params={"session_id": session_id})
+
+    assert primeiro.status_code == 200
+    assert segundo.status_code == 200
+    assert primeiro.json()["cobertura_sessao"] == 1.0
+    assert segundo.json()["cobertura_sessao"] == 0.0
+    assert [item["role"] for item in historico.json()["historico"]] == [
+        "usuario",
+        "agente",
+        "usuario",
+        "agente",
+    ]
+    assert historico.json()["historico"][1]["faixas_citadas"] == ["t1", "t2"]
+    assert historico.json()["historico"][3]["faixas_citadas"] == ["t1", "t2"]
