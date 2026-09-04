@@ -214,6 +214,26 @@ Testes: `pytest`
 
 O notebook de EDA está pronto para uma demonstração guiada, célula a célula. Veja as opções online e os comandos de verificação em [`docs/NOTEBOOK_DEMO.md`](docs/NOTEBOOK_DEMO.md). Para abrir e executar pelo navegador sem preparar ambiente local, use o [Binder](https://mybinder.org/v2/gh/Lucas-AV/Grupo-8-ResIA/HEAD?labpath=analise_exploratoria.ipynb).
 
+## Apresentação do MelodIA
+
+O material do Épico 11 está organizado em
+[`docs/apresentacao/`](docs/apresentacao/README.md). O pacote inclui o pitch de
+cinco minutos, a apresentação técnica de oito minutos, os dois decks em PPTX e
+PDF, o roteiro do vídeo e o guia de ensaio. A gravação/publicação do vídeo e o
+registro do ensaio permanecem como ações da equipe e não são marcados como
+concluídos antes de acontecerem.
+
+- [Pitch em PPTX](docs/apresentacao/pitch/MelodIA_Pitch.pptx) e
+  [PDF](docs/apresentacao/pitch/MelodIA_Pitch.pdf)
+- [Apresentação técnica em PPTX](docs/apresentacao/tecnica/MelodIA_Tecnica.pptx)
+  e [PDF](docs/apresentacao/tecnica/MelodIA_Tecnica.pdf)
+- [Roteiro do pitch](docs/apresentacao/ROTEIRO_PITCH.md) e
+  [roteiro técnico](docs/apresentacao/ROTEIRO_TECNICO.md)
+- [Roteiro do vídeo](docs/apresentacao/video/ROTEIRO_VIDEO.md) e
+  [guia de gravação](docs/apresentacao/video/GUIA_GRAVACAO.md)
+- [Guia de ensaio](docs/apresentacao/ENSAIO_GERAL.md) e
+  [registro de validação](docs/apresentacao/VALIDACAO.md)
+
 ## Roadmap
 
 - [x] Análise exploratória por gênero (popularidade, energia, dançabilidade, escala)
