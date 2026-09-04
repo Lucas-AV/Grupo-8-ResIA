@@ -75,9 +75,13 @@
               </svg>
             </button>
             <div class="header-menu-panel" role="menu" aria-hidden="true">
-              <!-- Explorar Spotify (Épico 13 / KAN-123) e Conectar por QR code
-                   (Ticket 13.13 / KAN-122) são inseridos aqui em runtime por
-                   components/explorer.js e components/qrLogin.js. -->
+              <!-- Explorar Spotify (Épico 13 / KAN-123) é inserido aqui em runtime
+                   por components/explorer.js. Conectar por QR code (Ticket 13.13 /
+                   KAN-122) morava aqui solto sem contexto; a partir do Ticket 19.1
+                   (KAN-150) vive dentro do painel "Boas-vindas / Conectar" (aberto
+                   pelo botão "Conectar Spotify" do header), junto do redirect —
+                   window.ResIAQrLogin (components/qrLogin.js) continua expondo
+                   open()/close() pra esse painel reusar, sem duplicar o fluxo. -->
 
               <!-- Alternador de Tema Claro/Escuro (Ticket 12.5 / KAN-108) -->
               <button id="btn-theme-toggle" class="header-menu-item" type="button" role="menuitem" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
@@ -175,6 +179,25 @@
           Peça recomendações inteligentes por gênero, humor, energia ou momento do dia.<br>
           Nossa IA cruza seu pedido com um catálogo local de 97.534 faixas únicas.
         </p>
+
+        <!-- Onboarding guiado (Ticket 19.2 / KAN-151): tour curto de 3 passos pro
+             usuário novo, expandindo este hero (que antes só tinha os chips de
+             sugestão abaixo). Aparece só na primeira visita, controlado por flag
+             em localStorage (getOnboardingSeen/saveOnboardingSeen em app.js, mesmo
+             padrão de getStoredTheme/saveStoredTheme do tema — Ticket 12.5/KAN-108).
+             Fica `hidden` por padrão pra nunca piscar antes do JS decidir se mostra
+             — ver initOnboardingTour() em app.js. -->
+        <div id="onboarding-tour" class="onboarding-tour" hidden>
+          <div class="onboarding-tour-header">
+            <span class="panel-kicker">Primeiros passos</span>
+            <button type="button" id="btn-onboarding-skip" class="onboarding-skip" title="Pular tour de boas-vindas" aria-label="Pular tour de boas-vindas">Pular</button>
+          </div>
+          <div id="onboarding-tour-step" class="onboarding-tour-step" aria-live="polite"></div>
+          <div class="onboarding-tour-footer">
+            <div id="onboarding-tour-dots" class="onboarding-tour-dots" aria-hidden="true"></div>
+            <button type="button" id="btn-onboarding-next" class="onboarding-next">Próximo</button>
+          </div>
+        </div>
 
         <!-- Chips de Sugestão Rápida (Prompt Pills) — exemplos de pedidos (KAN-79) -->
         <div class="prompt-chips-container">
@@ -300,6 +323,23 @@
   </div>
 
   <div id="panel-backdrop" class="panel-backdrop" hidden></div>
+
+  <!-- Boas-vindas / Conectar (Ticket 19.1 / KAN-150): unifica os dois jeitos de
+       logar com Spotify (redirect via GET /auth/login e QR code via GET /auth/qr,
+       antes soltos e sem contexto no header) numa única tela que explica o que
+       cada opção libera antes do usuário escolher. Sem backend novo — reusa as
+       mesmas rotas; ver renderWelcomePanel() em app.js. -->
+  <aside id="welcome-panel" class="side-panel" aria-labelledby="welcome-panel-title" aria-hidden="true" hidden>
+    <div class="panel-header">
+      <div>
+        <span class="panel-kicker">Boas-vindas</span>
+        <h2 id="welcome-panel-title">Conectar com Spotify</h2>
+      </div>
+      <button class="panel-close" data-close-panel title="Fechar painel" aria-label="Fechar painel">&times;</button>
+    </div>
+    <div id="welcome-panel-content" class="panel-content"></div>
+  </aside>
+
   <aside id="profile-panel" class="side-panel" aria-labelledby="profile-panel-title" aria-hidden="true" hidden>
     <div class="panel-header">
       <div>
