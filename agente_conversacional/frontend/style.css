@@ -612,6 +612,7 @@ body {
   flex-shrink: 0;
   font-weight: 700;
   font-size: 0.8rem;
+  overflow: hidden;
 }
 
 .message-row.agent .message-avatar {
@@ -623,6 +624,20 @@ body {
 .message-row.user .message-avatar {
   background: #333333;
   color: var(--text-secondary);
+}
+
+/* Ticket 20.10 (KAN-169): foto de perfil do Spotify no avatar do usuário. */
+.message-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Ticket 20.10 (KAN-169): agrupa mensagens consecutivas do mesmo autor —
+   o avatar some (mantendo o espaço reservado, pra bolha não perder o
+   alinhamento com a coluna de avatares) em vez de repetir a cada bolha. */
+.message-row--grouped .message-avatar {
+  visibility: hidden;
 }
 
 .message-bubble {
