@@ -21,7 +21,7 @@ FEATURES_AUDIO = [
 
 FEATURES_AUDIO_NORM = [f"{coluna}_norm" for coluna in FEATURES_AUDIO]
 
-_CAMINHO_PADRAO = Path(__file__).resolve().parents[2] / "data" / "dataset.csv"
+_CAMINHO_PADRAO = Path(__file__).resolve().parents[2] / "data" / "processed" / "dataset.csv"
 
 
 @functools.lru_cache(maxsize=1)
