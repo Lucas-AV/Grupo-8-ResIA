@@ -3,6 +3,7 @@ import { computed, reactive, ref } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useHistory } from "../composables/useHistory.js";
 import { useNavigationTarget } from "../composables/useTabNavigation.js";
+import { useNowPlaying } from "../composables/useNowPlaying.js";
 import { trackSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import PlaylistPreview from "../components/previews/PlaylistPreview.vue";
@@ -12,6 +13,7 @@ const playlistId = ref("");
 const { status, call } = useApi();
 const result = reactive({ data: null });
 const { items: history, add: addToHistory } = useHistory("playlist");
+const { open } = useNowPlaying();
 
 const tracksContainer = computed(() => result.data?.items ?? result.data?.tracks ?? null);
 
@@ -62,7 +64,9 @@ useNavigationTarget("playlist", (id) => {
         <div v-if="tracks.length">
           <h3>Faixas</h3>
           <div v-for="(item, i) in tracks" :key="i">
-            <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
+            <button type="button" class="media-item-clickable" @click="open(item)">
+              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+            </button>
           </div>
         </div>
         <p v-else-if="tracksUnavailable" class="status status-error">
