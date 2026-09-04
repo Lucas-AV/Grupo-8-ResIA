@@ -71,6 +71,54 @@ def test_call_omits_format_when_not_requested(monkeypatch):
     assert "format" not in captured["json"]
 
 
+def test_call_omits_options_when_not_configured(monkeypatch):
+    monkeypatch.delenv("OLLAMA_NUM_CTX", raising=False)
+    monkeypatch.delenv("OLLAMA_NUM_PREDICT", raising=False)
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None):
+        captured["json"] = json
+        return FakeResponse(200, {"message": {"content": "ok"}})
+
+    monkeypatch.setattr(ollama_backend.requests, "post", fake_post)
+
+    ollama_backend.call(_mensagens(), timeout=8)
+
+    assert "options" not in captured["json"]
+
+
+def test_call_includes_num_ctx_when_configured(monkeypatch):
+    monkeypatch.setenv("OLLAMA_NUM_CTX", "2048")
+    monkeypatch.delenv("OLLAMA_NUM_PREDICT", raising=False)
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None):
+        captured["json"] = json
+        return FakeResponse(200, {"message": {"content": "ok"}})
+
+    monkeypatch.setattr(ollama_backend.requests, "post", fake_post)
+
+    ollama_backend.call(_mensagens(), timeout=8)
+
+    assert captured["json"]["options"] == {"num_ctx": 2048}
+
+
+def test_call_includes_num_predict_when_configured(monkeypatch):
+    monkeypatch.delenv("OLLAMA_NUM_CTX", raising=False)
+    monkeypatch.setenv("OLLAMA_NUM_PREDICT", "512")
+    captured = {}
+
+    def fake_post(url, json=None, timeout=None):
+        captured["json"] = json
+        return FakeResponse(200, {"message": {"content": "ok"}})
+
+    monkeypatch.setattr(ollama_backend.requests, "post", fake_post)
+
+    ollama_backend.call(_mensagens(), timeout=8)
+
+    assert captured["json"]["options"] == {"num_predict": 512}
+
+
 def test_call_raises_llmcallerror_on_connection_error(monkeypatch):
     def fake_post(url, json=None, timeout=None):
         raise requests.exceptions.ConnectionError("recusado")
