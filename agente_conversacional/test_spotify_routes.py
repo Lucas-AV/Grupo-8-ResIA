@@ -95,7 +95,7 @@ def test_callback_happy_path_saves_tokens_and_redirects_success(client, monkeypa
     monkeypatch.setattr(
         routes,
         "exchange_code_for_tokens",
-        lambda code, code_verifier: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
+        lambda code, code_verifier, redirect_uri: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
     )
     monkeypatch.setattr(routes, "_perfil_e_cobertura_do_historico", lambda token: (0.1, 0.2))
 
@@ -127,7 +127,7 @@ def test_callback_redirects_to_failed_when_token_exchange_fails(client, monkeypa
     login_response = client.get("/auth/login/start?session_id=sess-1", follow_redirects=False)
     state = _extract_state(login_response)
 
-    def fake_exchange(code, code_verifier):
+    def fake_exchange(code, code_verifier, redirect_uri):
         raise SpotifyTokenExchangeError("boom")
 
     monkeypatch.setattr(routes, "exchange_code_for_tokens", fake_exchange)
@@ -300,7 +300,7 @@ def test_callback_with_pair_code_relays_tokens_and_does_not_touch_kiosk_session_
     monkeypatch.setattr(
         routes,
         "exchange_code_for_tokens",
-        lambda code, code_verifier: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
+        lambda code, code_verifier, redirect_uri: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
     )
 
     response = client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
@@ -321,7 +321,7 @@ def _completar_pareamento_no_celular(client, monkeypatch):
     monkeypatch.setattr(
         routes,
         "exchange_code_for_tokens",
-        lambda code, code_verifier: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
+        lambda code, code_verifier, redirect_uri: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
     )
     return client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
 
@@ -372,7 +372,7 @@ def test_pair_status_completed_saves_tokens_into_kiosk_session(client, monkeypat
     monkeypatch.setattr(
         routes,
         "exchange_code_for_tokens",
-        lambda code, code_verifier: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
+        lambda code, code_verifier, redirect_uri: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
     )
     client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
 
@@ -393,7 +393,7 @@ def test_pair_status_is_one_shot_second_poll_after_completed_returns_not_found(c
     monkeypatch.setattr(
         routes,
         "exchange_code_for_tokens",
-        lambda code, code_verifier: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
+        lambda code, code_verifier, redirect_uri: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
     )
     client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
     client.get(f"/auth/pair/{qr['code']}/status?session_id=kiosk-1")
@@ -411,7 +411,7 @@ def test_callback_with_expired_pair_code_returns_410(client, monkeypatch):
     monkeypatch.setattr(
         routes,
         "exchange_code_for_tokens",
-        lambda code, code_verifier: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
+        lambda code, code_verifier, redirect_uri: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
     )
 
     response = client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)

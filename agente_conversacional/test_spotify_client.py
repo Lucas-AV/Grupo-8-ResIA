@@ -49,25 +49,39 @@ class _FakeTokenStore:
 def spotify_env(monkeypatch):
     monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client-123")
     monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "secret-456")
-    monkeypatch.setenv("SPOTIFY_REDIRECT_URI", "http://localhost:8000/auth/callback")
 
 
 def test_build_authorize_url_includes_pkce_challenge_and_registers_pending_state():
     pending_auth = PendingAuth()
 
-    url = build_authorize_url("sess-1", pending_auth)
+    url = build_authorize_url("sess-1", pending_auth, "https://syntonia.local:8010/auth/callback")
 
     parsed = urlparse(url)
     params = parse_qs(parsed.query)
     assert parsed.netloc == "accounts.spotify.com"
     assert params["client_id"] == ["client-123"]
+    assert params["redirect_uri"] == ["https://syntonia.local:8010/auth/callback"]
     assert params["code_challenge_method"] == ["S256"]
     assert "code_challenge" in params
 
     state = params["state"][0]
     pending = pending_auth.consume(state)
     assert pending["session_id"] == "sess-1"
+    assert pending["redirect_uri"] == "https://syntonia.local:8010/auth/callback"
     assert "code_verifier" in pending
+
+
+def test_build_authorize_url_uses_whichever_redirect_uri_the_request_came_from():
+    """Ticket KAN-169: dois dominios rodando ao mesmo tempo (LAN local +
+    tunel publico) — cada login usa o redirect_uri de quem de fato chamou
+    /auth/login/start, nao um valor fixo do .env."""
+    pending_auth = PendingAuth()
+
+    url_tunel = build_authorize_url("sess-1", pending_auth, "https://exemplo.trycloudflare.com/auth/callback")
+    url_local = build_authorize_url("sess-2", pending_auth, "https://syntonia.local:8010/auth/callback")
+
+    assert parse_qs(urlparse(url_tunel).query)["redirect_uri"] == ["https://exemplo.trycloudflare.com/auth/callback"]
+    assert parse_qs(urlparse(url_local).query)["redirect_uri"] == ["https://syntonia.local:8010/auth/callback"]
 
 
 def test_exchange_code_for_tokens_posts_authorization_code_grant(monkeypatch):
@@ -81,11 +95,12 @@ def test_exchange_code_for_tokens_posts_authorization_code_grant(monkeypatch):
 
     monkeypatch.setattr(requests, "post", fake_post)
 
-    tokens = exchange_code_for_tokens("auth-code", "verifier-abc")
+    tokens = exchange_code_for_tokens("auth-code", "verifier-abc", "https://syntonia.local:8010/auth/callback")
 
     assert tokens == {"access_token": "at", "refresh_token": "rt", "expires_in": 3600}
     assert captured["data"]["grant_type"] == "authorization_code"
     assert captured["data"]["code_verifier"] == "verifier-abc"
+    assert captured["data"]["redirect_uri"] == "https://syntonia.local:8010/auth/callback"
     assert captured["auth"] == ("client-123", "secret-456")
 
 
@@ -93,7 +108,7 @@ def test_exchange_code_for_tokens_raises_on_non_200(monkeypatch):
     monkeypatch.setattr(requests, "post", lambda *a, **kw: _FakeResponse(400, {"error": "invalid_grant"}))
 
     with pytest.raises(SpotifyTokenExchangeError):
-        exchange_code_for_tokens("bad-code", "verifier-abc")
+        exchange_code_for_tokens("bad-code", "verifier-abc", "https://syntonia.local:8010/auth/callback")
 
 
 def test_exchange_code_for_tokens_raises_on_network_error(monkeypatch):
@@ -103,7 +118,7 @@ def test_exchange_code_for_tokens_raises_on_network_error(monkeypatch):
     monkeypatch.setattr(requests, "post", fake_post)
 
     with pytest.raises(SpotifyTokenExchangeError):
-        exchange_code_for_tokens("code", "verifier")
+        exchange_code_for_tokens("code", "verifier", "https://syntonia.local:8010/auth/callback")
 
 
 def test_refresh_access_token_keeps_old_refresh_token_when_not_returned(monkeypatch):

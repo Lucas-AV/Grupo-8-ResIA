@@ -389,12 +389,24 @@ def login(session_id: str = Query(...)):
     return HTMLResponse(render_consent_page(session_id))
 
 
+def _redirect_uri_for_request(request: Request) -> str:
+    """Ticket KAN-169: redirect_uri calculado a partir de quem de fato bateu
+    nessa rota — nunca um valor fixo (`SPOTIFY_REDIRECT_URI` do `.env` não
+    existe mais) — assim vários domínios cadastrados no Spotify Dashboard
+    (LAN local + túnel público, por exemplo) funcionam ao mesmo tempo, sem
+    precisar reconfigurar nada a cada troca de rede/IP. A Spotify já valida
+    o valor contra os URIs cadastrados no app — um Host forjado só resulta
+    em 'redirect_uri: Not matching configuration' lá, não é um risco novo."""
+    return f"{request.url.scheme}://{request.headers['host']}/auth/callback"
+
+
 @router.get("/auth/login/start")
-def login_start(session_id: str = Query(...), pair: Optional[str] = Query(None)):
+def login_start(request: Request, session_id: str = Query(...), pair: Optional[str] = Query(None)):
     """`pair` (opcional, ticket 13.13): quando presente, veio de um QR code de
     pareamento — o callback vai relayar os tokens pro código em vez de (só)
     salvar na sessão que de fato completou o OAuth (ver `/auth/qr`)."""
-    return RedirectResponse(build_authorize_url(session_id, _pending_auth, pair_code=pair))
+    redirect_uri = _redirect_uri_for_request(request)
+    return RedirectResponse(build_authorize_url(session_id, _pending_auth, redirect_uri, pair_code=pair))
 
 
 @router.get("/auth/callback")
@@ -414,7 +426,7 @@ def callback(
         return RedirectResponse("/?spotify_login=state_mismatch")
 
     try:
-        tokens = exchange_code_for_tokens(code, pending["code_verifier"])
+        tokens = exchange_code_for_tokens(code, pending["code_verifier"], pending["redirect_uri"])
     except SpotifyTokenExchangeError as exc:
         logger.warning("falha ao trocar codigo por token: %s", exc)
         return RedirectResponse("/?spotify_login=failed")

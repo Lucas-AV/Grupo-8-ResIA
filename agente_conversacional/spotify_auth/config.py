@@ -23,7 +23,3 @@ def client_id():
 
 def client_secret():
     return os.environ["SPOTIFY_CLIENT_SECRET"]
-
-
-def redirect_uri():
-    return os.environ.get("SPOTIFY_REDIRECT_URI", "http://localhost:8000/auth/callback")
