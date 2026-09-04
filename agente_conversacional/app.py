@@ -39,6 +39,19 @@ def _cors_origins():
     return [origin.strip() for origin in origins.split(",") if origin.strip()]
 
 
+def _default_session_db_path():
+    """Caminho do SQLite pra SessionStore sobreviver a um restart do
+    processo — sem isso (dict em memoria puro), todo restart derrubava
+    todas as sessoes e o frontend descartava o cache local junto (parecia
+    "descarregar" o chat). Pulado sob pytest: os testes usam o default
+    `:memory:` de SessionStore, isolado por instancia (mesmo motivo do
+    guard de load_dotenv acima — nao vale a pena arquivo real em disco
+    compartilhado entre testes)."""
+    if "pytest" in sys.modules:
+        return None
+    return os.environ.get("SESSION_DB_PATH", "sessions.db")
+
+
 @asynccontextmanager
 async def _lifespan(app: FastAPI):
     resultado = check_llm_health()
@@ -72,7 +85,7 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.state.session_store = session_store or SessionStore()
+    app.state.session_store = session_store or SessionStore(db_path=_default_session_db_path())
     # Épico 2: pipeline conversacional real por padrão (KAN-8 usava
     # turn_processor=None só como placeholder até este módulo existir).
     # Testes que precisam simular indisponibilidade continuam podendo

@@ -7,6 +7,7 @@ from app import create_app
 from chat.contracts import PipelineUnavailableError
 from sessions.models import Track, TurnResult
 from sessions.store import SessionStore
+import api.routes as routes_module
 import app as app_module
 
 
@@ -84,6 +85,45 @@ def test_chat_uses_processor_and_persists_auditable_history(monkeypatch):
         "agente",
     ]
     assert history.json()["historico"][1]["faixas_citadas"] == ["track-1"]
+
+
+def test_historico_reconstroi_cards_de_faixa_das_faixas_citadas(monkeypatch):
+    """Ticket 4.6/KAN-73: antes disso GET /chat/historico so devolvia
+    faixas_citadas (IDs) — o frontend nunca conseguia remontar os cards de
+    faixa ao restaurar o historico (sessao/reload). Agora `faixas` traz os
+    metadados completos, resolvidos por buscar_faixa_por_id."""
+    monkeypatch.setattr(
+        routes_module,
+        "buscar_faixa_por_id",
+        lambda track_id: {"track_id": track_id, "nome": "Nome", "artista": "Artista", "album": "Álbum", "genero": "pop"}
+        if track_id == "track-1"
+        else None,
+    )
+    with client_for(monkeypatch, processor=FakeProcessor()) as client:
+        session_id = client.post("/session").json()["session_id"]
+        client.post("/chat", json={"session_id": session_id, "mensagem": "quero pop"})
+        history = client.get("/chat/historico", params={"session_id": session_id})
+
+    mensagem_agente = history.json()["historico"][1]
+    assert mensagem_agente["faixas_citadas"] == ["track-1"]
+    assert mensagem_agente["faixas"] == [
+        {"track_id": "track-1", "nome": "Nome", "artista": "Artista", "album": "Álbum", "genero": "pop"}
+    ]
+
+
+def test_historico_omite_faixa_nao_encontrada_no_dataset(monkeypatch):
+    """Faixa citada que nao existe mais no dataset local (ex.: veio do
+    fallback da Spotify Search API) — omitida de `faixas`, sem quebrar o
+    resto da resposta."""
+    monkeypatch.setattr(routes_module, "buscar_faixa_por_id", lambda track_id: None)
+    with client_for(monkeypatch, processor=FakeProcessor()) as client:
+        session_id = client.post("/session").json()["session_id"]
+        client.post("/chat", json={"session_id": session_id, "mensagem": "quero pop"})
+        history = client.get("/chat/historico", params={"session_id": session_id})
+
+    mensagem_agente = history.json()["historico"][1]
+    assert mensagem_agente["faixas_citadas"] == ["track-1"]
+    assert mensagem_agente["faixas"] == []
 
 
 def test_chat_rejects_blank_message_and_unknown_session(monkeypatch):

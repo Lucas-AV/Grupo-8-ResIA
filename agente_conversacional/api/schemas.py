@@ -44,6 +44,11 @@ class HistoryMessage(BaseModel):
     role: Literal["usuario", "agente", "sistema"]
     conteudo: str
     faixas_citadas: list[str] = Field(default_factory=list)
+    # Ticket 4.6/KAN-73: metadados completos das faixas citadas (reconstruidos
+    # via recomendacao.busca.buscar_faixa_por_id a partir de faixas_citadas),
+    # pro frontend remontar os cards de faixa ao restaurar o historico — antes
+    # so tinha os IDs, entao o card nunca reaparecia depois de um reload.
+    faixas: list[TrackItem] = Field(default_factory=list)
     timestamp: datetime
 
 

@@ -255,6 +255,34 @@ def _calcular_cobertura_sessao(resultado, faixas_ja_mostradas, faixas_fallback=(
     return (novas_locais + novas_fallback) / total
 
 
+def buscar_faixa_por_id(track_id):
+    """Devolve os metadados (nome/artista/album/genero) de uma faixa pelo
+    `track_id`, no mesmo schema de `_formatar_faixas`, ou `None` se a faixa
+    nao estiver no dataset local (ex.: veio do fallback da Spotify Search
+    API, ticket KAN-95, e nunca fez parte do dataset carregado aqui) ou se
+    o dataset nao puder ser carregado por qualquer motivo. Usado pra
+    reconstruir os cards de faixa do historico restaurado (ticket
+    4.6/KAN-73) — a sessao so guarda o track_id citado, nao os metadados
+    completos. Nunca levanta excecao."""
+    try:
+        df = carregar_dataset()
+        linhas = df[df["track_id"] == track_id]
+    except Exception:
+        return None
+
+    if linhas.empty:
+        return None
+
+    linha = linhas.iloc[0]
+    return {
+        "track_id": linha["track_id"],
+        "nome": linha["track_name"],
+        "artista": linha["artists"],
+        "album": linha["album_name"],
+        "genero": linha["track_genre"],
+    }
+
+
 def _formatar_faixas(resultado):
     return [
         {

@@ -4,6 +4,8 @@ _SCOPES_LIDOS = [
     ("Músicas mais ouvidas (~6 meses)", "user-top-read"),
     ("Últimas faixas tocadas", "user-read-recently-played"),
     ("Faixas salvas/curtidas", "user-library-read"),
+    ("Criar playlists na sua conta", "playlist-modify-public playlist-modify-private"),
+    ("Salvar faixas em \"Músicas Curtidas\"", "user-library-modify"),
 ]
 
 

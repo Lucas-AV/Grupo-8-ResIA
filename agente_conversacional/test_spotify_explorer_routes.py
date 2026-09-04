@@ -65,6 +65,131 @@ def test_returns_401_when_session_not_authenticated(client, monkeypatch, method,
     assert response.json()["detail"]["codigo"] == "spotify_nao_autenticado"
 
 
+def test_play_track_calls_explorer_with_track_uri(client, monkeypatch):
+    captured = {}
+
+    def fake_play_track(access_token, track_uri, device_id=None):
+        captured.update(access_token=access_token, track_uri=track_uri, device_id=device_id)
+        return {}
+
+    monkeypatch.setattr(explorer_routes.explorer, "play_track", fake_play_track)
+
+    response = client.post("/explorer/track/play?session_id=s", json={"track_id": "t1"})
+
+    assert response.status_code == 200
+    assert captured["access_token"] == "token-valido"
+    assert captured["track_uri"] == "spotify:track:t1"
+    assert captured["device_id"] is None
+
+
+def test_play_track_forwards_device_id(client, monkeypatch):
+    captured = {}
+
+    def fake_play_track(access_token, track_uri, device_id=None):
+        captured.update(device_id=device_id)
+        return {}
+
+    monkeypatch.setattr(explorer_routes.explorer, "play_track", fake_play_track)
+
+    client.post("/explorer/track/play?session_id=s", json={"track_id": "t1", "device_id": "dev-1"})
+
+    assert captured["device_id"] == "dev-1"
+
+
+def test_play_track_sem_dispositivo_ativo_devolve_404_com_mensagem_clara(client, monkeypatch):
+    def fake_play_track(access_token, track_uri, device_id=None):
+        raise SpotifyExplorerError("Spotify respondeu HTTP 404 em PUT /me/player/play", status_code=404)
+
+    monkeypatch.setattr(explorer_routes.explorer, "play_track", fake_play_track)
+
+    response = client.post("/explorer/track/play?session_id=s", json={"track_id": "t1"})
+
+    assert response.status_code == 404
+    assert response.json()["detail"]["codigo"] == "spotify_sem_dispositivo_ativo"
+
+
+def test_play_track_sem_premium_devolve_403_com_mensagem_clara(client, monkeypatch):
+    def fake_play_track(access_token, track_uri, device_id=None):
+        raise SpotifyExplorerError("Spotify respondeu HTTP 403 em PUT /me/player/play", status_code=403)
+
+    monkeypatch.setattr(explorer_routes.explorer, "play_track", fake_play_track)
+
+    response = client.post("/explorer/track/play?session_id=s", json={"track_id": "t1"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["codigo"] == "spotify_requer_premium"
+
+
+def test_play_track_outra_falha_devolve_502_generico(client, monkeypatch):
+    def fake_play_track(access_token, track_uri, device_id=None):
+        raise SpotifyExplorerError("Spotify respondeu HTTP 500 em PUT /me/player/play", status_code=500)
+
+    monkeypatch.setattr(explorer_routes.explorer, "play_track", fake_play_track)
+
+    response = client.post("/explorer/track/play?session_id=s", json={"track_id": "t1"})
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["codigo"] == "spotify_explorer_falhou"
+
+
+def test_play_track_returns_401_when_session_not_authenticated(client, monkeypatch):
+    _sem_token(monkeypatch)
+
+    response = client.post("/explorer/track/play?session_id=s", json={"track_id": "t1"})
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["codigo"] == "spotify_nao_autenticado"
+
+
+def test_save_track_calls_explorer_with_track_id(client, monkeypatch):
+    captured = {}
+
+    def fake_save_track(access_token, track_id):
+        captured.update(access_token=access_token, track_id=track_id)
+        return {}
+
+    monkeypatch.setattr(explorer_routes.explorer, "save_track", fake_save_track)
+
+    response = client.post("/explorer/track/t1/save?session_id=s")
+
+    assert response.status_code == 200
+    assert captured["access_token"] == "token-valido"
+    assert captured["track_id"] == "t1"
+
+
+def test_save_track_sem_permissao_devolve_403_com_mensagem_clara(client, monkeypatch):
+    def fake_save_track(access_token, track_id):
+        raise SpotifyExplorerError("Spotify respondeu HTTP 403 em PUT /me/tracks", status_code=403)
+
+    monkeypatch.setattr(explorer_routes.explorer, "save_track", fake_save_track)
+
+    response = client.post("/explorer/track/t1/save?session_id=s")
+
+    assert response.status_code == 403
+    assert response.json()["detail"]["codigo"] == "spotify_permissao_insuficiente"
+
+
+def test_save_track_outra_falha_devolve_502_generico(client, monkeypatch):
+    def fake_save_track(access_token, track_id):
+        raise SpotifyExplorerError("Spotify respondeu HTTP 500 em PUT /me/tracks", status_code=500)
+
+    monkeypatch.setattr(explorer_routes.explorer, "save_track", fake_save_track)
+
+    response = client.post("/explorer/track/t1/save?session_id=s")
+
+    assert response.status_code == 502
+    assert response.json()["detail"]["codigo"] == "spotify_explorer_falhou"
+
+
+def test_save_track_returns_401_when_session_not_authenticated(client, monkeypatch):
+    _sem_token(monkeypatch)
+
+    response = client.post("/explorer/track/t1/save?session_id=s")
+
+    assert response.status_code == 401
+    assert response.json()["detail"]["codigo"] == "spotify_nao_autenticado"
+
+
 def test_search_calls_explorer_with_query_params(client, monkeypatch):
     captured = {}
 

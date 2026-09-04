@@ -782,6 +782,14 @@ body {
   overflow: hidden;
 }
 
+.track-cover-art .track-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .track-cover-art svg.vinyl-icon {
   width: 26px;
   height: 26px;
@@ -1431,6 +1439,25 @@ body {
   cursor: wait;
 }
 
+/* Salvar em Músicas Curtidas (13.15) */
+.btn-track-save .icon-save-filled {
+  display: none;
+}
+.btn-track-save.saved .icon-save-outline {
+  display: none;
+}
+.btn-track-save.saved .icon-save-filled {
+  display: inline;
+}
+.btn-track-save.saved {
+  color: var(--spotify-green);
+  cursor: default;
+}
+.btn-track-save.loading {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 /* Overlay compartilhado pelo painel Explorar e pelo modal de QR login */
 .explorer-overlay {
   position: fixed;
@@ -1448,7 +1475,8 @@ body {
 }
 
 .explorer-panel,
-.qr-login-panel {
+.qr-login-panel,
+.playlist-save-panel {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -1458,6 +1486,121 @@ body {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+}
+
+/* Modal "Salvar no Spotify" com sugestão de título/descrição (12.6) */
+.playlist-save-panel {
+  width: min(480px, 100%);
+}
+
+.playlist-save-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.playlist-save-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-top: 10px;
+}
+.playlist-save-label:first-child {
+  margin-top: 0;
+}
+
+.playlist-save-input,
+.playlist-save-textarea {
+  width: 100%;
+  background: var(--bg-glass-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 9px 12px;
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+}
+.playlist-save-input:focus,
+.playlist-save-textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+.playlist-save-input:disabled,
+.playlist-save-textarea:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.playlist-save-tracks-header {
+  margin-top: 16px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.playlist-save-tracks-list {
+  list-style: none;
+  margin-top: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.playlist-save-tracks-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.playlist-save-tracks-list li:last-child {
+  border-bottom: none;
+}
+.playlist-save-track-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.playlist-save-track-artist {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+.playlist-save-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.playlist-save-error {
+  color: var(--error-red);
+  font-size: 0.8rem;
+}
+
+.playlist-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.playlist-save-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.playlist-save-cancel:hover {
+  color: var(--text-primary);
 }
 
 .explorer-header {

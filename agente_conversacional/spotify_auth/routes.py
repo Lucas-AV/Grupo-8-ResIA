@@ -8,6 +8,8 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from pydantic import BaseModel, Field
 
+from api.schemas import TrackItem
+from chat.playlist_sugestao import sugerir_titulo_descricao
 from spotify_auth.client import PendingAuth, build_authorize_url, exchange_code_for_tokens, get_valid_access_token
 from spotify_auth.consent import render_consent_page
 from spotify_auth.errors import SpotifyNotAuthenticatedError, SpotifyPlaylistError, SpotifyTokenExchangeError
@@ -42,6 +44,12 @@ class CriarPlaylistRequest(BaseModel):
     faixas: list[str] = Field(min_length=1, description="track_ids do Spotify a adicionar na playlist")
     nome: Optional[str] = None
     descricao: Optional[str] = None
+
+
+class SugerirPlaylistRequest(BaseModel):
+    """Corpo do POST /playlist/sugerir (ticket 12.6)."""
+
+    faixas: list[TrackItem] = Field(min_length=1)
 
 
 def _get_token_store():
@@ -224,3 +232,15 @@ def criar_playlist(body: CriarPlaylistRequest):
         )
 
     return resultado
+
+
+@router.post("/playlist/sugerir")
+def sugerir_playlist(body: SugerirPlaylistRequest) -> dict:
+    """Ticket 12.6: sugere título/descrição pra playlist via LLM, a partir
+    das faixas que serão salvas — usado pelo modal de confirmação antes de
+    POST /playlist/criar. Só gera texto (não fala com a Spotify), então não
+    exige sessão autenticada como o /playlist/criar exige. Nunca falha: em
+    qualquer problema com o LLM, `sugerir_titulo_descricao` já degrada pro
+    nome/descrição padrão sozinha."""
+    faixas = [faixa.model_dump() for faixa in body.faixas]
+    return sugerir_titulo_descricao(faixas)

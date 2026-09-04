@@ -99,7 +99,13 @@ async function _resolvePreview(trackId, nome, artista) {
 
   let resultado = { source: null };
 
-  const sessionId = window.ResIA && typeof window.ResIA.getSessionId === 'function' ? window.ResIA.getSessionId() : null;
+  // Sem sessão Spotify autenticada, GET /explorer/track/{id} sempre devolve
+  // 401 — pula direto pro fallback do YouTube em vez de garantir um erro
+  // no console a cada clique de prévia.
+  const spotifyAutenticado =
+    window.ResIA && typeof window.ResIA.isSpotifyAuthenticated === 'function' && window.ResIA.isSpotifyAuthenticated();
+  const sessionId =
+    spotifyAutenticado && typeof window.ResIA.getSessionId === 'function' ? window.ResIA.getSessionId() : null;
   if (sessionId) {
     try {
       const response = await fetch(
@@ -183,6 +189,70 @@ async function togglePreview(trackId, nome, artista, buttonEl) {
   }
 }
 
+// ==========================================
+// Miniatura de capa do álbum. Usa o oEmbed público da Spotify
+// (GET /spotify/thumbnail/{track_id}, sem exigir login) — a capa real
+// substitui o gradiente temático assim que carrega; sem thumbnail
+// disponível, o gradiente + ícone de vinil (já no HTML) continuam sendo o
+// fallback visual, sem nenhuma mudança de layout.
+// ==========================================
+
+const _thumbnailCache = new Map(); // track_id -> url | null
+
+async function _carregarThumbnail(trackId) {
+  if (_thumbnailCache.has(trackId)) return _thumbnailCache.get(trackId);
+
+  try {
+    const response = await fetch(`${_PREVIEW_API_BASE_URL}/spotify/thumbnail/${encodeURIComponent(trackId)}`);
+    if (!response.ok) {
+      _thumbnailCache.set(trackId, null);
+      return null;
+    }
+    const data = await response.json();
+    const url = data.thumbnail_url || null;
+    _thumbnailCache.set(trackId, url);
+    return url;
+  } catch (err) {
+    console.warn('Falha ao buscar miniatura da faixa:', err);
+    return null;
+  }
+}
+
+// ==========================================
+// Tocar no dispositivo Spotify Connect ativo (Ticket 13.14). Com sessão
+// autenticada, clicar no card toca a faixa direto no dispositivo ativo do
+// usuário (ex.: o Spotify aberto no celular) em vez de abrir
+// open.spotify.com numa nova aba — sem autenticação, mantém o link normal
+// (não dá pra controlar playback sem token).
+// ==========================================
+
+async function _tocarNoDispositivoAtivo(trackId, nome) {
+  const sessionId = window.ResIA && typeof window.ResIA.getSessionId === 'function' ? window.ResIA.getSessionId() : null;
+  if (!sessionId) return;
+
+  try {
+    const response = await fetch(`${_PREVIEW_API_BASE_URL}/explorer/track/play?session_id=${encodeURIComponent(sessionId)}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ track_id: trackId }),
+    });
+
+    if (response.ok) {
+      if (typeof window.showToast === 'function') window.showToast(`Tocando "${nome}" no seu Spotify.`);
+      return;
+    }
+
+    const corpo = await response.json().catch(() => null);
+    const mensagem = (corpo && corpo.detail && corpo.detail.mensagem) || 'Não foi possível tocar essa faixa no Spotify agora.';
+    if (typeof window.showToast === 'function') window.showToast(mensagem);
+  } catch (err) {
+    console.warn('Falha ao tocar faixa no Spotify Connect:', err);
+    if (typeof window.showToast === 'function') {
+      window.showToast('Não foi possível tocar essa faixa no Spotify agora.');
+    }
+  }
+}
+
 /**
  * Escapa strings contra injeção de HTML.
  */
@@ -219,6 +289,7 @@ function createTrackCardElement(faixa, index = 0) {
     <!-- Capa Estilizada com Gradiente Temático do Gênero -->
     <a href="${spotifyUrl}" target="_blank" rel="noopener noreferrer" class="track-cover-link" title="Ouvir &quot;${escapeHtml(nome)}&quot; no Spotify">
       <div class="track-cover-art" style="background: ${theme.bg};">
+        <img class="track-cover-img" alt="" loading="lazy" style="display: none;">
         <svg class="vinyl-icon" viewBox="0 0 24 24">
           <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 14.5c-2.49 0-4.5-2.01-4.5-4.5S9.51 7.5 12 7.5s4.5 2.01 4.5 4.5-2.01 4.5-4.5 4.5zm0-5.5c-.55 0-1 .45-1 1s.45 1 1 1 1-.45 1-1-.45-1-1-1z"/>
         </svg>
@@ -246,8 +317,16 @@ function createTrackCardElement(faixa, index = 0) {
       </div>
     </div>
 
-    <!-- Ações Rápidas: Prévia, Abrir e Copiar Link -->
+    <!-- Ações Rápidas: Salvar, Prévia, Abrir e Copiar Link -->
     <div class="track-actions-group">
+      <button type="button" class="btn-track-action btn-track-save" title="Salvar em Músicas Curtidas" aria-label="Salvar em Músicas Curtidas">
+        <svg class="icon-save-outline" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>
+        </svg>
+        <svg class="icon-save-filled" width="15" height="15" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+          <path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.6l-1-1a5.5 5.5 0 0 0-7.8 7.8l1 1L12 21l7.8-7.6 1-1a5.5 5.5 0 0 0 0-7.8z"/>
+        </svg>
+      </button>
       <button type="button" class="btn-track-action btn-track-preview" title="Tocar prévia de 30s" aria-label="Tocar prévia de 30s">
         <svg class="icon-preview-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
           <polygon points="6 3 20 12 6 21 6 3"/>
@@ -271,6 +350,78 @@ function createTrackCardElement(faixa, index = 0) {
       </a>
     </div>
   `;
+
+  // Miniatura de capa (oEmbed da Spotify) — substitui o gradiente quando carrega.
+  if (trackId) {
+    const coverImg = card.querySelector('.track-cover-img');
+    const vinylIcon = card.querySelector('.vinyl-icon');
+    _carregarThumbnail(trackId).then((url) => {
+      if (!url || !coverImg) return;
+      coverImg.src = url;
+      coverImg.style.display = 'block';
+      if (vinylIcon) vinylIcon.style.display = 'none';
+    });
+  }
+
+  // Clique na capa/nome: com Spotify autenticado, toca no dispositivo ativo
+  // (ex.: celular) em vez de abrir open.spotify.com numa nova aba (ticket 13.14).
+  if (trackId) {
+    const linksDaFaixa = [card.querySelector('.track-cover-link'), card.querySelector('.track-name-link')];
+    linksDaFaixa.forEach((link) => {
+      if (!link) return;
+      link.addEventListener('click', (e) => {
+        const autenticado =
+          window.ResIA && typeof window.ResIA.isSpotifyAuthenticated === 'function' && window.ResIA.isSpotifyAuthenticated();
+        if (!autenticado) return; // sem sessão Spotify, mantém o link normal (abre no Spotify)
+        e.preventDefault();
+        e.stopPropagation();
+        _tocarNoDispositivoAtivo(trackId, nome);
+      });
+    });
+  }
+
+  // Ouvinte do botão "Salvar em Músicas Curtidas" (ticket 13.15)
+  const saveBtn = card.querySelector('.btn-track-save');
+  if (saveBtn && trackId) {
+    saveBtn.addEventListener('click', async (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      if (saveBtn.classList.contains('saved') || saveBtn.classList.contains('loading')) return;
+
+      const autenticado =
+        window.ResIA && typeof window.ResIA.isSpotifyAuthenticated === 'function' && window.ResIA.isSpotifyAuthenticated();
+      if (!autenticado) {
+        if (typeof window.showToast === 'function') window.showToast('Conecte com o Spotify pra salvar faixas.');
+        return;
+      }
+
+      const sessionId = typeof window.ResIA.getSessionId === 'function' ? window.ResIA.getSessionId() : null;
+      if (!sessionId) return;
+
+      saveBtn.classList.add('loading');
+      try {
+        const response = await fetch(
+          `${_PREVIEW_API_BASE_URL}/explorer/track/${encodeURIComponent(trackId)}/save?session_id=${encodeURIComponent(sessionId)}`,
+          { method: 'POST' }
+        );
+        if (response.ok) {
+          saveBtn.classList.add('saved');
+          saveBtn.setAttribute('aria-label', 'Salva em Músicas Curtidas');
+          saveBtn.title = 'Salva em Músicas Curtidas';
+          if (typeof window.showToast === 'function') window.showToast(`"${nome}" salva em Músicas Curtidas.`);
+        } else {
+          const corpo = await response.json().catch(() => null);
+          const mensagem = (corpo && corpo.detail && corpo.detail.mensagem) || 'Não foi possível salvar essa faixa agora.';
+          if (typeof window.showToast === 'function') window.showToast(mensagem);
+        }
+      } catch (err) {
+        console.warn('Falha ao salvar faixa no Spotify:', err);
+        if (typeof window.showToast === 'function') window.showToast('Não foi possível salvar essa faixa agora.');
+      } finally {
+        saveBtn.classList.remove('loading');
+      }
+    });
+  }
 
   // Ouvinte para o botão de prévia de 30s (ticket 13.12)
   const previewBtn = card.querySelector('.btn-track-preview');

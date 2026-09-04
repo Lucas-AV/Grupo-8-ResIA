@@ -109,6 +109,71 @@ def test_get_recommendations_forwards_params_as_is(monkeypatch):
     assert captured["params"] == {"seed_tracks": "t1,t2", "limit": 5}
 
 
+def test_play_track_sends_uris_as_json_body(monkeypatch):
+    captured = {}
+
+    def fake_request(method, url, headers, params, json, timeout):
+        captured.update(method=method, url=url, params=params, json=json)
+        return _FakeResponse(204, content=b"")
+
+    monkeypatch.setattr(requests, "request", fake_request)
+
+    explorer.play_track("token-abc", "spotify:track:t1")
+
+    assert captured["method"] == "PUT"
+    assert captured["url"] == "https://api.spotify.com/v1/me/player/play"
+    assert captured["json"] == {"uris": ["spotify:track:t1"]}
+    assert captured["params"] is None
+
+
+def test_play_track_forwards_device_id_as_query_param(monkeypatch):
+    captured = {}
+
+    def fake_request(method, url, headers, params, json, timeout):
+        captured.update(params=params)
+        return _FakeResponse(204, content=b"")
+
+    monkeypatch.setattr(requests, "request", fake_request)
+
+    explorer.play_track("token-abc", "spotify:track:t1", device_id="dev-1")
+
+    assert captured["params"] == {"device_id": "dev-1"}
+
+
+def test_play_track_error_preserves_status_code(monkeypatch):
+    monkeypatch.setattr(requests, "request", lambda method, url, **kw: _FakeResponse(404, {"error": "no device"}))
+
+    with pytest.raises(SpotifyExplorerError) as excinfo:
+        explorer.play_track("token-abc", "spotify:track:t1")
+
+    assert excinfo.value.status_code == 404
+
+
+def test_save_track_sends_ids_as_query_param_and_uses_put(monkeypatch):
+    captured = {}
+
+    def fake_request(method, url, headers, params, json, timeout):
+        captured.update(method=method, url=url, params=params)
+        return _FakeResponse(200, content=b"")
+
+    monkeypatch.setattr(requests, "request", fake_request)
+
+    explorer.save_track("token-abc", "t1")
+
+    assert captured["method"] == "PUT"
+    assert captured["url"] == "https://api.spotify.com/v1/me/tracks"
+    assert captured["params"] == {"ids": "t1"}
+
+
+def test_save_track_error_preserves_status_code(monkeypatch):
+    monkeypatch.setattr(requests, "request", lambda method, url, **kw: _FakeResponse(403, {"error": "forbidden"}))
+
+    with pytest.raises(SpotifyExplorerError) as excinfo:
+        explorer.save_track("token-abc", "t1")
+
+    assert excinfo.value.status_code == 403
+
+
 def test_raises_on_invalid_json_body(monkeypatch):
     class _BadJsonResponse:
         status_code = 200
