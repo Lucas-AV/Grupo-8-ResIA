@@ -210,6 +210,10 @@ jupyter lab analise_exploratoria.ipynb        # abre o notebook de EDA (mesma lo
 
 Testes: `pytest`
 
+## Demonstração do notebook
+
+O notebook de EDA está pronto para uma demonstração guiada, célula a célula. Veja as opções online e os comandos de verificação em [`docs/NOTEBOOK_DEMO.md`](docs/NOTEBOOK_DEMO.md). Para abrir e executar pelo navegador sem preparar ambiente local, use o [Binder](https://mybinder.org/v2/gh/Lucas-AV/Grupo-8-ResIA/HEAD?labpath=analise_exploratoria.ipynb).
+
 ## Roadmap
 
 - [x] Análise exploratória por gênero (popularidade, energia, dançabilidade, escala)

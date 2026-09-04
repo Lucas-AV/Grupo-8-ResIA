@@ -1,5 +1,7 @@
 .venv/
 .python/
+.python-embed.zip
+.python-installer.exe
 __pycache__/
 *.pyc
 .pytest_cache/
