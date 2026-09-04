@@ -242,16 +242,6 @@ body {
   gap: 6px;
 }
 
-.brand-info h1 span.badge-proposta {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  background: var(--spotify-green-subtle);
-  color: var(--spotify-green);
-  border: 1px solid rgba(29, 185, 84, 0.3);
-}
-
 .brand-info p {
   font-size: 0.75rem;
   color: var(--text-secondary);
