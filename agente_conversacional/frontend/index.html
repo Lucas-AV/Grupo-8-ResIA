@@ -75,9 +75,13 @@
               </svg>
             </button>
             <div class="header-menu-panel" role="menu" aria-hidden="true">
-              <!-- Explorar Spotify (Épico 13 / KAN-123) e Conectar por QR code
-                   (Ticket 13.13 / KAN-122) são inseridos aqui em runtime por
-                   components/explorer.js e components/qrLogin.js. -->
+              <!-- Explorar Spotify (Épico 13 / KAN-123) é inserido aqui em runtime
+                   por components/explorer.js. Conectar por QR code (Ticket 13.13 /
+                   KAN-122) morava aqui solto sem contexto; a partir do Ticket 19.1
+                   (KAN-150) vive dentro do painel "Boas-vindas / Conectar" (aberto
+                   pelo botão "Conectar Spotify" do header), junto do redirect —
+                   window.ResIAQrLogin (components/qrLogin.js) continua expondo
+                   open()/close() pra esse painel reusar, sem duplicar o fluxo. -->
 
               <!-- Alternador de Tema Claro/Escuro (Ticket 12.5 / KAN-108) -->
               <button id="btn-theme-toggle" class="header-menu-item" type="button" role="menuitem" title="Alternar tema claro/escuro" aria-label="Alternar tema claro/escuro">
@@ -300,6 +304,23 @@
   </div>
 
   <div id="panel-backdrop" class="panel-backdrop" hidden></div>
+
+  <!-- Boas-vindas / Conectar (Ticket 19.1 / KAN-150): unifica os dois jeitos de
+       logar com Spotify (redirect via GET /auth/login e QR code via GET /auth/qr,
+       antes soltos e sem contexto no header) numa única tela que explica o que
+       cada opção libera antes do usuário escolher. Sem backend novo — reusa as
+       mesmas rotas; ver renderWelcomePanel() em app.js. -->
+  <aside id="welcome-panel" class="side-panel" aria-labelledby="welcome-panel-title" aria-hidden="true" hidden>
+    <div class="panel-header">
+      <div>
+        <span class="panel-kicker">Boas-vindas</span>
+        <h2 id="welcome-panel-title">Conectar com Spotify</h2>
+      </div>
+      <button class="panel-close" data-close-panel title="Fechar painel" aria-label="Fechar painel">&times;</button>
+    </div>
+    <div id="welcome-panel-content" class="panel-content"></div>
+  </aside>
+
   <aside id="profile-panel" class="side-panel" aria-labelledby="profile-panel-title" aria-hidden="true" hidden>
     <div class="panel-header">
       <div>

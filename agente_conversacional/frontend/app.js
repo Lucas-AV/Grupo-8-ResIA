@@ -622,6 +622,7 @@ const editMessageBanner = document.getElementById('edit-message-banner');
 const btnCancelEdit = document.getElementById('btn-cancel-edit');
 const panelBackdrop = document.getElementById('panel-backdrop');
 const panelDefinitions = {
+  welcome: { panel: document.getElementById('welcome-panel'), content: document.getElementById('welcome-panel-content') },
   profile: { panel: document.getElementById('profile-panel'), content: document.getElementById('profile-panel-content') },
   history: { panel: document.getElementById('history-panel'), content: document.getElementById('history-panel-content') },
   discoveries: { panel: document.getElementById('discoveries-panel'), content: document.getElementById('discoveries-panel-content') },
@@ -970,13 +971,15 @@ function setupEventListeners() {
       return;
     }
 
-    // Ticket 4.7 (KAN-74): antes de qualquer redirect real pro Spotify, o
-    // usuário passa pela página de consentimento própria do backend
-    // (GET /auth/login → spotify_auth/consent.py), que lista os scopes
-    // lidos e a política de dados (ticket 5.10) e só depois linka pro
-    // redirect de fato (GET /auth/login/start). Abrimos essa página em vez
-    // de replicar o texto aqui pra não divergir do que o backend descreve.
-    window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
+    // Ticket 19.1 (KAN-150): antes o clique já disparava o redirect direto
+    // pra GET /auth/login — a única forma de escolher o QR code (GET
+    // /auth/qr) era achar o item solto no menu "···", sem nenhuma explicação
+    // do que conectar libera. Agora abre o painel "Boas-vindas / Conectar"
+    // (renderWelcomePanel abaixo), que apresenta as duas opções lado a lado
+    // com contexto; o redirect real pra página de consentimento do backend
+    // (GET /auth/login → spotify_auth/consent.py, ticket 4.7/KAN-74) só
+    // acontece quando o usuário escolhe essa opção dentro do painel.
+    openPanel('welcome', btnSpotifyAuth);
   });
 
   btnThemeToggle?.addEventListener('click', toggleTheme);
@@ -1108,6 +1111,7 @@ function openPanel(name, trigger) {
   panelBackdrop.hidden = false;
   panelBackdrop.classList.add('is-visible');
 
+  if (name === 'welcome') renderWelcomePanel();
   if (name === 'profile') renderProfilePanel();
   if (name === 'history') renderHistoryPanel();
   if (name === 'discoveries') renderDiscoveriesPanel();
@@ -1157,6 +1161,66 @@ function recordDiscoveries(response) {
 
 function renderPanelMessage(content, message, type = '') {
   content.innerHTML = `<div class="panel-state ${type}">${escapeHtml(message)}</div>`;
+}
+
+/**
+ * Painel "Boas-vindas / Conectar" (Ticket 19.1 / KAN-150). Sem backend novo:
+ * as duas opções reusam as rotas de auth já existentes — redirect (GET
+ * /auth/login, ticket 4.7/KAN-74) e QR code (GET /auth/qr, ticket 13.13/
+ * KAN-122, via window.ResIAQrLogin do components/qrLogin.js).
+ */
+function renderWelcomePanel() {
+  const content = panelDefinitions.welcome.content;
+  content.innerHTML = `
+    <section class="welcome-intro">
+      <p>Conectar sua conta do Spotify libera:</p>
+      <ul class="welcome-benefits">
+        <li><strong>Explorar Spotify</strong><span>Buscar faixas, artistas, álbuns, playlists e lançamentos direto no ResIA.</span></li>
+        <li><strong>Recomendações personalizadas</strong><span>Seu perfil de gosto musical entra no cálculo das próximas sugestões.</span></li>
+        <li><strong>Salvar playlists</strong><span>Transformar as recomendações da conversa numa playlist na sua conta.</span></li>
+      </ul>
+    </section>
+    <section class="welcome-options" aria-label="Como conectar">
+      <button type="button" class="welcome-option" id="welcome-option-redirect">
+        <span class="welcome-option-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </span>
+        <span class="welcome-option-text">
+          <strong>Entrar pelo navegador</strong>
+          <small>Leva à página de autorização do Spotify, com os acessos pedidos e a política de dados antes de confirmar.</small>
+        </span>
+      </button>
+      <button type="button" class="welcome-option" id="welcome-option-qr">
+        <span class="welcome-option-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+            <line x1="14" y1="14" x2="14" y2="21"></line>
+            <line x1="21" y1="14" x2="21" y2="21"></line>
+            <line x1="17.5" y1="17.5" x2="17.5" y2="17.5"></line>
+          </svg>
+        </span>
+        <span class="welcome-option-text">
+          <strong>Entrar por QR code</strong>
+          <small>Escaneie com o celular e faça login por lá — útil se este navegador não é o seu.</small>
+        </span>
+      </button>
+    </section>
+    <p class="welcome-footnote">Dá pra desconectar quando quiser, pelo mesmo botão no cabeçalho.</p>
+  `;
+
+  content.querySelector('#welcome-option-redirect')?.addEventListener('click', () => {
+    window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
+  });
+  content.querySelector('#welcome-option-qr')?.addEventListener('click', () => {
+    closePanel();
+    if (window.ResIAQrLogin) window.ResIAQrLogin.open();
+  });
 }
 
 function renderProfilePanel() {

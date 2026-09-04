@@ -1661,6 +1661,50 @@ body {
 .playlist-link { flex-shrink: 0; color: var(--spotify-green); font-size: 0.8rem; font-weight: 700; text-decoration: none; }
 .playlist-link:hover { text-decoration: underline; }
 
+/* Painel "Boas-vindas / Conectar" (Ticket 19.1 / KAN-150) */
+.welcome-intro p { color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }
+.welcome-benefits { list-style: none; margin-top: 16px; display: grid; gap: 14px; }
+.welcome-benefits li { display: flex; flex-direction: column; gap: 3px; padding-bottom: 14px; border-bottom: 1px solid var(--border-subtle); }
+.welcome-benefits li:last-child { border-bottom: 0; padding-bottom: 0; }
+.welcome-benefits li strong { font-size: 0.85rem; color: var(--text-primary); }
+.welcome-benefits li span { font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; }
+.welcome-options { display: grid; gap: 12px; margin-top: 26px; }
+.welcome-option {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  text-align: left;
+  padding: 16px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.welcome-option:hover, .welcome-option:focus-visible {
+  background: var(--bg-surface-elevated);
+  border-color: var(--spotify-green);
+  transform: translateY(-1px);
+  outline: none;
+}
+.welcome-option-icon {
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--overlay-medium);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--spotify-green);
+}
+.welcome-option-text strong { display: block; font-size: 0.9rem; color: var(--text-primary); margin-bottom: 3px; }
+.welcome-option-text small { display: block; font-size: 0.78rem; color: var(--text-secondary); line-height: 1.4; }
+.welcome-footnote { margin-top: 24px; font-size: 0.75rem; color: var(--text-muted); text-align: center; }
+
 @keyframes fadeIn {
   from { opacity: 0; }
   to { opacity: 1; }

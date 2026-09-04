@@ -9,6 +9,14 @@
  * janela de 5 min pode completar o pareamento. Aceitável só enquanto o QR
  * fica visível apenas pra quem está fisicamente perto da tela; não expor
  * esse código por nenhum outro canal.
+ *
+ * Ticket 19.1 (KAN-150): este componente não insere mais seu próprio botão
+ * solto no menu "···" do header — o redirect (GET /auth/login) e o QR code
+ * (GET /auth/qr) agora são apresentados juntos, com contexto do que cada um
+ * libera, no painel "Boas-vindas / Conectar" (renderWelcomePanel em app.js).
+ * `window.ResIAQrLogin.open()/close()` continuam expostos pra esse painel
+ * (e qualquer outro ponto do produto) reusar o mesmo modal, sem duplicar
+ * fetch/poll do pareamento.
  */
 
 (function () {
@@ -104,53 +112,6 @@
     } catch (err) {
       statusEl.textContent = 'Não foi possível gerar o QR code agora.';
     }
-  }
-
-  function createTriggerLink() {
-    const link = document.createElement('button');
-    link.type = 'button';
-    link.id = 'btn-qr-login';
-    link.className = 'header-menu-item';
-    link.setAttribute('role', 'menuitem');
-    link.title = 'Conectar com Spotify escaneando um QR code';
-    link.setAttribute('aria-label', 'Conectar com Spotify por QR code');
-    link.innerHTML = `
-      <span class="header-menu-item-icon">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-          <rect x="3" y="3" width="7" height="7"></rect>
-          <rect x="14" y="3" width="7" height="7"></rect>
-          <rect x="3" y="14" width="7" height="7"></rect>
-          <line x1="14" y1="14" x2="14" y2="21"></line>
-          <line x1="21" y1="14" x2="21" y2="21"></line>
-          <line x1="17.5" y1="17.5" x2="17.5" y2="17.5"></line>
-        </svg>
-      </span>
-      <span>Conectar por QR code</span>
-    `;
-    link.addEventListener('click', openModal);
-    return link;
-  }
-
-  // Ticket 20.6 (KAN-165): botão passa a viver dentro do menu "···" de
-  // ações secundárias do header (agrupado com tema e Explorar Spotify) em
-  // vez de solto ao lado do botão "Conectar Spotify".
-  function init() {
-    const menuPanel = document.querySelector('.header-menu-panel');
-    const themeBtn = document.getElementById('btn-theme-toggle');
-    if (menuPanel && !document.getElementById('btn-qr-login')) {
-      const link = createTriggerLink();
-      if (themeBtn && themeBtn.parentElement === menuPanel) {
-        menuPanel.insertBefore(link, themeBtn);
-      } else {
-        menuPanel.appendChild(link);
-      }
-    }
-  }
-
-  if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', init);
-  } else {
-    init();
   }
 
   window.ResIAQrLogin = { open: openModal, close: closeModal };
