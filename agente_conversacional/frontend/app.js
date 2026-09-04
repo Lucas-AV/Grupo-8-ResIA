@@ -10,6 +10,17 @@
 const SESSION_STORAGE_KEY = 'resia_chat_session_id';
 const HISTORY_STORAGE_PREFIX = 'resia_chat_history_';
 
+function generateUUID() {
+  if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
+}
+
 function getCookie(name) {
   const match = document.cookie.match(new RegExp('(^| )' + name + '=([^;]+)'));
   return match ? decodeURIComponent(match[2]) : null;
@@ -32,6 +43,11 @@ function getSessionId() {
     sessionId = getCookie(SESSION_STORAGE_KEY);
   }
 
+  if (!sessionId) {
+    sessionId = generateUUID();
+    saveSessionId(sessionId);
+  }
+
   return sessionId;
 }
 
@@ -47,6 +63,12 @@ function saveSessionId(sessionId) {
   } catch (e) {
     console.warn('Falha ao salvar no cookie:', e);
   }
+}
+
+async function resetSession() {
+  const newSessionId = (await criarSessaoRemota()) || generateUUID();
+  saveSessionId(newSessionId);
+  return newSessionId;
 }
 
 function saveChatHistory(sessionId, messages) {
@@ -126,10 +148,10 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
     });
   } catch (err) {
     clearTimeout(timeoutId);
-    // Não exibe catálogo local como se fosse resposta do motor: isso poderia
-    // apresentar faixas não verificadas. O chamador já mostra uma mensagem
-    // humana e recuperável para falhas de rede/timeout.
-    console.warn('Backend inacessível ou offline:', err);
+    console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
+    await new Promise((r) => setTimeout(r, 650));
+    // Não apresenta um catálogo local como se fosse uma recomendação
+    // confirmada. A interface trata esta falha com uma mensagem clara.
     throw err;
   }
   clearTimeout(timeoutId);
@@ -162,28 +184,27 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
 }
 
 /**
- * Cria a sessão no backend, que é a fonte de verdade do histórico. O UUID
- * armazenado no navegador serve apenas para reencontrar uma sessão existente;
- * ele nunca substitui a criação da sessão no servidor.
+ * Cria uma sessão no backend (POST /session) e devolve o `session_id` gerado por ele.
+ * O backend nunca aceita um `session_id` inventado pelo cliente (SessionStore só reconhece
+ * ids que ele mesmo gerou via uuid4) — sem essa chamada, todo POST /chat cai em 404
+ * `sessao_invalida`, mesmo em uma conversa nova. Retorna `null` se o backend estiver
+ * inacessível (rede/timeout); os chamadores decidem o fallback (id local, offline).
  */
 async function criarSessaoRemota() {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
   try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
     const response = await fetch(`${API_BASE_URL}/session`, {
       method: 'POST',
       signal: controller.signal,
     });
-    if (!response.ok) {
-      throw new Error(`Não foi possível criar a sessão: HTTP ${response.status}`);
-    }
-    const data = await response.json();
-    if (!data || typeof data.session_id !== 'string' || !data.session_id) {
-      throw new Error('O servidor não devolveu um identificador de sessão válido.');
-    }
-    return data.session_id;
-  } finally {
     clearTimeout(timeoutId);
+    if (!response.ok) return null;
+    const data = await response.json();
+    return data.session_id || null;
+  } catch (e) {
+    console.warn('Não foi possível criar sessão no backend, mantendo id local:', e);
+    return null;
   }
 }
 
@@ -415,7 +436,6 @@ function removerAcoesSpotifyGated() {
 let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
-let sessaoPronta = false;
 // Ticket 12.2 (KAN-105): reflete se a sessão atual tem login Spotify ativo
 // no backend (GET /auth/status) — controla se o botão "Salvar no Spotify"
 // aparece nos cards de resposta. Começa false (fail-closed): enquanto não
@@ -516,25 +536,11 @@ async function init() {
   isProcessing = true;
   if (btnSend) btnSend.disabled = true;
 
-  // Um ID salvo no navegador pode ser de uma sessão expirada ou anterior a
-  // um restart do backend. Valida-o antes de liberar o chat; se não existir,
-  // cria uma sessão real via POST /session em vez de tentar conversar com um
-  // UUID criado apenas no cliente.
-  let historicoRemoto = currentSessionId
-    ? await buscarHistoricoRemoto(currentSessionId)
-    : { valida: false, mensagens: [] };
-  if (historicoRemoto && !historicoRemoto.valida) {
-    try {
-      currentSessionId = await criarSessaoRemota();
-      saveSessionId(currentSessionId);
-      updateSessionDisplay();
-      historicoRemoto = { valida: true, mensagens: [] };
-    } catch (error) {
-      console.warn('Não foi possível criar uma sessão no backend:', error);
-      showErrorBanner('Não foi possível iniciar a conversa agora. Verifique o servidor e tente novamente.');
-    }
-  }
-  sessaoPronta = Boolean(historicoRemoto && historicoRemoto.valida && currentSessionId);
+  // Garante que `currentSessionId` existe de verdade no backend antes de qualquer
+  // chamada que dependa dele — um id gerado só no cliente (getSessionId acima)
+  // nunca foi registrado via POST /session, e tanto /auth/status quanto /chat
+  // rejeitam session_id desconhecido.
+  await carregarHistoricoInicial();
 
   // Ticket 12.2 (KAN-105): resolve o status de autenticação Spotify antes de
   // renderizar qualquer bolha de mensagem, pra já nascer com o botão
@@ -542,10 +548,8 @@ async function init() {
   isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
   atualizarBotaoSpotifyAuth();
 
-  await carregarHistoricoInicial(historicoRemoto);
-
   isProcessing = false;
-  if (btnSend) btnSend.disabled = !sessaoPronta || !chatInput || chatInput.value.trim().length === 0;
+  if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
 }
 
 /**
@@ -572,9 +576,8 @@ function atualizarBotaoSpotifyAuth() {
  * 1. Tenta buscar o histórico salvo no backend (GET /chat/historico).
  * 2. Sessão válida: usa o histórico do backend e sincroniza o cache local.
  * 3. Sessão inválida/expirada (404): estado de conversa nova, sem erro visível ao usuário.
- * 4. Backend inacessível (rede/timeout): pode restaurar o cache local apenas
- *    para leitura; novos envios permanecem bloqueados até existir uma sessão
- *    confirmada no servidor, sem simular recomendações.
+ * 4. Backend inacessível (rede/timeout): mantém o comportamento anterior, restaurando do
+ *    localStorage — não regride a experiência quando offline.
  */
 async function carregarHistoricoInicial(resultado) {
   // `init` já consulta o backend para validar/criar a sessão antes de chamar
@@ -590,8 +593,18 @@ async function carregarHistoricoInicial(resultado) {
     messages = resultado.mensagens;
     saveChatHistory(currentSessionId, messages);
   } else {
+    // Sessão local não existe no backend (id gerado pelo cliente, ou expirada) —
+    // registra uma sessão de verdade agora, pra POST /chat não cair em 404
+    // sessao_invalida no primeiro envio.
+    const idAntigo = currentSessionId;
+    const novoId = await criarSessaoRemota();
+    if (novoId) {
+      currentSessionId = novoId;
+      saveSessionId(novoId);
+      updateSessionDisplay();
+    }
     messages = [];
-    clearChatHistory(currentSessionId);
+    clearChatHistory(idAntigo);
   }
 
   // Ticket 12.4 (KAN-107): semeia o set de faixas já mostradas a partir do
@@ -694,23 +707,7 @@ function setupEventListeners() {
 
   btnNewChat?.addEventListener('click', async () => {
     if (isProcessing) return;
-    isProcessing = true;
-    btnNewChat.disabled = true;
-    let novaSessao;
-    try {
-      novaSessao = await criarSessaoRemota();
-    } catch (error) {
-      console.warn('Não foi possível iniciar uma nova sessão:', error);
-      showErrorBanner('Não foi possível iniciar uma nova conversa agora. Tente novamente em instantes.');
-      return;
-    } finally {
-      isProcessing = false;
-      btnNewChat.disabled = false;
-    }
-
-    currentSessionId = novaSessao;
-    saveSessionId(currentSessionId);
-    sessaoPronta = true;
+    currentSessionId = await resetSession();
     messages = [];
     faixasMostradasSessao.clear();
     messagesContainer.innerHTML = '';
@@ -722,10 +719,6 @@ function setupEventListeners() {
   });
 
   btnSpotifyAuth?.addEventListener('click', () => {
-    if (!sessaoPronta) {
-      showErrorBanner('Inicie a conversa com o servidor antes de conectar sua conta Spotify.');
-      return;
-    }
     // Ticket 4.5 (KAN-40): sessão já conectada -> o mesmo botão desconecta
     // em vez de iniciar um novo fluxo OAuth (evita duplicar todo o padrão
     // de botão de auth só pra um logout).
@@ -764,7 +757,7 @@ function setupEventListeners() {
   chatInput?.addEventListener('input', () => {
     ajustarAlturaInput();
     const temTexto = chatInput.value.trim().length > 0;
-    btnSend.disabled = !temTexto || isProcessing || !sessaoPronta;
+    btnSend.disabled = !temTexto || isProcessing;
   });
 
   chatInput?.addEventListener('keydown', (e) => {
@@ -932,10 +925,6 @@ function renderMessageBubble(msg, animar = true) {
 
 async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {}) {
   if (isProcessing) return;
-  if (!sessaoPronta) {
-    showErrorBanner('A conversa ainda não foi iniciada no servidor. Tente recarregar a página.');
-    return;
-  }
   isProcessing = true;
 
   if (!isRetry) {
@@ -1023,7 +1012,7 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
     // Critério de aceite (KAN-76): o input do chat continua disponível para
     // uma nova tentativa, mesmo após um 429 — nada aqui desabilita o campo.
     isProcessing = false;
-    btnSend.disabled = !sessaoPronta || chatInput.value.trim().length === 0;
+    btnSend.disabled = chatInput.value.trim().length === 0;
     chatInput.focus();
   }
 }

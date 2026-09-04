@@ -2,12 +2,14 @@
 import { computed, reactive } from "vue";
 import { fetchJSON } from "../composables/useApi.js";
 import { useAuthStatus } from "../composables/useAuthStatus.js";
+import { useNowPlaying } from "../composables/useNowPlaying.js";
 import { trackSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import TrackPreview from "../components/previews/TrackPreview.vue";
 import MediaItemRow from "../components/MediaItemRow.vue";
 
 const { state: authState } = useAuthStatus();
+const { open } = useNowPlaying();
 const status = reactive({ text: "", className: "status", loading: false });
 const result = reactive({ data: null });
 
@@ -182,7 +184,9 @@ async function generateRelatedPlaylist() {
           <div v-if="queueItems.length">
             <h3>Fila</h3>
             <div v-for="(item, i) in queueItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
+              <button type="button" class="media-item-clickable" @click="open(item)">
+                <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+              </button>
             </div>
           </div>
         </template>

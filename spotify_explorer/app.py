@@ -3,10 +3,15 @@ from datetime import date
 from urllib.parse import urlencode
 
 from dotenv import load_dotenv
-from flask import Flask, jsonify, redirect, request, send_from_directory
+from flask import Flask, jsonify, redirect, request, send_from_directory, session
 
 import spotify_client
 import user_auth
+
+import segno
+
+import pairing_store
+import qr_page
 
 load_dotenv()
 
@@ -26,6 +31,8 @@ def create_app():
 
 
 def register_routes(app):
+    pairing = pairing_store.PairingStore()
+
     @app.route("/")
     def index():
         index_path = os.path.join(app.config["FRONTEND_DIST_DIR"], "index.html")
@@ -161,8 +168,21 @@ def register_routes(app):
         )
         return jsonify(body), status
 
+    @app.route("/login/qr")
+    def login_qr():
+        code = pairing.create()
+        pair_url = f"{request.host_url}login?pair={code}"
+        svg_data_uri = segno.make(pair_url).svg_data_uri(scale=6)
+        return qr_page.render_qr_page(svg_data_uri, code, app.config["FRONTEND_URL"])
+
     @app.route("/login")
     def login():
+        pair_code = request.args.get("pair")
+        if pair_code is not None:
+            status = pairing.get_status(pair_code)
+            if status != "pending":
+                return qr_page.render_pair_error_page(status), 400
+            session["pairing_code"] = pair_code
         return redirect(
             user_auth.get_login_url(
                 app.config["SPOTIFY_CLIENT_ID"], app.config["SPOTIFY_REDIRECT_URI"]
@@ -173,10 +193,11 @@ def register_routes(app):
     def callback():
         error = request.args.get("error")
         if error:
+            session.pop("pairing_code", None)
             return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': error})}")
 
         try:
-            user_auth.exchange_code(
+            tokens = user_auth.exchange_code(
                 request.args.get("code"),
                 request.args.get("state"),
                 app.config["SPOTIFY_CLIENT_ID"],
@@ -184,9 +205,25 @@ def register_routes(app):
                 app.config["SPOTIFY_REDIRECT_URI"],
             )
         except ValueError as exc:
+            session.pop("pairing_code", None)
             return redirect(f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': str(exc)})}")
 
+        pair_code = session.pop("pairing_code", None)
+        if pair_code is not None:
+            completed = pairing.mark_completed(pair_code, tokens)
+            if not completed:
+                return redirect(
+                    f"{app.config['FRONTEND_URL']}?{urlencode({'auth_error': 'qr_pairing_expired'})}"
+                )
+
         return redirect(app.config["FRONTEND_URL"])
+
+    @app.route("/api/pair/<code>/status")
+    def pair_status(code):
+        status, tokens = pairing.consume_if_completed(code)
+        if status == "completed":
+            user_auth.apply_tokens_to_session(tokens)
+        return jsonify({"status": status})
 
     @app.route("/logout")
     def logout():
