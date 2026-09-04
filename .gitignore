@@ -13,6 +13,7 @@ site/dist/
 spotify_explorer/.env
 agente_conversacional/spotify_tokens.db
 agente_conversacional/sessions.db
+agente_conversacional/*.pem
 .worktrees/
 spotify_explorer/frontend/node_modules/
 spotify_explorer/static/frontend/
