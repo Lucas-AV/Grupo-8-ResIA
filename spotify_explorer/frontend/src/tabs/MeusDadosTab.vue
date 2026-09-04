@@ -2,11 +2,13 @@
 import { computed, reactive } from "vue";
 import { useApi } from "../composables/useApi.js";
 import { useAuthStatus } from "../composables/useAuthStatus.js";
+import { useNowPlaying } from "../composables/useNowPlaying.js";
 import { trackSummary, artistSummary } from "../utils/spotifyShapes.js";
 import ResultPanel from "../components/ResultPanel.vue";
 import MediaItemRow from "../components/MediaItemRow.vue";
 
 const { state: authState } = useAuthStatus();
+const { open } = useNowPlaying();
 
 const timeRange = reactive({ value: "medium_term" });
 const topTarget = reactive({ value: "tracks" });
@@ -82,7 +84,10 @@ async function fetchRecentlyPlayed() {
         <ResultPanel :status="top.status" :data="topResult.data" empty-hint="Clique em Top tracks ou Top artists">
           <template #preview>
             <div v-for="(item, i) in topItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
+              <button v-if="topTarget.value === 'tracks'" type="button" class="media-item-clickable" @click="open(item)">
+                <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+              </button>
+              <MediaItemRow v-else :image="item.image" :title="item.title" :subtitle="item.subtitle" />
             </div>
           </template>
         </ResultPanel>
@@ -94,7 +99,9 @@ async function fetchRecentlyPlayed() {
         <ResultPanel :status="saved.status" :data="savedResult.data" empty-hint="Clique em Buscar curtidas">
           <template #preview>
             <div v-for="(item, i) in savedItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
+              <button type="button" class="media-item-clickable" @click="open(item)">
+                <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+              </button>
             </div>
           </template>
         </ResultPanel>
@@ -110,7 +117,9 @@ async function fetchRecentlyPlayed() {
         >
           <template #preview>
             <div v-for="(item, i) in recentlyPlayedItems" :key="i">
-              <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" :url="item.url" :preview-url="item.previewUrl" />
+              <button type="button" class="media-item-clickable" @click="open(item)">
+                <MediaItemRow :image="item.image" :title="item.title" :subtitle="item.subtitle" />
+              </button>
             </div>
           </template>
         </ResultPanel>
