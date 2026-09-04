@@ -57,8 +57,8 @@ faixas — e evolui para as etapas de modelagem e recomendação.
 <br><a href="https://github.com/Ruan-Carvalho"><img src="https://img.shields.io/badge/GitHub-Ruan--Carvalho-181717?logo=github&logoColor=white" alt="GitHub Ruan-Carvalho"></a>
 </td>
 <td align="center">
-<a href="https://github.com/femathrl0"><img src="https://github.com/femathrl0.png" width="100" style="border-radius:50%" alt="femathrl0"></a>
-<br><b>femathrl0</b>
+<a href="https://github.com/femathrl0"><img src="https://github.com/femathrl0.png" width="100" style="border-radius:50%" alt="Felipe Matheus"></a>
+<br><b>Felipe Matheus</b>
 <br><a href="https://github.com/femathrl0"><img src="https://img.shields.io/badge/GitHub-femathrl0-181717?logo=github&logoColor=white" alt="GitHub femathrl0"></a>
 </td>
 <td align="center">

@@ -55,7 +55,7 @@ TEAM = [
     {"name": "Dayane Ferreira", "github": "dayarierref"},
     {"name": "Eduarda Reis", "github": "dudsstar16"},
     {"name": "Ruan Sobreira Carvalho", "github": "Ruan-Carvalho"},
-    {"name": "femathrl0", "github": "femathrl0"},
+    {"name": "Felipe Matheus", "github": "femathrl0"},
     {"name": "Rebeca Vitoria Salazar", "github": "rebecavitoriasalazar-cpu"},
 ]
 
