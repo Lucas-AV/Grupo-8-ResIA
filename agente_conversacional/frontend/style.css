@@ -2203,7 +2203,7 @@ body {
 }
 .playlist-save-tracks-list li {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
   padding: 8px 12px;
   font-size: 0.82rem;
@@ -2211,6 +2211,14 @@ body {
 }
 .playlist-save-tracks-list li:last-child {
   border-bottom: none;
+}
+.playlist-save-track-thumb {
+  width: 32px;
+  height: 32px;
+  flex-shrink: 0;
+  border-radius: var(--radius-xs);
+  background: var(--bg-surface-elevated);
+  object-fit: cover;
 }
 .playlist-save-track-name {
   color: var(--text-primary);

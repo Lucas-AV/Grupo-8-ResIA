@@ -32,6 +32,30 @@
   let confirmBtn = null;
   let faixasAtuais = [];
 
+  // Miniatura de capa do álbum (mesmo endpoint/estratégia de trackCard.js):
+  // GET /spotify/thumbnail/{track_id}, sem exigir login. Cache local à este
+  // arquivo — cada componente mantém o próprio Map, sem estado compartilhado.
+  const _thumbnailCache = new Map(); // track_id -> url | null
+
+  async function _carregarThumbnail(trackId) {
+    if (_thumbnailCache.has(trackId)) return _thumbnailCache.get(trackId);
+
+    try {
+      const response = await fetch(`${API_BASE_URL}/spotify/thumbnail/${encodeURIComponent(trackId)}`);
+      if (!response.ok) {
+        _thumbnailCache.set(trackId, null);
+        return null;
+      }
+      const data = await response.json();
+      const url = data.thumbnail_url || null;
+      _thumbnailCache.set(trackId, url);
+      return url;
+    } catch (err) {
+      console.warn('Falha ao buscar miniatura da faixa:', err);
+      return null;
+    }
+  }
+
   function ensureModal() {
     if (overlayEl) return;
 
@@ -95,13 +119,28 @@
     tracksListEl.innerHTML = faixas
       .map(
         (faixa) => `
-          <li>
+          <li data-track-id="${escapeHtml((faixa && faixa.track_id) || '')}">
+            <img class="playlist-save-track-thumb" alt="" loading="lazy">
             <span class="playlist-save-track-name">${escapeHtml((faixa && faixa.nome) || 'Faixa sem título')}</span>
             <span class="playlist-save-track-artist">${escapeHtml((faixa && faixa.artista) || '')}</span>
           </li>
         `
       )
       .join('');
+
+    // Miniaturas de capa carregadas à parte — não bloqueiam a renderização
+    // da lista, ver _carregarThumbnail.
+    faixas.forEach((faixa) => {
+      const trackId = faixa && faixa.track_id;
+      if (!trackId) return;
+      const li = tracksListEl.querySelector(`li[data-track-id="${CSS.escape(trackId)}"]`);
+      const img = li && li.querySelector('.playlist-save-track-thumb');
+      if (!img) return;
+      _carregarThumbnail(trackId).then((url) => {
+        if (!url) return;
+        img.src = url;
+      });
+    });
   }
 
   async function buscarSugestao(faixas) {
