@@ -311,6 +311,36 @@ body {
   white-space: nowrap;
 }
 
+/* Ticket 20.9 (KAN-168): avatar do usuário Spotify logado, no lugar do
+   ícone genérico (ver #spotify-auth-icon.hidden em atualizarBotaoSpotifyAuth,
+   app.js). Sem foto pública, o próprio span vira o placeholder com a
+   inicial do nome — nunca uma <img> quebrada. */
+.spotify-auth-avatar[hidden] {
+  display: none;
+}
+
+.spotify-auth-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.spotify-auth-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .btn-spotify-auth:hover {
   background: var(--spotify-green-hover);
   transform: scale(1.03);
@@ -1332,7 +1362,7 @@ body {
   .message-row {
     max-width: 100%;
   }
-  .btn-spotify-auth span {
+  .btn-spotify-auth span:not(.spotify-auth-avatar) {
     display: none;
   }
   .now-playing-widget {
