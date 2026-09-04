@@ -43,6 +43,10 @@
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.55);
   --shadow-glow: 0 0 30px rgba(29, 185, 84, 0.22);
   --shadow-dock: 0 -8px 32px rgba(0, 0, 0, 0.65);
+  /* Appbar como superfície elevada e distinta do canvas de chat atrás dela —
+     realce interno sutil (linha de "vidro") + sombra externa que a separa
+     do conteúdo, sem depender só da borda inferior de 1px. */
+  --shadow-header: inset 0 1px 0 rgba(255, 255, 255, 0.05), 0 16px 36px -20px rgba(0, 0, 0, 0.7);
 
   /* Overlays neutros (hover states, scrollbar, bordas sutis sobre --bg-surface) —
      tokenizados pra poderem inverter de branco-sobre-escuro pra preto-sobre-claro
@@ -98,6 +102,7 @@
   --shadow-sm: 0 4px 12px rgba(20, 24, 26, 0.08);
   --shadow-md: 0 8px 24px rgba(20, 24, 26, 0.1);
   --shadow-dock: 0 -8px 28px rgba(20, 24, 26, 0.1);
+  --shadow-header: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 12px 28px -20px rgba(20, 24, 26, 0.16);
 
   --overlay-weak: rgba(0, 0, 0, 0.05);
   --overlay-medium: rgba(0, 0, 0, 0.1);
@@ -156,17 +161,49 @@ body {
   position: relative;
 }
 
-/* 4. Top Header Spotify Style */
+/* 4. Top Header Spotify Style
+   Superfície "vidro" elevada: os mesmos glows ambiente do body (--glow-emerald /
+   --glow-violet) reaparecem aqui, presos ao topo do header, pra costurar
+   visualmente a appbar com o resto do fundo em vez de flutuar como um bloco
+   plano por cima. --shadow-header dá a profundidade; ::before/::after
+   desenham a "borda de vidro" (sheen no topo) e o filete de acento verde
+   embaixo, no lugar da borda de 1px sólida e sem graça de antes. */
 .app-header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 24px;
-  background: var(--bg-glass);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  padding: 16px 28px;
+  background:
+    radial-gradient(140% 220% at 10% -60%, var(--glow-emerald) 0%, transparent 55%),
+    radial-gradient(100% 200% at 95% 140%, var(--glow-violet) 0%, transparent 50%),
+    var(--bg-glass);
+  backdrop-filter: blur(22px) saturate(150%);
+  -webkit-backdrop-filter: blur(22px) saturate(150%);
   border-bottom: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-header);
   z-index: 50;
+}
+
+.app-header::before {
+  content: '';
+  position: absolute;
+  inset: 0 0 auto 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 0%, var(--overlay-medium) 50%, transparent 100%);
+  pointer-events: none;
+}
+
+.app-header::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 2%, var(--spotify-green-glow) 50%, transparent 98%);
+  opacity: 0.7;
+  pointer-events: none;
 }
 
 .brand-section {
@@ -183,7 +220,10 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 0 16px var(--spotify-green-glow);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.35),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.25),
+    0 0 16px var(--spotify-green-glow);
 }
 
 .brand-logo-svg {
@@ -200,16 +240,6 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-}
-
-.brand-info h1 span.badge-proposta {
-  font-size: 0.68rem;
-  font-weight: 600;
-  padding: 2px 7px;
-  border-radius: var(--radius-pill);
-  background: var(--spotify-green-subtle);
-  color: var(--spotify-green);
-  border: 1px solid rgba(29, 185, 84, 0.3);
 }
 
 .brand-info p {
