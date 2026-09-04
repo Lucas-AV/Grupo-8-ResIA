@@ -220,6 +220,47 @@ def test_criar_playlist_rejects_empty_faixas(client):
     assert response.status_code == 422
 
 
+# --- 12.6 — Sugestão de título/descrição via LLM (modal de "Salvar no Spotify") ---
+
+
+def test_sugerir_playlist_devolve_titulo_e_descricao_do_llm(client, monkeypatch):
+    captured = {}
+
+    def fake_sugerir(faixas):
+        captured["faixas"] = faixas
+        return {"titulo": "Pagode pra Domingo", "descricao": "Clássicos animados."}
+
+    monkeypatch.setattr(routes, "sugerir_titulo_descricao", fake_sugerir)
+
+    response = client.post(
+        "/playlist/sugerir",
+        json={"faixas": [{"track_id": "t1", "nome": "Faixa", "artista": "Artista", "album": "Album", "genero": "pagode"}]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"titulo": "Pagode pra Domingo", "descricao": "Clássicos animados."}
+    assert captured["faixas"] == [{"track_id": "t1", "nome": "Faixa", "artista": "Artista", "album": "Album", "genero": "pagode"}]
+
+
+def test_sugerir_playlist_rejects_empty_faixas(client):
+    response = client.post("/playlist/sugerir", json={"faixas": []})
+
+    assert response.status_code == 422
+
+
+def test_sugerir_playlist_nao_exige_sessao_autenticada(client, monkeypatch):
+    """So gera texto via LLM — nao fala com a Spotify, entao nao precisa
+    de token/sessao (diferente de /playlist/criar)."""
+    monkeypatch.setattr(routes, "sugerir_titulo_descricao", lambda faixas: {"titulo": "X", "descricao": "Y"})
+
+    response = client.post(
+        "/playlist/sugerir",
+        json={"faixas": [{"track_id": "t1", "nome": "Faixa", "artista": "Artista", "album": "Album", "genero": "pop"}]},
+    )
+
+    assert response.status_code == 200
+
+
 # --- 13.13 — Login via QR code (pareamento) ---
 
 

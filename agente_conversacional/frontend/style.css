@@ -142,7 +142,14 @@ body {
 .app-container {
   display: flex;
   flex-direction: column;
-  height: 100vh;
+  height: 100vh; /* fallback pra navegadores sem suporte a dvh */
+  /* 100vh em mobile mede com a barra de endereco escondida — quando ela
+     aparece (padrao), a area visivel real fica menor, e o dock de input
+     (position: absolute, bottom: 0 do container) fica fora da tela, sem
+     como rolar ate ele (body tem overflow: hidden). 100dvh acompanha a
+     altura visivel de verdade; navegadores sem suporte ignoram a linha e
+     ficam com o 100vh acima. */
+  height: 100dvh;
   width: 100%;
   max-width: 1120px;
   margin: 0 auto;
@@ -300,11 +307,126 @@ body {
   cursor: pointer;
   transition: var(--transition-fast);
   box-shadow: 0 2px 10px var(--spotify-green-glow);
+  max-width: 220px;
+}
+
+/* Ticket 20.8 (KAN-167): trunca o nome do usuário Spotify no header em vez
+   de quebrar o layout quando o nome é longo. */
+.btn-spotify-auth span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Ticket 20.9 (KAN-168): avatar do usuário Spotify logado, no lugar do
+   ícone genérico (ver #spotify-auth-icon.hidden em atualizarBotaoSpotifyAuth,
+   app.js). Sem foto pública, o próprio span vira o placeholder com a
+   inicial do nome — nunca uma <img> quebrada. */
+.spotify-auth-avatar[hidden] {
+  display: none;
+}
+
+.spotify-auth-avatar {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  overflow: hidden;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.25);
+  color: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.spotify-auth-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .btn-spotify-auth:hover {
   background: var(--spotify-green-hover);
   transform: scale(1.03);
+}
+
+/* 4.1 Menu "···" de ações secundárias do header (Ticket 20.6 / KAN-165):
+   agrupa tema, QR login e Explorar Spotify num único dropdown, em vez de
+   N ícones soltos competindo com a ação primária (Conectar Spotify). */
+.header-actions-secondary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.header-menu {
+  position: relative;
+}
+
+.header-menu-trigger[aria-expanded="true"] {
+  color: var(--text-primary);
+  background: var(--overlay-weak);
+}
+
+.header-menu-panel {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 210px;
+  max-width: calc(100vw - 24px);
+  padding: 6px;
+  background: var(--bg-surface-elevated, var(--bg-surface));
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.35);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  z-index: 60;
+  opacity: 0;
+  transform: translateY(-4px);
+  pointer-events: none;
+  transition: opacity var(--transition-fast), transform var(--transition-fast);
+}
+
+.header-menu-panel.is-open {
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+}
+
+.header-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 9px 10px;
+  border: none;
+  background: transparent;
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.header-menu-item:hover {
+  background: var(--overlay-weak);
+  color: var(--text-primary);
+}
+
+.header-menu-item-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
 }
 
 /* 5. Área de Mensagens (Chat Stream) */
@@ -497,6 +619,7 @@ body {
   flex-shrink: 0;
   font-weight: 700;
   font-size: 0.8rem;
+  overflow: hidden;
 }
 
 .message-row.agent .message-avatar {
@@ -508,6 +631,20 @@ body {
 .message-row.user .message-avatar {
   background: #333333;
   color: var(--text-secondary);
+}
+
+/* Ticket 20.10 (KAN-169): foto de perfil do Spotify no avatar do usuário. */
+.message-avatar-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+/* Ticket 20.10 (KAN-169): agrupa mensagens consecutivas do mesmo autor —
+   o avatar some (mantendo o espaço reservado, pra bolha não perder o
+   alinhamento com a coluna de avatares) em vez de repetir a cada bolha. */
+.message-row--grouped .message-avatar {
+  visibility: hidden;
 }
 
 .message-bubble {
@@ -549,6 +686,7 @@ body {
   display: block;
 }
 
+/* Ticket 6.2 — transparência da seleção, sem competir com os cards. */
 .recommendation-metrics {
   display: flex;
   flex-wrap: wrap;
@@ -563,8 +701,14 @@ body {
   line-height: 1.4;
 }
 
-.recommendation-metrics strong { color: var(--text-primary); }
-.recommendation-metrics small { flex-basis: 100%; color: var(--text-muted); }
+.recommendation-metrics strong {
+  color: var(--text-primary);
+}
+
+.recommendation-metrics small {
+  flex-basis: 100%;
+  color: var(--text-muted);
+}
 
 .message-row.user .message-timestamp {
   text-align: right;
@@ -658,6 +802,14 @@ body {
   position: relative;
   box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
   overflow: hidden;
+}
+
+.track-cover-art .track-cover-img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 .track-cover-art svg.vinyl-icon {
@@ -926,6 +1078,103 @@ body {
   color: var(--text-secondary);
 }
 
+/* 9.1 Widget "Tocando agora" (Ticket 20.7 / KAN-166) — mini-barra flutuante
+   acima do dock de input, só existe no DOM (components/nowPlaying.js)
+   enquanto há sessão Spotify conectada e uma faixa tocando. */
+.now-playing-widget[hidden] {
+  display: none;
+}
+
+.now-playing-widget {
+  position: absolute;
+  left: 20px;
+  bottom: 118px;
+  z-index: 45;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  max-width: 280px;
+  padding: 6px 14px 6px 6px;
+  background: var(--bg-glass);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-pill);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
+  color: inherit;
+  animation: fadeIn 0.25s ease-out;
+  transition: var(--transition-fast);
+}
+
+.now-playing-widget:hover {
+  border-color: var(--spotify-green);
+  transform: translateY(-2px);
+}
+
+.now-playing-cover {
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  object-fit: cover;
+  flex-shrink: 0;
+  background: var(--bg-surface-elevated);
+}
+
+.now-playing-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: 1px;
+}
+
+.now-playing-track,
+.now-playing-artist {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+}
+
+.now-playing-track {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.now-playing-artist {
+  font-size: 0.72rem;
+  color: var(--text-secondary);
+}
+
+.now-playing-eq {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+  flex-shrink: 0;
+}
+
+.now-playing-eq span {
+  width: 3px;
+  height: 100%;
+  border-radius: 2px;
+  background-color: var(--spotify-green);
+  animation: wave-bar 1.1s ease-in-out infinite alternate;
+}
+
+.now-playing-eq span:nth-child(1) { animation-delay: 0.1s; }
+.now-playing-eq span:nth-child(2) { animation-delay: 0.3s; }
+.now-playing-eq span:nth-child(3) { animation-delay: 0.2s; }
+
+.now-playing-widget.is-paused .now-playing-eq span {
+  animation-play-state: paused;
+  opacity: 0.4;
+  transform: scaleY(0.5);
+}
+
 /* 10. Dock Inferior Flutuante (Input Box estilo Knotes / Spotify) */
 .input-dock-wrapper {
   position: absolute;
@@ -1143,8 +1392,17 @@ body {
   .message-row {
     max-width: 100%;
   }
-  .btn-spotify-auth span {
+  .btn-spotify-auth span:not(.spotify-auth-avatar) {
     display: none;
+  }
+  .now-playing-widget {
+    left: 12px;
+    bottom: 108px;
+    max-width: 220px;
+  }
+  .now-playing-track,
+  .now-playing-artist {
+    max-width: 120px;
   }
 }
 
@@ -1161,6 +1419,20 @@ body {
   }
   .session-pill {
     padding: 5px 10px;
+  }
+  .now-playing-widget {
+    left: 8px;
+    right: 8px;
+    max-width: none;
+    bottom: 100px;
+  }
+  .now-playing-track,
+  .now-playing-artist {
+    max-width: none;
+  }
+  .now-playing-info {
+    flex: 1;
+    min-width: 0;
   }
 }
 
@@ -1189,6 +1461,25 @@ body {
   cursor: wait;
 }
 
+/* Salvar em Músicas Curtidas (13.15) */
+.btn-track-save .icon-save-filled {
+  display: none;
+}
+.btn-track-save.saved .icon-save-outline {
+  display: none;
+}
+.btn-track-save.saved .icon-save-filled {
+  display: inline;
+}
+.btn-track-save.saved {
+  color: var(--spotify-green);
+  cursor: default;
+}
+.btn-track-save.loading {
+  opacity: 0.5;
+  cursor: wait;
+}
+
 /* Overlay compartilhado pelo painel Explorar e pelo modal de QR login */
 .explorer-overlay {
   position: fixed;
@@ -1206,7 +1497,8 @@ body {
 }
 
 .explorer-panel,
-.qr-login-panel {
+.qr-login-panel,
+.playlist-save-panel {
   background: var(--bg-surface);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
@@ -1216,6 +1508,138 @@ body {
   flex-direction: column;
   overflow: hidden;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+}
+
+/* Modal "Salvar no Spotify" com sugestão de título/descrição (12.6) */
+.playlist-save-panel {
+  width: min(480px, 100%);
+}
+
+.playlist-save-body {
+  padding: 18px 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.playlist-save-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  font-weight: 600;
+  margin-top: 10px;
+}
+.playlist-save-label:first-child {
+  margin-top: 0;
+}
+
+.playlist-save-input,
+.playlist-save-textarea {
+  width: 100%;
+  background: var(--bg-glass-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 0.88rem;
+  padding: 9px 12px;
+  resize: vertical;
+  transition: border-color var(--transition-fast);
+}
+.playlist-save-input:focus,
+.playlist-save-textarea:focus {
+  outline: none;
+  border-color: var(--border-focus);
+}
+.playlist-save-input:disabled,
+.playlist-save-textarea:disabled {
+  opacity: 0.55;
+  cursor: wait;
+}
+
+.playlist-save-tracks-header {
+  margin-top: 16px;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.playlist-save-tracks-list {
+  list-style: none;
+  margin-top: 6px;
+  max-height: 220px;
+  overflow-y: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+}
+.playlist-save-tracks-list li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  padding: 8px 12px;
+  font-size: 0.82rem;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.playlist-save-tracks-list li:last-child {
+  border-bottom: none;
+}
+.playlist-save-track-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.playlist-save-track-artist {
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  flex-shrink: 1;
+}
+
+.playlist-save-footer {
+  padding: 14px 20px;
+  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.playlist-save-error {
+  color: var(--error-red);
+  font-size: 0.8rem;
+}
+
+.playlist-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+}
+
+.playlist-save-cancel {
+  background: transparent;
+  color: var(--text-secondary);
+}
+.playlist-save-cancel:hover {
+  color: var(--text-primary);
+}
+
+/* Dialog "Desconectar do Spotify?" (Ticket 20.11 / KAN-170) */
+.confirm-dialog-panel .playlist-save-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.5;
+}
+.btn-logout-confirm {
+  background: var(--error-red-subtle);
+  color: var(--error-red-hover);
+  border-color: var(--error-red);
+}
+.btn-logout-confirm:hover:not(:disabled) {
+  background: var(--error-red);
+  color: #fff;
 }
 
 .explorer-header {

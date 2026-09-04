@@ -1,8 +1,10 @@
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from typing import cast
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -16,6 +18,16 @@ from llm.health import check_llm_health
 from spotify_auth.explorer_routes import router as spotify_explorer_router
 from spotify_auth.routes import router as spotify_auth_router
 
+# python-dotenv ja estava no requirements.txt mas nunca era carregado —
+# .env so funcionava se a variavel ja tivesse sido exportada manualmente no
+# shell. Nao sobrescreve vars ja definidas no ambiente (comportamento
+# padrao do dotenv, override=False). Pulado sob pytest: os testes contam
+# com um ambiente limpo (mockam LLM/Spotify/etc explicitamente) e carregar
+# valores reais do .env (LLM_BACKEND/OLLAMA_BASE_URL apontando pra um
+# Ollama de verdade, por exemplo) quebra esse isolamento.
+if "pytest" not in sys.modules:
+    load_dotenv()
+
 logger = logging.getLogger("agente")
 
 _DEFAULT_FRONTEND_URL = "http://127.0.0.1:5173"
@@ -25,6 +37,19 @@ def _cors_origins():
     """Origens liberadas pro CORS (ticket 8.2) — lista separada por virgula em FRONTEND_URL."""
     origins = os.environ.get("FRONTEND_URL", _DEFAULT_FRONTEND_URL)
     return [origin.strip() for origin in origins.split(",") if origin.strip()]
+
+
+def _default_session_db_path():
+    """Caminho do SQLite pra SessionStore sobreviver a um restart do
+    processo — sem isso (dict em memoria puro), todo restart derrubava
+    todas as sessoes e o frontend descartava o cache local junto (parecia
+    "descarregar" o chat). Pulado sob pytest: os testes usam o default
+    `:memory:` de SessionStore, isolado por instancia (mesmo motivo do
+    guard de load_dotenv acima — nao vale a pena arquivo real em disco
+    compartilhado entre testes)."""
+    if "pytest" in sys.modules:
+        return None
+    return os.environ.get("SESSION_DB_PATH", "sessions.db")
 
 
 @asynccontextmanager
@@ -60,7 +85,7 @@ def create_app(
         allow_methods=["*"],
         allow_headers=["*"],
     )
-    app.state.session_store = session_store or SessionStore()
+    app.state.session_store = session_store or SessionStore(db_path=_default_session_db_path())
     # Épico 2: pipeline conversacional real por padrão (KAN-8 usava
     # turn_processor=None só como placeholder até este módulo existir).
     # Testes que precisam simular indisponibilidade continuam podendo

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import pytest
 
-from recomendacao.busca import _BUCKET_PARA_Z, _montar_vetor_alvo, buscar_recomendacoes
+from recomendacao.busca import _BUCKET_PARA_Z, _montar_vetor_alvo, buscar_faixa_por_id, buscar_recomendacoes
 from recomendacao.dataset import FEATURES_AUDIO, FEATURES_AUDIO_NORM, carregar_dataset
 from recomendacao.indice import IndiceSimilaridade
 
@@ -277,3 +277,35 @@ def test_nenhum_sinal_e_sem_perfil_usuario_devolve_none():
         _montar_vetor_alvo(None, artista_referencia=None, energia=None, valencia=None, dancabilidade=None, perfil_usuario=None)
         is None
     )
+
+
+# --- buscar_faixa_por_id (ticket 4.6/KAN-73 — reconstroi cards de faixa do historico restaurado) ---
+
+
+def test_buscar_faixa_por_id_devolve_metadados_no_schema_documentado(tmp_path, monkeypatch):
+    _preparar(tmp_path, [_linha("t1", "pop", artists="Alguem")], monkeypatch)
+
+    faixa = buscar_faixa_por_id("t1")
+
+    assert faixa == {
+        "track_id": "t1",
+        "nome": "Faixa t1",
+        "artista": "Alguem",
+        "album": "Album",
+        "genero": "pop",
+    }
+
+
+def test_buscar_faixa_por_id_devolve_none_para_id_desconhecido(tmp_path, monkeypatch):
+    _preparar(tmp_path, [_linha("t1", "pop")], monkeypatch)
+
+    assert buscar_faixa_por_id("id-que-nao-existe") is None
+
+
+def test_buscar_faixa_por_id_nunca_lanca_excecao_se_dataset_falhar(monkeypatch):
+    def _quebra():
+        raise RuntimeError("dataset indisponivel")
+
+    monkeypatch.setattr("recomendacao.busca.carregar_dataset", _quebra)
+
+    assert buscar_faixa_por_id("qualquer") is None

@@ -19,4 +19,13 @@ class SpotifyPlaylistError(SpotifyAuthError):
 
 
 class SpotifyExplorerError(SpotifyAuthError):
-    """Levantado quando uma chamada de leitura/controle da Spotify Web API falha (Épico 13)."""
+    """Levantado quando uma chamada de leitura/controle da Spotify Web API falha (Épico 13).
+
+    `status_code` (quando disponível — chamadas que chegaram a receber uma
+    resposta HTTP da Spotify) permite quem trata o erro diferenciar casos
+    conhecidos, ex.: 404 em /me/player/play normalmente significa "nenhum
+    dispositivo ativo" (ticket 13.14), sem precisar reparsear a mensagem."""
+
+    def __init__(self, message, status_code=None):
+        super().__init__(message)
+        self.status_code = status_code
