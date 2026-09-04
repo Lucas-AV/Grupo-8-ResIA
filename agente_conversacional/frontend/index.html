@@ -18,7 +18,11 @@
       }
     })();
   </script>
-  <link rel="icon" type="image/jpeg" href="assets/syntonia_icon.jpg">
+  <!-- Icone minimalista "resonance pulse" — SVG pros navegadores modernos,
+       PNG como fallback e pro apple-touch-icon (iOS nao aceita SVG ai). -->
+  <link rel="icon" type="image/svg+xml" href="assets/syntonia_icon.svg">
+  <link rel="alternate icon" type="image/png" href="assets/syntonia_icon_32.png">
+  <link rel="apple-touch-icon" href="assets/syntonia_icon_180.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -30,7 +34,7 @@
     <header class="app-header">
       <div class="brand-section">
         <div class="brand-icon-wrapper" title="SyntonIA AI Agent">
-          <img src="assets/syntonia_icon.jpg" alt="SyntonIA Logo" class="brand-logo-img">
+          <img src="assets/syntonia_icon.svg" alt="SyntonIA Logo" class="brand-logo-img">
         </div>
         <div class="brand-info">
           <h1>SyntonIA</h1>

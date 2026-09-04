@@ -1704,7 +1704,7 @@ function renderMessageBubble(msg, animar = true) {
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
   if (msg.role === 'agent') {
-    avatar.innerHTML = `<img src="assets/syntonia_icon.jpg" alt="" class="message-avatar-img">`;
+    avatar.innerHTML = `<img src="assets/syntonia_icon.svg" alt="" class="message-avatar-img">`;
     avatar.title = 'Agente SyntonIA';
   } else {
     renderizarAvatarUsuario(avatar);
