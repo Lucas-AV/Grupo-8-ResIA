@@ -205,12 +205,94 @@ ANALYSES = [
         "href": "precisao-cosseno.html",
     },
     {
+        "id": "metodos-alternativos",
+        "title": "Metodos Alternativos de Recomendacao",
+        "nav": "Metodos Alt.",
+        "description": "Outras tecnicas de IA que poderiam substituir ou complementar o KNN com similaridade por cosseno, e por que cada uma foi ou nao levada adiante.",
+        "href": "metodos-alternativos.html",
+    },
+    {
         "id": "notebook",
         "title": "Notebook de Analise Exploratoria",
         "nav": "Notebook",
         "description": "Celulas e graficos do analise_exploratoria.ipynb, renderizados direto do repositorio.",
         "href": "notebook.html",
     },
+]
+
+METODOS_ALTERNATIVOS = [
+    [
+        "Baseline implementado",
+        "KNN + Similaridade por Cosseno",
+        "Simples, direto de explicar e depurar; nao exige treino, so vetores normalizados.",
+        "Abordagem atual do motor (agente_conversacional/recomendacao/indice.py).",
+    ],
+    [
+        "Filtragem colaborativa",
+        "Matrix Factorization (SVD/ALS)",
+        "Capta padroes latentes que o cosseno nao ve; mais rapido em escala (sem calcular distancia par a par).",
+        "Comparativo mais barato contra o KNN: mesma matriz usuario-item, baixo custo de implementacao (surprise/implicit).",
+    ],
+    [
+        "Filtragem colaborativa",
+        "NMF (fatoracao nao-negativa)",
+        "Fatores latentes nao-negativos, mais interpretaveis (ex: \"fator 3 = groove eletronico\").",
+        "So compensa se o relatorio tiver secao de explicabilidade; SVD ja cobre o essencial.",
+    ],
+    [
+        "Deep Learning",
+        "Autoencoders (ex: AutoRec)",
+        "Representacao nao-linear, capta relacoes que fatoracao linear (SVD) nao pega.",
+        "Fica como trabalho futuro na conclusao; dataset pequeno de disciplina nao justifica o custo agora.",
+    ],
+    [
+        "Deep Learning",
+        "Neural Collaborative Filtering / Two-Tower",
+        "Estado da arte em producao real (e o que Spotify e YouTube usam).",
+        "Exige mais dado e tempo de treino do que o prazo do projeto permite.",
+    ],
+    [
+        "Deep Learning",
+        "Transformers (ex: SASRec, BERT4Rec)",
+        "Capta a ordem da escuta, nao so a preferencia estatica.",
+        "So faz sentido com timestamp sequencial de escuta, que o dataset atual nao tem.",
+    ],
+    [
+        "Deep Learning",
+        "Graph Neural Networks (GNN)",
+        "Modela usuario-item como grafo bipartido e propaga sinal indireto (amigo do amigo gosta de X).",
+        "Precisa de dado social que a API do Spotify nao expoe facil; fora de escopo.",
+    ],
+    [
+        "Probabilistico",
+        "LDA (topicos latentes)",
+        "Topicos interpretaveis em cima de generos/playlists, bom pra clusterizar \"vibes\".",
+        "Complementa a analise exploratoria (EDA) que ja existe, nao substitui o recomendador.",
+    ],
+    [
+        "Probabilistico",
+        "BPR (Bayesian Personalized Ranking)",
+        "Otimiza ranking (top-N) direto, em vez de prever uma nota exata.",
+        "Mais coerente que KNN se a metrica de avaliacao for precision@k / recall@k.",
+    ],
+    [
+        "Clustering / Conteudo",
+        "K-Means / DBSCAN",
+        "Simples e rapido; baseline ainda mais basico que o KNN.",
+        "Serve pra mostrar o espectro de complexidade no relatorio, nao como recomendador principal.",
+    ],
+    [
+        "Clustering / Conteudo",
+        "Embeddings de audio (CNN em espectrograma)",
+        "Resolve cold-start: faixa nova sem historico ainda recomenda pelo som.",
+        "Inviavel com os dados atuais: a API do Spotify da so features, nao audio bruto.",
+    ],
+    [
+        "Reinforcement Learning",
+        "RL / Bandits contextuais",
+        "Otimiza engajamento de longo prazo, se adapta a mudanca de gosto do usuario.",
+        "Exige ambiente interativo em loop; nao da pra treinar offline com dataset estatico.",
+    ],
 ]
 
 PERSONAS = [
@@ -990,6 +1072,46 @@ def build() -> None:
         },
     )
     (DIST_DIR / "precisao-cosseno.html").write_text(precisao_html, encoding="utf-8")
+
+    metodos_alternativos_html = env.get_template("analise.html").render(
+        title="Metodos Alternativos de Recomendacao",
+        current_page="metodos-alternativos.html",
+        eyebrow="Motor de recomendacao · comparativo de abordagens",
+        heading="Metodos Alternativos de Recomendacao",
+        description=(
+            "O motor atual usa KNN com similaridade por cosseno sobre features "
+            "de audio (veja Similaridade por Cosseno). Essas sao outras tecnicas "
+            "de IA que poderiam substituir ou complementar essa escolha, com a "
+            "vantagem de cada uma e o motivo de terem sido ou nao levadas "
+            "adiante no projeto."
+        ),
+        tiles=[
+            {
+                "label": "Metodos alternativos mapeados",
+                "value": "11",
+                "sub": "alem do KNN + cosseno ja implementado",
+                "icon": "layers",
+            },
+            {
+                "label": "Comparativo recomendado",
+                "value": "SVD",
+                "sub": "Matrix Factorization: mesma matriz usuario-item, baixo custo",
+                "icon": "trending-up",
+            },
+            {
+                "label": "Fora do escopo do projeto",
+                "value": "4",
+                "sub": "GNN, embeddings de audio, RL, transformers sequenciais",
+                "icon": "alert",
+            },
+        ],
+        table={
+            "title": "Comparativo de abordagens",
+            "headers": ["Categoria", "Metodo", "Vantagem principal", "Uso no projeto"],
+            "rows": METODOS_ALTERNATIVOS,
+        },
+    )
+    (DIST_DIR / "metodos-alternativos.html").write_text(metodos_alternativos_html, encoding="utf-8")
 
     notebook_body, pygments_css = render_notebook_html(NOTEBOOK_PATH)
     notebook_html = env.get_template("notebook.html").render(
