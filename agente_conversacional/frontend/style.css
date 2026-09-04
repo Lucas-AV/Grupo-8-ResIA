@@ -873,6 +873,7 @@ body {
 .track-card {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 12px;
   padding: 10px 14px;
   background: var(--bg-surface-elevated);
@@ -984,9 +985,14 @@ body {
   margin-left: 2px;
 }
 
-/* Detalhes de Texto da Faixa */
+/* Detalhes de Texto da Faixa
+   flex-basis de 140px (em vez de 0) garante que, quando o card fica
+   estreito demais para caber capa + texto + ações numa única linha,
+   o grupo de ações quebra pra linha de baixo (ver .track-actions-group)
+   em vez de espremer nome/artista a ponto de ficarem cobertos pelos
+   botões (Ticket: fix track-card action buttons overlap). */
 .track-details {
-  flex: 1;
+  flex: 1 1 140px;
   min-width: 0;
 }
 
@@ -1050,12 +1056,20 @@ body {
   gap: 4px;
 }
 
-/* Grupo de Ações do Card */
+/* Grupo de Ações do Card
+   margin-left: auto empurra o grupo pra ponta direita da sua linha.
+   Quando .track-card ainda cabe numa linha só, isso é inofensivo (o
+   flex-grow de .track-details já consumiu o espaço sobrando). Quando
+   o card não tem largura suficiente para capa + texto + ações e o
+   grupo quebra pra uma segunda linha (via flex-wrap em .track-card),
+   o auto margin alinha os botões à direita nessa linha, em vez de
+   ficarem colados embaixo da capa. */
 .track-actions-group {
   display: flex;
   align-items: center;
   gap: 4px;
   flex-shrink: 0;
+  margin-left: auto;
 }
 
 .btn-track-action {
