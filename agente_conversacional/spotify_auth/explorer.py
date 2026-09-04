@@ -36,7 +36,10 @@ def _request(method, path, access_token, params=None, json_body=None, timeout=No
         raise SpotifyExplorerError(f"falha de rede ao chamar {method} {path}: {exc}") from exc
 
     if response.status_code >= 400:
-        raise SpotifyExplorerError(f"Spotify respondeu HTTP {response.status_code} em {method} {path}")
+        raise SpotifyExplorerError(
+            f"Spotify respondeu HTTP {response.status_code} em {method} {path}",
+            status_code=response.status_code,
+        )
 
     if response.status_code == 204 or not response.content:
         return {}
@@ -153,6 +156,20 @@ def player_play(access_token, timeout=None):
     return _request("PUT", "/me/player/play", access_token, timeout=timeout)
 
 
+def play_track(access_token, track_uri, device_id=None, timeout=None):
+    """Toca uma faixa especifica no dispositivo Spotify Connect ativo do
+    usuario (ticket 13.14) — diferente de `player_play` (retoma o que ja
+    estava tocando), aqui trocamos o conteudo pra `track_uri`
+    (`spotify:track:{id}`). `device_id` opcional mira um dispositivo
+    especifico (varios ativos); sem ele, a Spotify usa o dispositivo ativo
+    mais recente. HTTP 404 da Spotify aqui normalmente significa "nenhum
+    dispositivo ativo" — quem chama decide como comunicar isso."""
+    params = {"device_id": device_id} if device_id else None
+    return _request(
+        "PUT", "/me/player/play", access_token, params=params, json_body={"uris": [track_uri]}, timeout=timeout
+    )
+
+
 def player_pause(access_token, timeout=None):
     return _request("PUT", "/me/player/pause", access_token, timeout=timeout)
 
@@ -181,3 +198,13 @@ def player_set_shuffle(access_token, state, timeout=None):
 
 def player_set_repeat(access_token, state, timeout=None):
     return _request("PUT", "/me/player/repeat", access_token, params={"state": state}, timeout=timeout)
+
+
+# --- Biblioteca do usuário — salvar faixa (ticket 13.15) ---
+
+
+def save_track(access_token, track_id, timeout=None):
+    """PUT /me/tracks — salva a faixa em "Músicas Curtidas" da conta
+    logada. Idempotente do lado da Spotify (salvar uma faixa já salva não
+    dá erro), então não precisa checar o estado atual antes de chamar."""
+    return _request("PUT", "/me/tracks", access_token, params={"ids": track_id}, timeout=timeout)

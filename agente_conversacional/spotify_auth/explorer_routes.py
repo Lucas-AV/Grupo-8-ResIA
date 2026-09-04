@@ -9,6 +9,7 @@ ferramenta de dev, este módulo é o produto real.
 import logging
 
 from fastapi import APIRouter, HTTPException, Query, status
+from pydantic import BaseModel
 
 from spotify_auth import explorer
 from spotify_auth.client import get_valid_access_token
@@ -254,6 +255,76 @@ def explorer_player_queue(session_id: str = Query(...)):
 def explorer_player_play(session_id: str = Query(...)):
     token = _resolve_token(session_id)
     return _call(explorer.player_play, token)
+
+
+class PlayTrackRequest(BaseModel):
+    track_id: str
+    device_id: str | None = None
+
+
+@router.post("/explorer/track/play")
+def explorer_play_track(body: PlayTrackRequest, session_id: str = Query(...)):
+    """Ticket 13.14: toca uma faixa especifica no dispositivo Spotify
+    Connect ativo do usuario (ex.: o app do celular) — diferente de
+    POST /explorer/me/player/play (so retoma o que ja estava tocando)."""
+    token = _resolve_token(session_id)
+    track_uri = f"spotify:track:{body.track_id}"
+    try:
+        explorer.play_track(token, track_uri, device_id=body.device_id)
+    except SpotifyExplorerError as exc:
+        if exc.status_code == 404:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={
+                    "codigo": "spotify_sem_dispositivo_ativo",
+                    "mensagem": "Nenhum dispositivo Spotify ativo agora. Abra o Spotify no celular (ou em outro aparelho) e tente de novo.",
+                },
+            )
+        if exc.status_code == 403:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "codigo": "spotify_requer_premium",
+                    "mensagem": "Tocar direto num dispositivo requer conta Spotify Premium.",
+                },
+            )
+        logger.warning("falha ao tocar faixa no Spotify Connect: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "codigo": "spotify_explorer_falhou",
+                "mensagem": "Não foi possível tocar essa faixa no Spotify agora. Tente novamente em instantes.",
+            },
+        )
+    return {"ok": True}
+
+
+@router.post("/explorer/track/{track_id}/save")
+def explorer_save_track(track_id: str, session_id: str = Query(...)):
+    """Ticket 13.15: salva a faixa em "Músicas Curtidas" da conta logada
+    (PUT /me/tracks). Requer o escopo user-library-modify — sessões
+    autenticadas antes desse escopo existir precisam reconectar."""
+    token = _resolve_token(session_id)
+    try:
+        explorer.save_track(token, track_id)
+    except SpotifyExplorerError as exc:
+        if exc.status_code == 403:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail={
+                    "codigo": "spotify_permissao_insuficiente",
+                    "mensagem": "Sem permissão pra salvar faixas — desconecte e reconecte sua conta Spotify pra atualizar as permissões.",
+                },
+            )
+        logger.warning("falha ao salvar faixa no Spotify: %s", exc)
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail={
+                "codigo": "spotify_explorer_falhou",
+                "mensagem": "Não foi possível salvar essa faixa no Spotify agora. Tente novamente em instantes.",
+            },
+        )
+    return {"ok": True}
 
 
 @router.post("/explorer/me/player/pause")
