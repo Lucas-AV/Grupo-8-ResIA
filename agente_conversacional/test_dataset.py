@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import pandas as pd
 import pytest
 
+from recomendacao import dataset as dataset_module
 from recomendacao.dataset import FEATURES_AUDIO_NORM, carregar_dataset
 
 COLUNAS = [
@@ -131,6 +134,10 @@ def test_marca_duplicatas_de_track_id_sem_remover_linhas(tmp_path):
 def test_carrega_dataset_real_do_repositorio():
     df = carregar_dataset()
 
+    caminho_esperado = (
+        Path(__file__).resolve().parents[1] / "data" / "processed" / "dataset.csv"
+    )
+    assert dataset_module._CAMINHO_PADRAO == caminho_esperado
     assert len(df) > 0
     assert set(FEATURES_AUDIO_NORM).issubset(df.columns)
     assert df["track_id_duplicado"].any()

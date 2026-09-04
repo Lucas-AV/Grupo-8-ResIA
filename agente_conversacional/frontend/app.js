@@ -9,6 +9,9 @@
 // ==========================================
 const SESSION_STORAGE_KEY = 'resia_chat_session_id';
 const HISTORY_STORAGE_PREFIX = 'resia_chat_history_';
+const SETTINGS_STORAGE_KEY = 'resia_settings';
+const PLAYLISTS_STORAGE_KEY = 'resia_created_playlists';
+const ONBOARDING_STORAGE_KEY = 'resia_onboarding_seen';
 
 function generateUUID() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -125,7 +128,13 @@ class ErroBackend extends Error {
 async function enviarMensagem(sessionId, mensagem, extras = {}) {
   const url = `${API_BASE_URL}/chat`;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 8000);
+  // Ollama local pode fazer 2 chamadas de LLM por turno (extração + geração,
+  // ver chat/pipeline.py), cada uma com ate LLM_TIMEOUT_SECONDS (20s no
+  // .env) do backend — latencia real medida variou de ~12s a ~28.5s entre
+  // chamadas (CPU sob carga, sem GPU), entao 25s aqui no cliente ainda
+  // abortava antes da resposta chegar. 60s cobre o pior caso (2 chamadas
+  // no limite do timeout do backend) sem deixar a espera indefinida.
+  const timeoutId = setTimeout(() => controller.abort(), 60000);
 
   let response;
   try {
@@ -142,6 +151,8 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
       body: JSON.stringify({
         session_id: sessionId,
         mensagem: mensagem,
+        // Ticket 16: preferência local de excluir faixas explícitas por padrão.
+        excluir_explicit: loadSettings().excludeExplicit,
         ...extras,
       }),
       signal: controller.signal,
@@ -243,12 +254,88 @@ async function buscarHistoricoRemoto(sessionId) {
   }
 }
 
+async function buscarJson(path) {
+  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
+  return response.json();
+}
+
+async function buscarHistorico(sessionId) {
+  return buscarJson(`/chat/historico?session_id=${encodeURIComponent(sessionId)}`);
+}
+
+async function buscarPerfil(sessionId) {
+  return buscarJson(`/perfil?session_id=${encodeURIComponent(sessionId)}`);
+}
+
+async function criarPlaylistResIA(trackIds, nome, descricao = '') {
+  if (!Array.isArray(trackIds) || trackIds.length === 0) {
+    throw new Error('Selecione ao menos uma faixa para criar a playlist.');
+  }
+  const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: trackIds, nome, descricao }),
+  });
+  if (!response.ok) throw new Error(`Não foi possível criar a playlist: HTTP ${response.status}`);
+  const playlist = await response.json();
+  if (!saveCreatedPlaylist(playlist)) throw new Error('A API retornou uma playlist incompleta.');
+  if (activePanel === 'playlists') renderPlaylistsPanel();
+  return playlist;
+}
+
+function loadSettings() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+    return {
+      excludeExplicit: stored.excludeExplicit !== false,
+    };
+  } catch (error) {
+    return { excludeExplicit: true };
+  }
+}
+
+function saveSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.warn('Falha ao salvar preferências:', error);
+  }
+}
+
+// Tema (claro/escuro) tem uma única fonte de verdade: getStoredTheme/
+// applyTheme/saveStoredTheme (Ticket 12.5 / KAN-108, mais abaixo) — não
+// duplicar aqui. `resia_settings` guarda só preferências que não são tema.
+
+function loadCreatedPlaylists() {
+  try {
+    const playlists = JSON.parse(localStorage.getItem(PLAYLISTS_STORAGE_KEY) || '[]');
+    return Array.isArray(playlists) ? playlists.filter((playlist) => playlist && playlist.id && playlist.nome && playlist.link) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveCreatedPlaylist(playlist) {
+  if (!playlist?.id || !playlist?.nome || !playlist?.link) return false;
+  const playlists = loadCreatedPlaylists().filter((item) => item.id !== playlist.id);
+  playlists.unshift({ id: playlist.id, nome: playlist.nome, link: playlist.link, created_at: playlist.created_at || new Date().toISOString() });
+  try {
+    localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(playlists));
+    return true;
+  } catch (error) {
+    console.warn('Falha ao salvar playlist ResIA:', error);
+    return false;
+  }
+}
+
 /**
  * Converte o formato de histórico devolvido pelo backend (roles 'usuario'/'agente'/'sistema')
  * para o formato de mensagem usado pela interface de chat (roles 'user'/'agent').
- * Observação: o histórico remoto devolve apenas os IDs das faixas citadas (faixas_citadas),
- * sem os metadados completos (nome/artista/álbum) — por isso os cards de faixa não são
- * reconstruídos para mensagens restauradas do backend, só o texto e a ordem da conversa.
+ * Ticket 4.6/KAN-73: `faixas` traz os metadados completos (nome/artista/álbum/gênero),
+ * reconstruídos no backend a partir de faixas_citadas — os cards de faixa reaparecem
+ * normalmente ao restaurar o histórico, não só o texto.
  */
 function mapearHistoricoRemoto(historico) {
   const ROLE_MAP = { usuario: 'user', agente: 'agent', sistema: 'agent' };
@@ -258,7 +345,7 @@ function mapearHistoricoRemoto(historico) {
     id: `historico-${indice}-${item.timestamp || indice}`,
     role: ROLE_MAP[item.role] || 'agent',
     conteudo: item.conteudo,
-    faixas: [],
+    faixas: Array.isArray(item.faixas) ? item.faixas : [],
     timestamp: item.timestamp,
   }));
 }
@@ -284,6 +371,61 @@ async function verificarStatusSpotify(sessionId) {
     console.warn('Não foi possível verificar o status de autenticação com o Spotify:', err);
     return false;
   }
+}
+
+/**
+ * Ticket 20.8 (KAN-167) + 20.9 (KAN-168): busca `display_name` e foto de
+ * perfil (`images[0].url`) do usuário Spotify logado (`GET /explorer/me`,
+ * ticket 13.10) numa única chamada, pra mostrar os dois no header. Só é
+ * chamada ao (re)autenticar — nunca a cada render do botão. Falha de
+ * rede/parse resolve pra `{ displayName: null, avatarUrl: null }`, e quem
+ * chama cai nos fallbacks genéricos (rótulo padrão / placeholder de avatar).
+ */
+async function buscarPerfilSpotify(sessionId) {
+  try {
+    const response = await fetch(`${API_BASE_URL}/explorer/me?session_id=${encodeURIComponent(sessionId)}`);
+    if (!response.ok) return { displayName: null, avatarUrl: null };
+    const data = await response.json();
+    return {
+      displayName: (data && data.display_name) || null,
+      avatarUrl: (data && data.images && data.images[0] && data.images[0].url) || null,
+    };
+  } catch (err) {
+    console.warn('Não foi possível obter o perfil do usuário Spotify:', err);
+    return { displayName: null, avatarUrl: null };
+  }
+}
+
+/**
+ * Ticket 20.10 (KAN-169): monta o avatar de uma mensagem do usuário —
+ * reaproveita `spotifyAvatarUrl` (já buscado em 20.8/20.9 no login, sem
+ * chamada nova por mensagem) quando há sessão Spotify conectada com foto de
+ * perfil pública; ícone neutro genérico caso contrário — o chat funciona
+ * sem login, então o avatar nunca pode depender de estar conectado.
+ */
+function renderizarAvatarUsuario(avatarEl) {
+  if (spotifyAvatarUrl) {
+    avatarEl.innerHTML = `<img src="${escapeHtml(spotifyAvatarUrl)}" alt="" class="message-avatar-img">`;
+    avatarEl.title = spotifyDisplayName || 'Você';
+  } else {
+    avatarEl.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      </svg>
+    `;
+    avatarEl.title = 'Você';
+  }
+}
+
+/**
+ * Corrige os avatares de usuário já renderizados quando o perfil Spotify
+ * termina de carregar depois do histórico inicial (init() só resolve
+ * verificarStatusSpotify/buscarPerfilSpotify após carregarHistoricoInicial
+ * — sem isso, bolhas restauradas de uma sessão já conectada nasceriam com
+ * o placeholder genérico e nunca ganhariam a foto real).
+ */
+function atualizarAvataresUsuario() {
+  document.querySelectorAll('.message-row.user .message-avatar').forEach(renderizarAvatarUsuario);
 }
 
 /**
@@ -332,14 +474,17 @@ function tratarRetornoLoginSpotify() {
 
 /**
  * Ticket 12.1 (KAN-104): chama POST /playlist/criar com as faixas da
- * sessão atual. Propaga erro (mensagem do backend, quando houver) pro
- * chamador tratar visivelmente — nunca falha silenciosa em console.log.
+ * sessão atual. `nome`/`descricao` (ticket 12.6) — opcionais, vêm do modal
+ * de confirmação (playlistSaveModal.js), que pré-preenche com uma sugestão
+ * do LLM mas deixa o usuário editar antes de confirmar. Propaga erro
+ * (mensagem do backend, quando houver) pro chamador tratar visivelmente —
+ * nunca falha silenciosa em console.log.
  */
-async function criarPlaylistSpotify(trackIds) {
+async function criarPlaylistSpotify(trackIds, { nome, descricao } = {}) {
   const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: currentSessionId, faixas: trackIds }),
+    body: JSON.stringify({ session_id: currentSessionId, faixas: trackIds, nome, descricao }),
   });
 
   if (!response.ok) {
@@ -357,32 +502,19 @@ async function criarPlaylistSpotify(trackIds) {
 }
 
 /**
- * Handler do clique em "Salvar no Spotify" (ticket 12.2): desabilita o
- * botão durante a chamada, dá feedback visível de sucesso/erro (nunca só
- * console.log) reaproveitando showToast/showErrorBanner do ticket 4.8.
+ * Handler do clique em "Salvar no Spotify" (ticket 12.2/12.6): abre o modal
+ * de confirmação (playlistSaveModal.js) com a lista de faixas e uma
+ * sugestão de título/descrição gerada pelo LLM — a criação de verdade só
+ * acontece se o usuário confirmar dentro do modal.
  */
-async function handleSalvarSpotify(button, trackIds) {
-  if (!trackIds || trackIds.length === 0 || button.disabled) return;
+function handleSalvarSpotify(faixas) {
+  if (!faixas || faixas.length === 0) return;
 
-  button.disabled = true;
-  const textoOriginal = button.textContent;
-  button.textContent = 'Salvando...';
-
-  try {
-    const resultado = await criarPlaylistSpotify(trackIds);
-    showToast('Playlist salva no seu Spotify!');
-    if (resultado && resultado.url) {
-      window.open(resultado.url, '_blank', 'noopener,noreferrer');
-    }
-  } catch (err) {
-    console.error('Erro ao salvar playlist no Spotify:', err);
-    showErrorBanner(err.message || 'Não foi possível salvar a playlist no Spotify.', () =>
-      handleSalvarSpotify(button, trackIds)
-    );
-  } finally {
-    button.disabled = false;
-    button.textContent = textoOriginal;
+  if (!window.ResIAPlaylistModal || typeof window.ResIAPlaylistModal.open !== 'function') {
+    console.error('Modal de salvar playlist indisponível (playlistSaveModal.js não carregado).');
+    return;
   }
+  window.ResIAPlaylistModal.open(faixas);
 }
 
 /**
@@ -405,6 +537,8 @@ async function handleLogoutSpotify() {
   try {
     await logoutSpotify(currentSessionId);
     isSpotifyAuthenticated = false;
+    spotifyDisplayName = null;
+    spotifyAvatarUrl = null;
     removerAcoesSpotifyGated();
     showToast('Desconectado do Spotify.');
   } catch (err) {
@@ -436,16 +570,31 @@ function removerAcoesSpotifyGated() {
 let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
+let isEditingMessage = false; // Estado de edição (Ticket 16.2)
+let activePanel = null;
+let lastPanelTrigger = null;
+let discoveries = { genres: new Map(), artists: new Map(), turns: [] };
+let settings = loadSettings();
 // Ticket 12.2 (KAN-105): reflete se a sessão atual tem login Spotify ativo
 // no backend (GET /auth/status) — controla se o botão "Salvar no Spotify"
 // aparece nos cards de resposta. Começa false (fail-closed): enquanto não
 // confirmamos com o backend, não mostramos ação que exige autenticação.
 let isSpotifyAuthenticated = false;
+// Ticket 20.8 (KAN-167) + 20.9 (KAN-168): display_name e foto de perfil do
+// usuário Spotify logado, pra mostrar no header em vez do rótulo/ícone
+// genérico. Cache em memória — só busca de novo ao (re)autenticar
+// (init/logout), não a cada render do botão.
+let spotifyDisplayName = null;
+let spotifyAvatarUrl = null;
 // Ticket 12.4 (KAN-107): track_ids de toda faixa já mostrada nesta sessão
 // (acumulado no cliente a partir de msg.faixas de cada resposta do agente),
 // usado pelo botão "Gerar outra recomendação" pra pedir uma busca nova sem
 // repetir o que já apareceu.
 const faixasMostradasSessao = new Set();
+// Ticket 20.10 (KAN-169): role da última mensagem renderizada (histórico ou
+// nova), pra agrupar visualmente avatares consecutivos do mesmo autor sem
+// repeti-los a cada bolha.
+let ultimoAutorRenderizado = null;
 
 function atualizarFaixasMostradas(faixas) {
   if (!Array.isArray(faixas)) return;
@@ -459,8 +608,15 @@ const sessionIdDisplay = document.getElementById('session-id-display');
 const btnCopySession = document.getElementById('btn-copy-session');
 const btnNewChat = document.getElementById('btn-new-chat');
 const btnSpotifyAuth = document.getElementById('btn-spotify-auth');
+const spotifyAuthIcon = document.getElementById('spotify-auth-icon');
+const spotifyAuthAvatar = document.getElementById('spotify-auth-avatar');
 const chatScrollArea = document.getElementById('chat-scroll-area');
 const heroEmptyState = document.getElementById('hero-empty-state');
+const onboardingTourEl = document.getElementById('onboarding-tour');
+const onboardingStepEl = document.getElementById('onboarding-tour-step');
+const onboardingDotsEl = document.getElementById('onboarding-tour-dots');
+const btnOnboardingNext = document.getElementById('btn-onboarding-next');
+const btnOnboardingSkip = document.getElementById('btn-onboarding-skip');
 const messagesContainer = document.getElementById('messages-container');
 const typingIndicator = document.getElementById('typing-indicator');
 const chatForm = document.getElementById('chat-form');
@@ -468,9 +624,24 @@ const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
 const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
+const editMessageBanner = document.getElementById('edit-message-banner');
+const btnCancelEdit = document.getElementById('btn-cancel-edit');
+const btnScrollBottom = document.getElementById('btn-scroll-bottom');
+const panelBackdrop = document.getElementById('panel-backdrop');
+const panelDefinitions = {
+  welcome: { panel: document.getElementById('welcome-panel'), content: document.getElementById('welcome-panel-content') },
+  profile: { panel: document.getElementById('profile-panel'), content: document.getElementById('profile-panel-content') },
+  history: { panel: document.getElementById('history-panel'), content: document.getElementById('history-panel-content') },
+  discoveries: { panel: document.getElementById('discoveries-panel'), content: document.getElementById('discoveries-panel-content') },
+  settings: { panel: document.getElementById('settings-panel'), content: document.getElementById('settings-panel-content') },
+  about: { panel: document.getElementById('about-panel'), content: document.getElementById('about-panel-content') },
+  playlists: { panel: document.getElementById('playlists-panel'), content: document.getElementById('playlists-panel-content') },
+};
 const btnThemeToggle = document.getElementById('btn-theme-toggle');
 const iconThemeDark = document.getElementById('icon-theme-dark');
 const iconThemeLight = document.getElementById('icon-theme-light');
+const btnHeaderMenu = document.getElementById('btn-header-menu');
+const headerMenuPanel = document.querySelector('.header-menu-panel');
 
 // ==========================================
 // 2.1 Módulo de Tema Claro/Escuro (Ticket 12.5 / KAN-108)
@@ -520,6 +691,108 @@ function toggleTheme() {
   saveStoredTheme(novoTema);
 }
 
+// ==========================================
+// 2.1.1 Onboarding guiado (Ticket 19.2 / KAN-151)
+// ==========================================
+// Mesmo padrão de getStoredTheme/saveStoredTheme acima: uma única flag em
+// localStorage, lida com fallback silencioso (try/catch) se o storage não
+// estiver disponível (modo privado etc.) — nesse caso o tour some pra sempre
+// naquela aba em vez de travar a experiência.
+function getOnboardingSeen() {
+  try {
+    return localStorage.getItem(ONBOARDING_STORAGE_KEY) === '1';
+  } catch (e) {
+    console.warn('Falha ao ler flag de onboarding do localStorage:', e);
+    return true;
+  }
+}
+
+function saveOnboardingSeen() {
+  try {
+    localStorage.setItem(ONBOARDING_STORAGE_KEY, '1');
+  } catch (e) {
+    console.warn('Falha ao salvar flag de onboarding no localStorage:', e);
+  }
+}
+
+// Passos do tour (KAN-151): expande o #hero-empty-state (que antes só tinha
+// os chips de sugestão, ticket 4.12/KAN-79) com poucos passos apontando pro
+// chat, os cards de faixa das respostas e o botão do Explorer no menu "···".
+const ONBOARDING_STEPS = [
+  {
+    icon: '💬',
+    title: 'Peça no chat',
+    text: 'Descreva o que quer ouvir — gênero, humor, energia ou momento do dia. Ex.: "rock animado pra treinar".',
+  },
+  {
+    icon: '🎵',
+    title: 'Veja os cards de faixa',
+    text: 'Cada resposta traz cards com prévia, artista e opções de tocar, favoritar ou salvar no Spotify.',
+  },
+  {
+    icon: '🧭',
+    title: 'Explore sua conta Spotify',
+    text: 'Conecte com o Spotify (botão no cabeçalho) e use o "Explorar Spotify" do menu "···" pra buscar músicas, artistas e playlists.',
+  },
+];
+
+let onboardingStepIndex = 0;
+
+function renderOnboardingStep() {
+  const step = ONBOARDING_STEPS[onboardingStepIndex];
+  if (!step || !onboardingStepEl) return;
+  onboardingStepEl.innerHTML = `
+    <span class="onboarding-step-icon" aria-hidden="true">${step.icon}</span>
+    <span class="onboarding-step-body">
+      <strong>${escapeHtml(step.title)}</strong>
+      <p>${escapeHtml(step.text)}</p>
+    </span>
+  `;
+  if (onboardingDotsEl) {
+    onboardingDotsEl.innerHTML = ONBOARDING_STEPS.map((_, index) =>
+      `<span class="onboarding-dot ${index === onboardingStepIndex ? 'is-active' : ''}"></span>`
+    ).join('');
+  }
+  if (btnOnboardingNext) {
+    btnOnboardingNext.textContent = onboardingStepIndex === ONBOARDING_STEPS.length - 1 ? 'Entendi' : 'Próximo';
+  }
+}
+
+function closeOnboardingTour() {
+  if (onboardingTourEl) onboardingTourEl.hidden = true;
+  saveOnboardingSeen();
+}
+
+/**
+ * Mostra o tour só se: (1) nunca foi visto antes (flag em localStorage) e
+ * (2) o hero de fato está visível agora — chamado só no ramo "sessão nova,
+ * sem histórico" de carregarHistoricoInicial (Ticket 4.12/KAN-79 já cobre
+ * sessão restaurada escondendo o hero inteiro, tour incluso).
+ */
+function initOnboardingTour() {
+  if (!onboardingTourEl || getOnboardingSeen()) return;
+  onboardingStepIndex = 0;
+  onboardingTourEl.hidden = false;
+  renderOnboardingStep();
+}
+
+// ==========================================
+// 2.2 Menu "···" de ações secundárias do header (Ticket 20.6 / KAN-165)
+// ==========================================
+function closeHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  headerMenuPanel.classList.remove('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', 'false');
+}
+
+function toggleHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  const isOpen = headerMenuPanel.classList.toggle('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+}
+
 async function init() {
   // Ticket 12.5 (KAN-108): sincroniza os ícones/estado do botão com o
   // `data-theme` que o script inline no <head> já aplicou na raiz do
@@ -546,7 +819,19 @@ async function init() {
   // renderizar qualquer bolha de mensagem, pra já nascer com o botão
   // "Salvar no Spotify" no estado certo (sem esperar reload/re-render).
   isSpotifyAuthenticated = await verificarStatusSpotify(currentSessionId);
+  if (isSpotifyAuthenticated) {
+    const perfil = await buscarPerfilSpotify(currentSessionId);
+    spotifyDisplayName = perfil.displayName;
+    spotifyAvatarUrl = perfil.avatarUrl;
+  } else {
+    spotifyDisplayName = null;
+    spotifyAvatarUrl = null;
+  }
   atualizarBotaoSpotifyAuth();
+  // Ticket 20.10 (KAN-169): o histórico já renderizou com placeholder
+  // (carregarHistoricoInicial roda antes do perfil resolver, ver acima) —
+  // corrige agora que `spotifyAvatarUrl` está definitivo.
+  atualizarAvataresUsuario();
 
   isProcessing = false;
   if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
@@ -555,6 +840,12 @@ async function init() {
 /**
  * Reflete `isSpotifyAuthenticated` no botão do header (ticket 12.2) — feedback
  * visível de que a sessão já está conectada, sem precisar clicar de novo.
+ *
+ * Também dispara `resia:spotify-auth-changed` (Ticket 20.7 / KAN-166): é o
+ * único ponto do app que muda `isSpotifyAuthenticated` (init/logout), então
+ * é o lugar certo pra avisar quem precisa nascer/sumir com o estado de auth
+ * — ex. o widget "Tocando agora" (components/nowPlaying.js), que nunca pode
+ * aparecer pra usuário anônimo.
  */
 function atualizarBotaoSpotifyAuth() {
   if (!btnSpotifyAuth) return;
@@ -563,12 +854,39 @@ function atualizarBotaoSpotifyAuth() {
     btnSpotifyAuth.classList.add('btn-spotify-auth--connected');
     // Ticket 4.5 (KAN-40): o botão agora também é a ação de logout.
     btnSpotifyAuth.title = 'Clique para desconectar do Spotify';
-    if (label) label.textContent = 'Spotify conectado';
+    // Ticket 20.8 (KAN-167): mostra o nome de quem está logado quando
+    // disponível; cai no rótulo genérico se a conta não tem nome público.
+    if (label) label.textContent = spotifyDisplayName || 'Spotify conectado';
+    // Ticket 20.9 (KAN-168): avatar no lugar do ícone genérico do Spotify.
+    // Placeholder com a inicial do nome quando a conta não tem foto pública
+    // (`images` vazio) — nunca uma <img> quebrada.
+    if (spotifyAuthIcon) spotifyAuthIcon.hidden = true;
+    if (spotifyAuthAvatar) {
+      spotifyAuthAvatar.hidden = false;
+      spotifyAuthAvatar.textContent = '';
+      if (spotifyAvatarUrl) {
+        const img = document.createElement('img');
+        img.src = spotifyAvatarUrl;
+        img.alt = '';
+        img.className = 'spotify-auth-avatar-img';
+        spotifyAuthAvatar.appendChild(img);
+      } else {
+        spotifyAuthAvatar.textContent = (spotifyDisplayName || '?').trim().charAt(0).toUpperCase();
+      }
+    }
   } else {
     btnSpotifyAuth.classList.remove('btn-spotify-auth--connected');
     btnSpotifyAuth.title = 'Conectar com o Spotify para recomendações personalizadas';
     if (label) label.textContent = 'Conectar Spotify';
+    // Ticket 20.9 (KAN-168): sem sessão Spotify não existe avatar — volta o
+    // ícone padrão do botão.
+    if (spotifyAuthIcon) spotifyAuthIcon.hidden = false;
+    if (spotifyAuthAvatar) {
+      spotifyAuthAvatar.hidden = true;
+      spotifyAuthAvatar.textContent = '';
+    }
   }
+  window.dispatchEvent(new CustomEvent('resia:spotify-auth-changed', { detail: { authenticated: isSpotifyAuthenticated } }));
 }
 
 /**
@@ -608,10 +926,9 @@ async function carregarHistoricoInicial(resultado) {
   }
 
   // Ticket 12.4 (KAN-107): semeia o set de faixas já mostradas a partir do
-  // histórico restaurado — cobre o caso de cache local (localStorage guarda
-  // msg.faixas completo); histórico vindo do backend não traz faixas (ver
-  // mapearHistoricoRemoto), então não contribui aqui, mesma limitação já
-  // documentada pros cards de faixa não reconstruídos.
+  // histórico restaurado — cache local e histórico do backend (ticket
+  // 4.6/KAN-73) contribuem igual agora que mapearHistoricoRemoto traz
+  // msg.faixas completo em ambos os casos.
   messages.forEach((msg) => atualizarFaixasMostradas(msg.faixas));
 
   // Ticket 4.12 (KAN-79): sessão restaurada já tem histórico -> não mostra onboarding.
@@ -621,7 +938,14 @@ async function carregarHistoricoInicial(resultado) {
     if (heroEmptyState) heroEmptyState.style.display = 'none';
     messages.forEach((msg) => renderMessageBubble(msg, false));
     scrollToBottom();
+  } else {
+    // Ticket 19.2 (KAN-151): hero fica visível (sessão nova, sem histórico)
+    // -> é a hora certa de decidir se o tour de onboarding aparece.
+    initOnboardingTour();
   }
+
+  // Ticket 17: reconstrói o índice de descobertas a partir do histórico restaurado.
+  rebuildDiscoveries();
 }
 
 function updateSessionDisplay() {
@@ -696,6 +1020,15 @@ function showErrorBanner(message, onRetry) {
 window.showErrorBanner = showErrorBanner;
 
 function setupEventListeners() {
+  document.getElementById('btn-profile-panel')?.addEventListener('click', (event) => openPanel('profile', event.currentTarget));
+  document.getElementById('btn-history-panel')?.addEventListener('click', (event) => openPanel('history', event.currentTarget));
+  document.getElementById('btn-discoveries-panel')?.addEventListener('click', (event) => openPanel('discoveries', event.currentTarget));
+  document.getElementById('btn-settings-panel')?.addEventListener('click', (event) => openPanel('settings', event.currentTarget));
+  document.getElementById('btn-about-panel')?.addEventListener('click', (event) => openPanel('about', event.currentTarget));
+  document.getElementById('btn-playlists-panel')?.addEventListener('click', (event) => openPanel('playlists', event.currentTarget));
+  panelBackdrop?.addEventListener('click', closePanel);
+  document.querySelectorAll('[data-close-panel]').forEach((button) => button.addEventListener('click', closePanel));
+
   btnCopySession?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(currentSessionId);
@@ -707,9 +1040,11 @@ function setupEventListeners() {
 
   btnNewChat?.addEventListener('click', async () => {
     if (isProcessing) return;
+    cancelEditMessage();
     currentSessionId = await resetSession();
     messages = [];
     faixasMostradasSessao.clear();
+    ultimoAutorRenderizado = null;
     messagesContainer.innerHTML = '';
     // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
     if (heroEmptyState) heroEmptyState.style.display = 'flex';
@@ -721,31 +1056,81 @@ function setupEventListeners() {
   btnSpotifyAuth?.addEventListener('click', () => {
     // Ticket 4.5 (KAN-40): sessão já conectada -> o mesmo botão desconecta
     // em vez de iniciar um novo fluxo OAuth (evita duplicar todo o padrão
-    // de botão de auth só pra um logout).
+    // de botão de auth só pra um logout). Ticket 20.11 (KAN-170): antes de
+    // desconectar de fato, confirma com o usuário — evita clique acidental.
     if (isSpotifyAuthenticated) {
-      handleLogoutSpotify();
+      if (window.ResIALogoutConfirmModal) {
+        window.ResIALogoutConfirmModal.open(handleLogoutSpotify);
+      } else {
+        handleLogoutSpotify();
+      }
       return;
     }
 
-    // Ticket 4.7 (KAN-74): antes de qualquer redirect real pro Spotify, o
-    // usuário passa pela página de consentimento própria do backend
-    // (GET /auth/login → spotify_auth/consent.py), que lista os scopes
-    // lidos e a política de dados (ticket 5.10) e só depois linka pro
-    // redirect de fato (GET /auth/login/start). Abrimos essa página em vez
-    // de replicar o texto aqui pra não divergir do que o backend descreve.
-    window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
+    // Ticket 19.1 (KAN-150): antes o clique já disparava o redirect direto
+    // pra GET /auth/login — a única forma de escolher o QR code (GET
+    // /auth/qr) era achar o item solto no menu "···", sem nenhuma explicação
+    // do que conectar libera. Agora abre o painel "Boas-vindas / Conectar"
+    // (renderWelcomePanel abaixo), que apresenta as duas opções lado a lado
+    // com contexto; o redirect real pra página de consentimento do backend
+    // (GET /auth/login → spotify_auth/consent.py, ticket 4.7/KAN-74) só
+    // acontece quando o usuário escolhe essa opção dentro do painel.
+    openPanel('welcome', btnSpotifyAuth);
   });
 
   btnThemeToggle?.addEventListener('click', toggleTheme);
+
+  // Ticket 20.6 (KAN-165): abre/fecha o menu "···" e fecha em clique fora,
+  // Esc ou seleção de qualquer item (tema, QR login, Explorar Spotify).
+  btnHeaderMenu?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu();
+  });
+
+  headerMenuPanel?.addEventListener('click', (e) => {
+    if (e.target.closest('.header-menu-item')) closeHeaderMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!headerMenuPanel || !headerMenuPanel.classList.contains('is-open')) return;
+    if (headerMenuPanel.contains(e.target) || btnHeaderMenu?.contains(e.target)) return;
+    closeHeaderMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeHeaderMenu();
+  });
 
   btnMic?.addEventListener('click', () => {
     showToast('Entrada de voz Convora: gravação ativada (modo demo).');
   });
 
+  // Botão de cancelar edição no banner (Ticket 16.2)
+  btnCancelEdit?.addEventListener('click', () => {
+    cancelEditMessage();
+    chatInput?.focus();
+  });
+
+  // Tour de onboarding (Ticket 19.2 / KAN-151): "Próximo" avança até o
+  // último passo (aí vira "Entendi" e fecha); "Pular" fecha de imediato.
+  // Os dois marcam a flag como vista — o tour não deve voltar a interromper
+  // quem já decidiu não completar.
+  btnOnboardingNext?.addEventListener('click', () => {
+    if (onboardingStepIndex >= ONBOARDING_STEPS.length - 1) {
+      closeOnboardingTour();
+      return;
+    }
+    onboardingStepIndex += 1;
+    renderOnboardingStep();
+  });
+
+  btnOnboardingSkip?.addEventListener('click', closeOnboardingTour);
+
   document.querySelectorAll('.prompt-pill').forEach((pill) => {
     pill.addEventListener('click', () => {
       const prompt = pill.getAttribute('data-prompt');
       if (prompt && !isProcessing) {
+        cancelEditMessage();
         chatInput.value = prompt;
         ajustarAlturaInput();
         btnSend.disabled = false;
@@ -760,15 +1145,34 @@ function setupEventListeners() {
     btnSend.disabled = !temTexto || isProcessing;
   });
 
+  // Atalhos de teclado no input (Ticket 16.4)
   chatInput?.addEventListener('keydown', (e) => {
+    // Enter envia mensagem; Shift+Enter insere quebra de linha
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (!btnSend.disabled && !isProcessing) {
         const texto = chatInput.value.trim();
         if (texto) {
+          // Limpar modo de edição antes de enviar
+          if (isEditingMessage) {
+            isEditingMessage = false;
+            if (editMessageBanner) editMessageBanner.classList.remove('active');
+          }
           enviarMensagemUsuario(texto);
         }
       }
+    }
+
+    // Escape cancela modo de edição (Ticket 16.4)
+    if (e.key === 'Escape' && isEditingMessage) {
+      e.preventDefault();
+      cancelEditMessage();
+    }
+
+    // Seta pra cima com input vazio recupera última mensagem (Ticket 16.4)
+    if (e.key === 'ArrowUp' && chatInput.value.trim() === '' && !isProcessing) {
+      e.preventDefault();
+      startEditLastMessage();
     }
   });
 
@@ -777,10 +1181,345 @@ function setupEventListeners() {
     if (!btnSend.disabled && !isProcessing) {
       const texto = chatInput.value.trim();
       if (texto) {
+        if (isEditingMessage) {
+          isEditingMessage = false;
+          if (editMessageBanner) editMessageBanner.classList.remove('active');
+        }
         enviarMensagemUsuario(texto);
       }
     }
   });
+
+  // Atalho global "/" para focar no input (Ticket 16.4)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && activePanel) {
+      closePanel();
+      return;
+    }
+    // Ignorar se já estiver em um campo de texto ou textarea
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) {
+      return;
+    }
+
+    if (e.key === '/') {
+      e.preventDefault();
+      chatInput?.focus();
+    }
+  });
+
+  // Controle de visibilidade e rolagem do botão flutuante
+  chatScrollArea?.addEventListener('scroll', () => {
+    if (!chatScrollArea || !btnScrollBottom) return;
+    const distanceFromBottom = chatScrollArea.scrollHeight - chatScrollArea.scrollTop - chatScrollArea.clientHeight;
+    btnScrollBottom.hidden = distanceFromBottom <= 140;
+  });
+
+  btnScrollBottom?.addEventListener('click', () => {
+    chatScrollArea?.scrollTo({ top: chatScrollArea.scrollHeight, behavior: 'smooth' });
+    btnScrollBottom.hidden = true;
+  });
+}
+
+function openPanel(name, trigger) {
+  const definition = panelDefinitions[name];
+  if (!definition) return;
+
+  if (activePanel) closePanel();
+  activePanel = name;
+  lastPanelTrigger = trigger || null;
+  definition.panel.hidden = false;
+  definition.panel.classList.add('is-open');
+  definition.panel.setAttribute('aria-hidden', 'false');
+  panelBackdrop.hidden = false;
+  panelBackdrop.classList.add('is-visible');
+
+  if (name === 'welcome') renderWelcomePanel();
+  if (name === 'profile') renderProfilePanel();
+  if (name === 'history') renderHistoryPanel();
+  if (name === 'discoveries') renderDiscoveriesPanel();
+  if (name === 'settings') renderSettingsPanel();
+  if (name === 'about') renderAboutPanel();
+  if (name === 'playlists') renderPlaylistsPanel();
+  definition.panel.querySelector('[data-close-panel]')?.focus();
+}
+
+function closePanel() {
+  if (!activePanel) return;
+  const definition = panelDefinitions[activePanel];
+  definition.panel.classList.remove('is-open');
+  definition.panel.setAttribute('aria-hidden', 'true');
+  definition.panel.hidden = true;
+  panelBackdrop.classList.remove('is-visible');
+  panelBackdrop.hidden = true;
+  const trigger = lastPanelTrigger;
+  activePanel = null;
+  lastPanelTrigger = null;
+  trigger?.focus();
+}
+
+function rebuildDiscoveries() {
+  discoveries = { genres: new Map(), artists: new Map(), turns: [] };
+  messages.filter((message) => message.role === 'agent' && Array.isArray(message.faixas)).forEach((message) => recordDiscoveries(message));
+}
+
+function recordDiscoveries(response) {
+  const tracks = Array.isArray(response.faixas) ? response.faixas : [];
+  const genres = new Set();
+  const artists = new Set();
+  tracks.forEach((track) => {
+    if (track.genero) genres.add(track.genero);
+    if (track.artista) artists.add(track.artista);
+  });
+  genres.forEach((genre) => discoveries.genres.set(genre, (discoveries.genres.get(genre) || 0) + 1));
+  artists.forEach((artist) => discoveries.artists.set(artist, (discoveries.artists.get(artist) || 0) + 1));
+  if (tracks.length) discoveries.turns.push({
+    timestamp: response.timestamp || new Date().toISOString(),
+    genres: [...genres],
+    artists: [...artists],
+    diversidade_generos: response.diversidade_generos,
+    cobertura_sessao: response.cobertura_sessao,
+  });
+}
+
+function renderPanelMessage(content, message, type = '') {
+  content.innerHTML = `<div class="panel-state ${type}">${escapeHtml(message)}</div>`;
+}
+
+/**
+ * Painel "Boas-vindas / Conectar" (Ticket 19.1 / KAN-150). Sem backend novo:
+ * as duas opções reusam as rotas de auth já existentes — redirect (GET
+ * /auth/login, ticket 4.7/KAN-74) e QR code (GET /auth/qr, ticket 13.13/
+ * KAN-122, via window.ResIAQrLogin do components/qrLogin.js).
+ */
+function renderWelcomePanel() {
+  const content = panelDefinitions.welcome.content;
+  content.innerHTML = `
+    <section class="welcome-intro">
+      <p>Conectar sua conta do Spotify libera:</p>
+      <ul class="welcome-benefits">
+        <li><strong>Explorar Spotify</strong><span>Buscar faixas, artistas, álbuns, playlists e lançamentos direto no ResIA.</span></li>
+        <li><strong>Recomendações personalizadas</strong><span>Seu perfil de gosto musical entra no cálculo das próximas sugestões.</span></li>
+        <li><strong>Salvar playlists</strong><span>Transformar as recomendações da conversa numa playlist na sua conta.</span></li>
+      </ul>
+    </section>
+    <section class="welcome-options" aria-label="Como conectar">
+      <button type="button" class="welcome-option" id="welcome-option-redirect">
+        <span class="welcome-option-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+            <polyline points="15 3 21 3 21 9"></polyline>
+            <line x1="10" y1="14" x2="21" y2="3"></line>
+          </svg>
+        </span>
+        <span class="welcome-option-text">
+          <strong>Entrar pelo navegador</strong>
+          <small>Leva à página de autorização do Spotify, com os acessos pedidos e a política de dados antes de confirmar.</small>
+        </span>
+      </button>
+      <button type="button" class="welcome-option" id="welcome-option-qr">
+        <span class="welcome-option-icon" aria-hidden="true">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="3" width="7" height="7"></rect>
+            <rect x="14" y="3" width="7" height="7"></rect>
+            <rect x="3" y="14" width="7" height="7"></rect>
+            <line x1="14" y1="14" x2="14" y2="21"></line>
+            <line x1="21" y1="14" x2="21" y2="21"></line>
+            <line x1="17.5" y1="17.5" x2="17.5" y2="17.5"></line>
+          </svg>
+        </span>
+        <span class="welcome-option-text">
+          <strong>Entrar por QR code</strong>
+          <small>Escaneie com o celular e faça login por lá — útil se este navegador não é o seu.</small>
+        </span>
+      </button>
+    </section>
+    <p class="welcome-footnote">Dá pra desconectar quando quiser, pelo mesmo botão no cabeçalho.</p>
+  `;
+
+  content.querySelector('#welcome-option-redirect')?.addEventListener('click', () => {
+    window.location.href = `${API_BASE_URL}/auth/login?session_id=${encodeURIComponent(currentSessionId)}`;
+  });
+  content.querySelector('#welcome-option-qr')?.addEventListener('click', () => {
+    closePanel();
+    if (window.ResIAQrLogin) window.ResIAQrLogin.open();
+  });
+}
+
+function renderProfilePanel() {
+  const content = panelDefinitions.profile.content;
+  renderPanelMessage(content, 'Carregando seu perfil...', 'panel-state-loading');
+  buscarPerfil(currentSessionId).then((profile) => {
+    const vector = profile?.vetor_features_normalizado || profile?.perfil_usuario || profile?.vetor || null;
+    if (!vector) {
+      renderPanelMessage(content, 'Ainda não há histórico suficiente para montar um perfil personalizado.', 'panel-state-empty');
+      return;
+    }
+    const entries = Object.entries(vector).filter(([, value]) => typeof value === 'number' && Number.isFinite(value));
+    content.innerHTML = `
+      <section class="profile-summary">
+        <span class="panel-kicker">Seu gosto musical</span>
+        <p>Características normalizadas a partir do seu histórico casado.</p>
+      </section>
+      <section class="feature-list" aria-label="Características do perfil">
+        ${entries.map(([label, value]) => `
+          <div class="feature-row">
+            <div><span>${escapeHtml(label.replaceAll('_', ' '))}</span><strong>${value.toFixed(2)}</strong></div>
+            <div class="feature-meter"><span style="width: ${Math.max(0, Math.min(100, value * 100))}%"></span></div>
+          </div>
+        `).join('')}
+      </section>
+      ${renderMetricHistory()}
+    `;
+  }).catch((error) => {
+    console.warn('Falha ao carregar perfil:', error);
+    renderPanelMessage(content, 'Não foi possível carregar o perfil agora.', 'panel-state-error');
+  });
+}
+
+function renderMetricHistory() {
+  const metricTurns = discoveries.turns.filter((turn) => turn.diversidade_generos !== undefined);
+  if (!metricTurns.length) return '';
+  return `<section class="metric-history"><h3>Histórico da sessão</h3>${metricTurns.map((turn) => `
+    <div class="metric-row"><time>${escapeHtml(formatarHora(turn.timestamp))}</time><span>${turn.diversidade_generos} gêneros</span><strong>${Math.round(turn.cobertura_sessao * 100)}% novas</strong></div>
+  `).join('')}</section>`;
+}
+
+function renderHistorySkeleton() {
+  return `
+    <div class="history-skeleton-container" aria-label="Carregando histórico de conversas..." aria-busy="true">
+      <div class="skeleton-history-item user">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-80"></div>
+        <div class="skeleton-time"></div>
+      </div>
+      <div class="skeleton-history-item agent">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-full"></div>
+        <div class="skeleton-line w-60"></div>
+        <div class="skeleton-time"></div>
+      </div>
+      <div class="skeleton-history-item user">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-60"></div>
+        <div class="skeleton-time"></div>
+      </div>
+      <div class="skeleton-history-item agent">
+        <div class="skeleton-shimmer"></div>
+        <div class="skeleton-badge"></div>
+        <div class="skeleton-line w-full"></div>
+        <div class="skeleton-line w-40"></div>
+        <div class="skeleton-time"></div>
+      </div>
+    </div>
+  `;
+}
+
+function renderHistoryPanel() {
+  const content = panelDefinitions.history.content;
+  content.innerHTML = renderHistorySkeleton();
+  buscarHistorico(currentSessionId).then((data) => {
+    const history = Array.isArray(data) ? data : (data?.historico || data?.mensagens || []);
+    const panelMessages = history.length ? history : messages;
+    if (!panelMessages.length) {
+      renderPanelMessage(content, 'Nenhuma conversa nesta sessão.', 'panel-state-empty');
+      return;
+    }
+    content.innerHTML = panelMessages.map((message) => `
+    <article class="history-item ${message.role}">
+      <span class="history-role">${message.role === 'user' ? 'Você' : 'ResIA'}</span>
+      <p>${escapeHtml(message.conteudo)}</p>
+      <time>${escapeHtml(formatarHora(message.timestamp))}</time>
+    </article>
+    `).join('');
+  }).catch((error) => {
+    console.warn('Falha ao carregar histórico:', error);
+    if (messages.length) {
+      content.innerHTML = `<div class="panel-state panel-state-info">API indisponível. Exibindo o histórico local desta sessão.</div>${messages.map((message) => `
+        <article class="history-item ${message.role}"><span class="history-role">${message.role === 'user' ? 'Você' : 'ResIA'}</span><p>${escapeHtml(message.conteudo)}</p><time>${escapeHtml(formatarHora(message.timestamp))}</time></article>
+      `).join('')}`;
+    } else {
+      renderPanelMessage(content, 'Não foi possível carregar o histórico.', 'panel-state-error');
+    }
+  });
+}
+
+function renderDiscoveriesPanel() {
+  const content = panelDefinitions.discoveries.content;
+  if (!discoveries.turns.length) {
+    renderPanelMessage(content, 'As novas descobertas da sua sessão aparecerão aqui.', 'panel-state-empty');
+    return;
+  }
+  const renderList = (title, values) => `<section class="discovery-group"><h3>${title}</h3><ul>${[...values.entries()].map(([label, count]) => `<li><span>${escapeHtml(label)}</span><strong>${count}</strong></li>`).join('')}</ul></section>`;
+  content.innerHTML = `${renderList('Gêneros', discoveries.genres)}${renderList('Artistas', discoveries.artists)}`;
+}
+
+function renderSettingsPanel() {
+  const content = panelDefinitions.settings.content;
+  settings = loadSettings();
+  // Tema lido da fonte única de verdade (data-theme na raiz, ver
+  // getStoredTheme/applyTheme — Ticket 12.5 / KAN-108), não de `settings`.
+  const temaAtual = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  content.innerHTML = `
+    <section class="settings-group">
+      <h3>Recomendações</h3>
+      <label class="setting-row" for="exclude-explicit-toggle">
+        <span><strong>Excluir faixas explícitas</strong><small>Aplicar por padrão às próximas recomendações.</small></span>
+        <input id="exclude-explicit-toggle" class="setting-toggle" type="checkbox" ${settings.excludeExplicit ? 'checked' : ''}>
+      </label>
+    </section>
+    <section class="settings-group">
+      <h3>Aparência</h3>
+      <div class="theme-options" role="group" aria-label="Tema">
+        <button class="theme-option ${temaAtual === 'dark' ? 'is-selected' : ''}" data-theme-choice="dark" type="button">Escuro</button>
+        <button class="theme-option ${temaAtual === 'light' ? 'is-selected' : ''}" data-theme-choice="light" type="button">Claro</button>
+      </div>
+    </section>
+  `;
+  content.querySelector('#exclude-explicit-toggle')?.addEventListener('change', (event) => {
+    settings = { ...loadSettings(), excludeExplicit: event.target.checked };
+    saveSettings(settings);
+  });
+  content.querySelectorAll('[data-theme-choice]').forEach((button) => button.addEventListener('click', () => {
+    applyTheme(button.dataset.themeChoice);
+    saveStoredTheme(button.dataset.themeChoice);
+    renderSettingsPanel();
+  }));
+}
+
+function renderAboutPanel() {
+  panelDefinitions.about.content.innerHTML = `
+    <section class="info-section">
+      <h3>Como ranqueamos</h3>
+      <p>As recomendações combinam os sinais da sua consulta com características musicais e diversidade da sessão. Popularidade pode ser um sinal, mas não decide sozinha o resultado.</p>
+    </section>
+    <section class="info-section">
+      <h3>Seus dados</h3>
+      <p>O ResIA usa sua mensagem e o contexto da sessão para responder. O histórico e as preferências desta interface ficam associados à sessão; preferências e playlists ResIA são guardadas localmente neste navegador.</p>
+    </section>
+    <section class="info-section">
+      <h3>Spotify</h3>
+      <p>Quando você conecta sua conta, o acesso segue a autorização exibida pelo Spotify. O ResIA não grava tokens no navegador e só registra uma playlist localmente depois de confirmar sua criação.</p>
+    </section>
+  `;
+}
+
+function renderPlaylistsPanel() {
+  const content = panelDefinitions.playlists.content;
+  const playlists = loadCreatedPlaylists();
+  if (!playlists.length) {
+    renderPanelMessage(content, 'As playlists criadas pelo ResIA aparecerão aqui.', 'panel-state-empty');
+    return;
+  }
+  content.innerHTML = `${playlists.map((playlist) => `
+    <article class="playlist-item">
+      <div><span class="panel-kicker">Playlist ResIA</span><h3>${escapeHtml(playlist.nome)}</h3><small>ID: ${escapeHtml(playlist.id)}</small></div>
+      <a href="${escapeHtml(playlist.link)}" target="_blank" rel="noopener noreferrer" class="playlist-link" title="Abrir playlist no Spotify">Abrir</a>
+    </article>
+  `).join('')}`;
 }
 
 function ajustarAlturaInput() {
@@ -823,29 +1562,152 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+/**
+ * Renderiza markdown básico com sanitização XSS integrada (Ticket 16.1).
+ * Suporta: negrito, itálico, código inline, links (http/https apenas),
+ * listas não-ordenadas, listas ordenadas e parágrafos.
+ * @param {string} text Texto bruto com possível markdown
+ * @returns {string} HTML seguro para inserção via innerHTML
+ */
+function renderMarkdownSafe(text) {
+  if (!text) return '';
+
+  // 1. Sanitização XSS: escape de caracteres perigosos antes de qualquer transformação
+  let safe = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  // 2. Código inline: `codigo`
+  safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // 3. Negrito: **texto** ou __texto__
+  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+  // 4. Itálico: *texto* ou _texto_ (sem conflito com negrito pois ** já foi processado)
+  safe = safe.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  safe = safe.replace(/(?<!\w)_(.+?)_(?!\w)/g, '<em>$1</em>');
+
+  // 5. Links markdown: [rótulo](url) — apenas http:// e https://
+  safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // 6. URLs soltas (não já envolvidas em <a>): transformar em links clicáveis
+  safe = safe.replace(/(?<!href=")(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // 7. Listas: processamento por linhas
+  const lines = safe.split('\n');
+  let result = [];
+  let inUl = false;
+  let inOl = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const ulMatch = line.match(/^\s*[-*]\s+(.+)/);
+    const olMatch = line.match(/^\s*\d+\.\s+(.+)/);
+
+    if (ulMatch) {
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      if (!inUl) { result.push('<ul>'); inUl = true; }
+      result.push(`<li>${ulMatch[1]}</li>`);
+    } else if (olMatch) {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (!inOl) { result.push('<ol>'); inOl = true; }
+      result.push(`<li>${olMatch[1]}</li>`);
+    } else {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      // Linhas vazias como separador de parágrafos
+      if (line.trim() === '') {
+        result.push('<br>');
+      } else {
+        result.push(`<p>${line}</p>`);
+      }
+    }
+  }
+  if (inUl) result.push('</ul>');
+  if (inOl) result.push('</ol>');
+
+  return result.join('');
+}
+
+// ==========================================
+// 5. Edição de Mensagem (Ticket 16.2)
+// ==========================================
+
+/**
+ * Ativa o modo de edição: popula o input com a última mensagem do usuário
+ * e exibe o banner informativo.
+ */
+function startEditLastMessage() {
+  if (isProcessing) return;
+
+  // Encontrar a última mensagem do usuário
+  let lastUserMsg = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      lastUserMsg = messages[i];
+      break;
+    }
+  }
+
+  if (!lastUserMsg) return;
+
+  isEditingMessage = true;
+  chatInput.value = lastUserMsg.conteudo;
+  ajustarAlturaInput();
+  btnSend.disabled = false;
+
+  // Exibir banner de edição
+  if (editMessageBanner) {
+    editMessageBanner.classList.add('active');
+  }
+
+  // Focar e posicionar cursor no final
+  chatInput.focus();
+  chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+}
+
+/**
+ * Cancela o modo de edição e limpa o input.
+ */
+function cancelEditMessage() {
+  isEditingMessage = false;
+  chatInput.value = '';
+  ajustarAlturaInput();
+  btnSend.disabled = true;
+
+  if (editMessageBanner) {
+    editMessageBanner.classList.remove('active');
+  }
+}
+
 function renderMessageBubble(msg, animar = true) {
   if (!messagesContainer) return;
 
   const row = document.createElement('div');
   row.className = `message-row ${msg.role}`;
   if (!animar) row.style.animation = 'none';
+  // Ticket 20.10 (KAN-169): agrupa visualmente mensagens consecutivas do
+  // mesmo autor — some só o avatar (mantém o espaço reservado pra bolha
+  // não perder o alinhamento), o texto/timestamp de cada bolha continua
+  // completo.
+  if (msg.role === ultimoAutorRenderizado) {
+    row.classList.add('message-row--grouped');
+  }
+  ultimoAutorRenderizado = msg.role;
 
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
   if (msg.role === 'agent') {
-    avatar.innerHTML = `
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
-      </svg>
-    `;
-    avatar.title = 'Agente ResIA';
+    avatar.innerHTML = `<img src="assets/syntonia_icon.svg" alt="" class="message-avatar-img">`;
+    avatar.title = 'Agente SyntonIA';
   } else {
-    avatar.innerHTML = `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-      </svg>
-    `;
-    avatar.title = 'Você';
+    renderizarAvatarUsuario(avatar);
   }
 
   const bubble = document.createElement('div');
@@ -858,7 +1720,13 @@ function renderMessageBubble(msg, animar = true) {
 
   const textElem = document.createElement('div');
   textElem.className = 'message-text';
-  textElem.textContent = msg.conteudo;
+
+  // Ticket 16.1: Renderizar markdown sanitizado nas mensagens do agente
+  if (msg.role === 'agent') {
+    textElem.innerHTML = renderMarkdownSafe(msg.conteudo);
+  } else {
+    textElem.textContent = msg.conteudo;
+  }
   bubble.appendChild(textElem);
 
   // CRITÉRIO DE ACEITE TICKET 4.2:
@@ -900,12 +1768,11 @@ function renderMessageBubble(msg, animar = true) {
       // Ticket 12.2 (KAN-105): "Salvar no Spotify" só aparece pra sessão
       // autenticada — nunca tenta a ação sabendo de antemão que vai dar 401.
       if (isSpotifyAuthenticated) {
-        const trackIds = msg.faixas.map((faixa) => faixa && faixa.track_id).filter(Boolean);
         const btnSalvar = document.createElement('button');
         btnSalvar.type = 'button';
         btnSalvar.className = 'btn-response-action btn-salvar-spotify';
         btnSalvar.textContent = 'Salvar no Spotify';
-        btnSalvar.addEventListener('click', () => handleSalvarSpotify(btnSalvar, trackIds));
+        btnSalvar.addEventListener('click', () => handleSalvarSpotify(msg.faixas));
         actionsRow.appendChild(btnSalvar);
       }
 
@@ -917,6 +1784,23 @@ function renderMessageBubble(msg, animar = true) {
   timeElem.className = 'message-timestamp';
   timeElem.textContent = formatarHora(msg.timestamp);
   bubble.appendChild(timeElem);
+
+  // Ticket 16.2: Botão de edição nas mensagens do usuário
+  if (msg.role === 'user') {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-edit-message';
+    editBtn.title = 'Editar e reenviar';
+    editBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+    `;
+    editBtn.addEventListener('click', () => {
+      startEditLastMessage();
+    });
+    bubble.appendChild(editBtn);
+  }
 
   row.appendChild(avatar);
   row.appendChild(bubble);
@@ -956,6 +1840,28 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
     scrollToBottom();
   }
 
+  // Ticket 16.6: Skeleton loading de cards de faixa
+  let skeletonBubble = null;
+  if (window.ResIATrackCard && typeof window.ResIATrackCard.renderSkeletonTrackCards === 'function') {
+    skeletonBubble = document.createElement('div');
+    skeletonBubble.className = 'message-row agent';
+    skeletonBubble.id = 'skeleton-loading-row';
+    const skeletonAvatar = document.createElement('div');
+    skeletonAvatar.className = 'message-avatar';
+    skeletonAvatar.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+      </svg>
+    `;
+    const skeletonContent = document.createElement('div');
+    skeletonContent.className = 'message-bubble';
+    skeletonContent.appendChild(window.ResIATrackCard.renderSkeletonTrackCards(3));
+    skeletonBubble.appendChild(skeletonAvatar);
+    skeletonBubble.appendChild(skeletonContent);
+    messagesContainer.appendChild(skeletonBubble);
+    scrollToBottom();
+  }
+
   try {
     const resposta = await enviarMensagem(currentSessionId, texto, extras);
 
@@ -964,18 +1870,29 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
       role: 'agent',
       conteudo: resposta.mensagem || 'Recomendações prontas!',
       faixas: resposta.faixas || [],
+      diversidade_generos: resposta.diversidade_generos,
+      cobertura_sessao: resposta.cobertura_sessao,
       metricas: resposta,
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
+    recordDiscoveries({ ...resposta, timestamp: agentMsg.timestamp });
     atualizarFaixasMostradas(agentMsg.faixas);
     saveChatHistory(currentSessionId, messages);
 
+    // Remover skeleton antes de renderizar resposta real
+    if (skeletonBubble && skeletonBubble.parentNode) {
+      skeletonBubble.remove();
+    }
     if (typingIndicator) typingIndicator.style.display = 'none';
     renderMessageBubble(agentMsg, true);
     scrollToBottom();
   } catch (error) {
     console.error('Erro ao processar turno:', error);
+    // Remover skeleton em caso de erro
+    if (skeletonBubble && skeletonBubble.parentNode) {
+      skeletonBubble.remove();
+    }
     if (typingIndicator) typingIndicator.style.display = 'none';
 
     if (error && error.isRateLimit) {
@@ -1022,17 +1939,35 @@ window.ResIA = {
   getSessionId,
   saveSessionId,
   enviarMensagem,
+  buscarHistorico,
+  buscarPerfil,
+  criarPlaylistResIA,
+  loadSettings,
+  saveSettings,
+  applyTheme,
+  getOnboardingSeen,
+  saveOnboardingSeen,
+  loadCreatedPlaylists,
+  saveCreatedPlaylist,
   enviarMensagemUsuario,
+  renderMarkdownSafe,
+  startEditLastMessage,
+  cancelEditMessage,
   buscarHistoricoRemoto,
   criarSessaoRemota,
   ErroBackend,
   showErrorBanner,
   verificarStatusSpotify,
+  buscarPerfilSpotify,
   criarPlaylistSpotify,
   logoutSpotify,
   atualizarFaixasMostradas,
-  applyTheme,
   toggleTheme,
+  // Ticket 13.12 (KAN-121): trackCard.js consulta isto antes de tentar
+  // GET /explorer/track/{id} pra prévia — evita um 401 garantido (e
+  // ruído no console) em todo clique de prévia quando ninguém logou com
+  // Spotify ainda, indo direto pro fallback do YouTube nesse caso.
+  isSpotifyAuthenticated: () => isSpotifyAuthenticated,
 };
 
 if (document.readyState === 'loading') {

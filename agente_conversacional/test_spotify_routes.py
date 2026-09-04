@@ -220,6 +220,47 @@ def test_criar_playlist_rejects_empty_faixas(client):
     assert response.status_code == 422
 
 
+# --- 12.6 — Sugestão de título/descrição via LLM (modal de "Salvar no Spotify") ---
+
+
+def test_sugerir_playlist_devolve_titulo_e_descricao_do_llm(client, monkeypatch):
+    captured = {}
+
+    def fake_sugerir(faixas):
+        captured["faixas"] = faixas
+        return {"titulo": "Pagode pra Domingo", "descricao": "Clássicos animados."}
+
+    monkeypatch.setattr(routes, "sugerir_titulo_descricao", fake_sugerir)
+
+    response = client.post(
+        "/playlist/sugerir",
+        json={"faixas": [{"track_id": "t1", "nome": "Faixa", "artista": "Artista", "album": "Album", "genero": "pagode"}]},
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {"titulo": "Pagode pra Domingo", "descricao": "Clássicos animados."}
+    assert captured["faixas"] == [{"track_id": "t1", "nome": "Faixa", "artista": "Artista", "album": "Album", "genero": "pagode"}]
+
+
+def test_sugerir_playlist_rejects_empty_faixas(client):
+    response = client.post("/playlist/sugerir", json={"faixas": []})
+
+    assert response.status_code == 422
+
+
+def test_sugerir_playlist_nao_exige_sessao_autenticada(client, monkeypatch):
+    """So gera texto via LLM — nao fala com a Spotify, entao nao precisa
+    de token/sessao (diferente de /playlist/criar)."""
+    monkeypatch.setattr(routes, "sugerir_titulo_descricao", lambda faixas: {"titulo": "X", "descricao": "Y"})
+
+    response = client.post(
+        "/playlist/sugerir",
+        json={"faixas": [{"track_id": "t1", "nome": "Faixa", "artista": "Artista", "album": "Album", "genero": "pop"}]},
+    )
+
+    assert response.status_code == 200
+
+
 # --- 13.13 — Login via QR code (pareamento) ---
 
 
@@ -268,6 +309,58 @@ def test_callback_with_pair_code_relays_tokens_and_does_not_touch_kiosk_session_
     assert "Spotify conectado" in response.text
     # tokens ainda nao foram salvos em nenhuma sessao — so no relay, ate o kiosk consumir
     assert client.fake_store.saved is None
+
+
+def _completar_pareamento_no_celular(client, monkeypatch):
+    """Percorre o fluxo do celular (QR -> login/start -> callback) e devolve a resposta do callback."""
+    qr = client.get("/auth/qr?session_id=kiosk-1").json()
+    login_response = client.get(
+        f"/auth/login/start?session_id=qr-pair-phone&pair={qr['code']}", follow_redirects=False
+    )
+    state = _extract_state(login_response)
+    monkeypatch.setattr(
+        routes,
+        "exchange_code_for_tokens",
+        lambda code, code_verifier: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
+    )
+    return client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
+
+
+def test_pairing_success_page_offers_spotify_deep_link_and_web_fallback(client, monkeypatch):
+    """A página que o celular recebe abre o app do Spotify: deep link (esquema
+    `spotify:`) na tentativa automática/no botão e link universal
+    `https://open.spotify.com/` como fallback quando o app não está instalado."""
+    response = _completar_pareamento_no_celular(client, monkeypatch)
+
+    assert response.status_code == 200
+    pagina = response.text
+    assert routes._SPOTIFY_APP_URI in pagina
+    assert routes._SPOTIFY_APP_URI.startswith("spotify://")
+    assert routes._SPOTIFY_WEB_URL in pagina
+    assert f'href="{routes._SPOTIFY_WEB_URL}"' in pagina  # fallback funciona mesmo sem JS
+    assert 'id="abrir-spotify"' in pagina
+    assert "Abrir o Spotify" in pagina
+
+
+def test_pairing_success_page_keeps_reassurance_copy(client, monkeypatch):
+    """Abrir o Spotify não pode dar a impressão de que o pareamento falhou ou
+    de que a pessoa precisa continuar no celular."""
+    pagina = _completar_pareamento_no_celular(client, monkeypatch).text
+
+    assert "Spotify conectado" in pagina
+    assert "voltar pro outro dispositivo" in pagina.lower()
+    assert "fechar essa aba" in pagina.lower()
+
+
+def test_pairing_success_page_is_self_contained(client, monkeypatch):
+    """Página servida solta pelo backend no celular: CSS/JS inline, nenhuma
+    dependência de CDN ou do frontend/style.css (a demo roda em rede local)."""
+    pagina = _completar_pareamento_no_celular(client, monkeypatch).text
+
+    assert "<style>" in pagina and "<script>" in pagina
+    assert "stylesheet" not in pagina
+    assert "fonts.googleapis.com" not in pagina
+    assert "cdn" not in pagina.lower()
 
 
 def test_pair_status_completed_saves_tokens_into_kiosk_session(client, monkeypatch):

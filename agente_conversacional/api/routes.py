@@ -14,8 +14,10 @@ from api.schemas import (
     TrackItem,
 )
 from chat.contracts import PipelineUnavailableError, TurnProcessor
-from recomendacao.busca import buscar_recomendacoes
+from recomendacao.busca import buscar_faixa_por_id, buscar_recomendacoes
 from sessions.store import SessionNotFound, SessionStore
+from spotify_auth import thumbnail as thumbnail_client
+from youtube import client as youtube_client
 
 logger = logging.getLogger("agente.api")
 
@@ -43,6 +45,7 @@ def build_api_router(
                     role=message.role,
                     conteudo=message.conteudo,
                     faixas_citadas=list(message.faixas_citadas),
+                    faixas=_reconstruir_faixas_citadas(message.faixas_citadas),
                     timestamp=message.timestamp,
                 )
                 for message in history
@@ -116,7 +119,40 @@ def build_api_router(
             consulta_efetiva=dict(resultado["consulta_efetiva"]),
         )
 
+    @router.get("/youtube/preview")
+    def youtube_preview(nome: str, artista: str | None = None) -> dict:
+        """Ticket 13.12 (KAN-121): fallback de prévia via YouTube pra quando a
+        Spotify não devolve preview_url (comum pra apps criados após
+        nov/2024 — ver GET /explorer/track/{id} pra prévia nativa, tentada
+        primeiro pelo frontend). Nunca falha: video_id vem None sem
+        YOUTUBE_API_KEY configurada ou se a busca não achar nada. Sem
+        exigência de sessão/autenticação — só busca no YouTube, não fala
+        com a Spotify."""
+        return {"video_id": youtube_client.buscar_video_id(nome, artista)}
+
+    @router.get("/spotify/thumbnail/{track_id}")
+    def spotify_thumbnail(track_id: str) -> dict:
+        """Capa do álbum pra um card de faixa, via oEmbed público da
+        Spotify (sem exigir sessão/login — diferente de
+        GET /explorer/track/{id}, que usa a Web API autenticada).
+        thumbnail_url vem None se a consulta falhar."""
+        return {"thumbnail_url": thumbnail_client.buscar_thumbnail(track_id)}
+
     return router
+
+
+def _reconstruir_faixas_citadas(faixas_citadas: list[str]) -> list[TrackItem]:
+    """Ticket 4.6/KAN-73: a sessão só guarda os IDs citados
+    (`faixas_citadas`) — reconstrói os metadados completos pra cada um via
+    `buscar_faixa_por_id`, pro frontend remontar os cards de faixa ao
+    restaurar o histórico. IDs sem faixa correspondente no dataset local
+    (ex.: veio do fallback da Spotify Search API) são omitidos, não geram erro."""
+    faixas = []
+    for track_id in faixas_citadas:
+        faixa = buscar_faixa_por_id(track_id)
+        if faixa is not None:
+            faixas.append(TrackItem(**faixa))
+    return faixas
 
 
 def _raise_invalid_session() -> None:

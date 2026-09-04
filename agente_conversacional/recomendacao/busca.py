@@ -39,7 +39,7 @@ def buscar_recomendacoes(
     faixas novas nele.
 
     Quando a busca local volta vazia ou mais escassa que `n_resultados`
-    (cobertura insuficiente no dataset de ~31.8k faixas pro genero/artista
+    (cobertura insuficiente no catalogo local pro genero/artista
     pedido), complementa com a Spotify Search API (ticket KAN-95) — ver
     `_completar_com_spotify`. Faixas assim entram marcadas com
     `_origem: "spotify_fallback"`; faixas do dataset local nao ganham essa
@@ -83,8 +83,8 @@ def buscar_recomendacoes(
 def _completar_com_spotify(consulta, faixas_locais):
     """Escassez = menos faixas locais do que o `n_resultados` (ja validado
     e limitado a 1..30) pedido — cobre tanto o caso vazio quanto o
-    parcialmente coberto, sem precisar de um piso arbitrario separado (o
-    dataset local tem ~31.8k faixas, entao na pratica so fica escasso
+    parcialmente coberto, sem precisar de um piso arbitrario separado (na
+    pratica, o resultado so fica escasso
     quando o filtro de genero/artista restringe demais). So dispara quando
     ha genero ou artista_referencia validos pra virar uma query de texto —
     sem nenhum sinal, nao ha o que perguntar pro Spotify (ver
@@ -253,6 +253,34 @@ def _calcular_cobertura_sessao(resultado, faixas_ja_mostradas, faixas_fallback=(
     novas_locais = int((~resultado["track_id"].isin(faixas_ja_mostradas)).sum()) if len(resultado) else 0
     novas_fallback = sum(1 for faixa in faixas_fallback if faixa["track_id"] not in faixas_ja_mostradas)
     return (novas_locais + novas_fallback) / total
+
+
+def buscar_faixa_por_id(track_id):
+    """Devolve os metadados (nome/artista/album/genero) de uma faixa pelo
+    `track_id`, no mesmo schema de `_formatar_faixas`, ou `None` se a faixa
+    nao estiver no dataset local (ex.: veio do fallback da Spotify Search
+    API, ticket KAN-95, e nunca fez parte do dataset carregado aqui) ou se
+    o dataset nao puder ser carregado por qualquer motivo. Usado pra
+    reconstruir os cards de faixa do historico restaurado (ticket
+    4.6/KAN-73) — a sessao so guarda o track_id citado, nao os metadados
+    completos. Nunca levanta excecao."""
+    try:
+        df = carregar_dataset()
+        linhas = df[df["track_id"] == track_id]
+    except Exception:
+        return None
+
+    if linhas.empty:
+        return None
+
+    linha = linhas.iloc[0]
+    return {
+        "track_id": linha["track_id"],
+        "nome": linha["track_name"],
+        "artista": linha["artists"],
+        "album": linha["album_name"],
+        "genero": linha["track_genre"],
+    }
 
 
 def _formatar_faixas(resultado):
