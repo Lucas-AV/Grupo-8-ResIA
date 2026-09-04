@@ -1877,9 +1877,9 @@ body {
 .profile-summary { padding-bottom: 22px; border-bottom: 1px solid var(--border-subtle); }
 .profile-summary p { color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; margin-top: 8px; }
 .feature-list { display: grid; gap: 16px; padding: 22px 0; }
-.feature-row > div:first-child, .metric-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.feature-row > div:first-child, .metric-row, .profile-account-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .feature-row span, .metric-row, .history-item time { color: var(--text-secondary); font-size: 0.8rem; text-transform: capitalize; }
-.feature-row strong, .metric-row strong { color: var(--text-primary); font-size: 0.8rem; }
+.feature-row strong, .metric-row strong, .profile-account-row strong { color: var(--text-primary); font-size: 0.8rem; }
 .feature-meter { height: 5px; background: var(--bg-surface-elevated); border-radius: var(--radius-pill); margin-top: 8px; overflow: hidden; }
 .feature-meter span { display: block; height: 100%; background: var(--spotify-green); border-radius: inherit; }
 .history-item { padding: 15px 0; border-bottom: 1px solid var(--border-subtle); }
@@ -1911,6 +1911,34 @@ body {
 .playlist-item h3 { margin-top: 5px; font-size: 0.95rem; }
 .playlist-link { flex-shrink: 0; color: var(--spotify-green); font-size: 0.8rem; font-weight: 700; text-decoration: none; }
 .playlist-link:hover { text-decoration: underline; }
+
+/* Painel "Meu Perfil" — dados de conta Spotify (reaproveita .explorer-me-profile/
+   .explorer-me-avatar de components/explorer.js, ticket 13.10) */
+.profile-account-avatar-fallback {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  font-size: 20px;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.profile-account-meta {
+  display: grid;
+  gap: 10px;
+  padding: 18px 0;
+  border-top: 1px solid var(--border-subtle);
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 16px;
+}
+.profile-account-row span {
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
 
 /* Painel "Boas-vindas / Conectar" (Ticket 19.1 / KAN-150) */
 .welcome-intro p { color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; }

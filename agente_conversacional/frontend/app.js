@@ -264,10 +264,6 @@ async function buscarHistorico(sessionId) {
   return buscarJson(`/chat/historico?session_id=${encodeURIComponent(sessionId)}`);
 }
 
-async function buscarPerfil(sessionId) {
-  return buscarJson(`/perfil?session_id=${encodeURIComponent(sessionId)}`);
-}
-
 async function criarPlaylistResIA(trackIds, nome, descricao = '') {
   if (!Array.isArray(trackIds) || trackIds.length === 0) {
     throw new Error('Selecione ao menos uma faixa para criar a playlist.');
@@ -1346,35 +1342,64 @@ function renderWelcomePanel() {
   });
 }
 
-function renderProfilePanel() {
+async function renderProfilePanel() {
   const content = panelDefinitions.profile.content;
-  renderPanelMessage(content, 'Carregando seu perfil...', 'panel-state-loading');
-  buscarPerfil(currentSessionId).then((profile) => {
-    const vector = profile?.vetor_features_normalizado || profile?.perfil_usuario || profile?.vetor || null;
-    if (!vector) {
-      renderPanelMessage(content, 'Ainda não há histórico suficiente para montar um perfil personalizado.', 'panel-state-empty');
+  renderPanelMessage(content, 'Carregando sua conta...', 'panel-state-loading');
+
+  const mensagemDesconectado = 'Conecte sua conta do Spotify (botão "Conectar Spotify" no topo) para ver seus dados aqui.';
+
+  const conectado = await verificarStatusSpotify(currentSessionId);
+  if (!conectado) {
+    renderPanelMessage(content, mensagemDesconectado, 'panel-state-empty');
+    return;
+  }
+
+  try {
+    const response = await fetch(`${API_BASE_URL}/explorer/me?session_id=${encodeURIComponent(currentSessionId)}`);
+    if (response.status === 401) {
+      renderPanelMessage(content, mensagemDesconectado, 'panel-state-empty');
       return;
     }
-    const entries = Object.entries(vector).filter(([, value]) => typeof value === 'number' && Number.isFinite(value));
-    content.innerHTML = `
-      <section class="profile-summary">
-        <span class="panel-kicker">Seu gosto musical</span>
-        <p>Características normalizadas a partir do seu histórico casado.</p>
-      </section>
-      <section class="feature-list" aria-label="Características do perfil">
-        ${entries.map(([label, value]) => `
-          <div class="feature-row">
-            <div><span>${escapeHtml(label.replaceAll('_', ' '))}</span><strong>${value.toFixed(2)}</strong></div>
-            <div class="feature-meter"><span style="width: ${Math.max(0, Math.min(100, value * 100))}%"></span></div>
-          </div>
-        `).join('')}
-      </section>
-      ${renderMetricHistory()}
-    `;
-  }).catch((error) => {
-    console.warn('Falha ao carregar perfil:', error);
-    renderPanelMessage(content, 'Não foi possível carregar o perfil agora.', 'panel-state-error');
-  });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const conta = await response.json();
+    renderContaSpotify(content, conta);
+  } catch (error) {
+    console.warn('Falha ao carregar dados da conta Spotify:', error);
+    renderPanelMessage(content, 'Não foi possível carregar sua conta agora.', 'panel-state-error');
+  }
+}
+
+const PRODUTO_SPOTIFY_LABEL = { premium: 'Premium', free: 'Gratuito' };
+
+function renderContaSpotify(content, conta) {
+  const avatarUrl = conta.images && conta.images[0] && conta.images[0].url;
+  const nome = conta.display_name || 'Você';
+  const avatarHtml = avatarUrl
+    ? `<img src="${escapeHtml(avatarUrl)}" alt="" class="explorer-me-avatar">`
+    : `<div class="profile-account-avatar-fallback">${escapeHtml(nome.trim().charAt(0).toUpperCase() || '?')}</div>`;
+  const seguidores = conta.followers && typeof conta.followers.total === 'number'
+    ? `${conta.followers.total} seguidores`
+    : '';
+  const plano = conta.product ? (PRODUTO_SPOTIFY_LABEL[conta.product] || conta.product) : null;
+  const linkExterno = conta.external_urls && conta.external_urls.spotify;
+
+  content.innerHTML = `
+    <section class="profile-summary">
+      <span class="panel-kicker">Sua conta Spotify</span>
+    </section>
+    <div class="explorer-me-profile">
+      ${avatarHtml}
+      <div>
+        <strong>${escapeHtml(nome)}</strong>
+        ${seguidores ? `<span>${escapeHtml(seguidores)}</span>` : ''}
+      </div>
+    </div>
+    <div class="profile-account-meta">
+      ${conta.country ? `<div class="profile-account-row"><span>País</span><strong>${escapeHtml(conta.country)}</strong></div>` : ''}
+      ${plano ? `<div class="profile-account-row"><span>Plano</span><strong>${escapeHtml(plano)}</strong></div>` : ''}
+    </div>
+    ${linkExterno ? `<a href="${escapeHtml(linkExterno)}" target="_blank" rel="noopener noreferrer" class="playlist-link">Ver perfil no Spotify ↗</a>` : ''}
+  `;
 }
 
 function renderMetricHistory() {
@@ -1940,7 +1965,6 @@ window.ResIA = {
   saveSessionId,
   enviarMensagem,
   buscarHistorico,
-  buscarPerfil,
   criarPlaylistResIA,
   loadSettings,
   saveSettings,
