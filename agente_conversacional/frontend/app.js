@@ -9,6 +9,8 @@
 // ==========================================
 const SESSION_STORAGE_KEY = 'resia_chat_session_id';
 const HISTORY_STORAGE_PREFIX = 'resia_chat_history_';
+const SETTINGS_STORAGE_KEY = 'resia_settings';
+const PLAYLISTS_STORAGE_KEY = 'resia_created_playlists';
 
 function generateUUID() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -187,6 +189,7 @@ async function enviarMensagem(sessionId, mensagem) {
       body: JSON.stringify({
         session_id: sessionId,
         mensagem: mensagem,
+        excluir_explicit: loadSettings().excludeExplicit,
       }),
       signal: controller.signal,
     });
@@ -219,6 +222,72 @@ async function buscarPerfil(sessionId) {
   return buscarJson(`/perfil?session_id=${encodeURIComponent(sessionId)}`);
 }
 
+async function criarPlaylistResIA(trackIds, nome, descricao = '') {
+  if (!Array.isArray(trackIds) || trackIds.length === 0) {
+    throw new Error('Selecione ao menos uma faixa para criar a playlist.');
+  }
+  const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: trackIds, nome, descricao }),
+  });
+  if (!response.ok) throw new Error(`Não foi possível criar a playlist: HTTP ${response.status}`);
+  const playlist = await response.json();
+  if (!saveCreatedPlaylist(playlist)) throw new Error('A API retornou uma playlist incompleta.');
+  if (activePanel === 'playlists') renderPlaylistsPanel();
+  return playlist;
+}
+
+function loadSettings() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+    return {
+      excludeExplicit: stored.excludeExplicit !== false,
+      theme: stored.theme === 'light' ? 'light' : 'dark',
+    };
+  } catch (error) {
+    return { excludeExplicit: true, theme: 'dark' };
+  }
+}
+
+function saveSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.warn('Falha ao salvar preferências:', error);
+  }
+}
+
+function applyTheme(theme) {
+  const nextTheme = theme === 'light' ? 'light' : 'dark';
+  document.documentElement.dataset.theme = nextTheme;
+  const settings = loadSettings();
+  saveSettings({ ...settings, theme: nextTheme });
+}
+
+function loadCreatedPlaylists() {
+  try {
+    const playlists = JSON.parse(localStorage.getItem(PLAYLISTS_STORAGE_KEY) || '[]');
+    return Array.isArray(playlists) ? playlists.filter((playlist) => playlist && playlist.id && playlist.nome && playlist.link) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveCreatedPlaylist(playlist) {
+  if (!playlist?.id || !playlist?.nome || !playlist?.link) return false;
+  const playlists = loadCreatedPlaylists().filter((item) => item.id !== playlist.id);
+  playlists.unshift({ id: playlist.id, nome: playlist.nome, link: playlist.link, created_at: playlist.created_at || new Date().toISOString() });
+  try {
+    localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(playlists));
+    return true;
+  } catch (error) {
+    console.warn('Falha ao salvar playlist ResIA:', error);
+    return false;
+  }
+}
+
 // ==========================================
 // 3. Controlador da Interface e Estado
 // ==========================================
@@ -229,6 +298,7 @@ let isEditingMessage = false; // Estado de edição (Ticket 16.2)
 let activePanel = null;
 let lastPanelTrigger = null;
 let discoveries = { genres: new Map(), artists: new Map(), turns: [] };
+let settings = loadSettings();
 
 // Elementos DOM
 const sessionIdDisplay = document.getElementById('session-id-display');
@@ -251,6 +321,9 @@ const panelDefinitions = {
   profile: { panel: document.getElementById('profile-panel'), content: document.getElementById('profile-panel-content') },
   history: { panel: document.getElementById('history-panel'), content: document.getElementById('history-panel-content') },
   discoveries: { panel: document.getElementById('discoveries-panel'), content: document.getElementById('discoveries-panel-content') },
+  settings: { panel: document.getElementById('settings-panel'), content: document.getElementById('settings-panel-content') },
+  about: { panel: document.getElementById('about-panel'), content: document.getElementById('about-panel-content') },
+  playlists: { panel: document.getElementById('playlists-panel'), content: document.getElementById('playlists-panel-content') },
 };
 
 function init() {
@@ -265,6 +338,7 @@ function init() {
   }
 
   rebuildDiscoveries();
+  applyTheme(settings.theme);
 
   setupEventListeners();
 }
@@ -299,6 +373,9 @@ function setupEventListeners() {
   document.getElementById('btn-profile-panel')?.addEventListener('click', (event) => openPanel('profile', event.currentTarget));
   document.getElementById('btn-history-panel')?.addEventListener('click', (event) => openPanel('history', event.currentTarget));
   document.getElementById('btn-discoveries-panel')?.addEventListener('click', (event) => openPanel('discoveries', event.currentTarget));
+  document.getElementById('btn-settings-panel')?.addEventListener('click', (event) => openPanel('settings', event.currentTarget));
+  document.getElementById('btn-about-panel')?.addEventListener('click', (event) => openPanel('about', event.currentTarget));
+  document.getElementById('btn-playlists-panel')?.addEventListener('click', (event) => openPanel('playlists', event.currentTarget));
   panelBackdrop?.addEventListener('click', closePanel);
   document.querySelectorAll('[data-close-panel]').forEach((button) => button.addEventListener('click', closePanel));
 
@@ -436,6 +513,9 @@ function openPanel(name, trigger) {
   if (name === 'profile') renderProfilePanel();
   if (name === 'history') renderHistoryPanel();
   if (name === 'discoveries') renderDiscoveriesPanel();
+  if (name === 'settings') renderSettingsPanel();
+  if (name === 'about') renderAboutPanel();
+  if (name === 'playlists') renderPlaylistsPanel();
   definition.panel.querySelector('[data-close-panel]')?.focus();
 }
 
@@ -557,6 +637,68 @@ function renderDiscoveriesPanel() {
   }
   const renderList = (title, values) => `<section class="discovery-group"><h3>${title}</h3><ul>${[...values.entries()].map(([label, count]) => `<li><span>${escapeHtml(label)}</span><strong>${count}</strong></li>`).join('')}</ul></section>`;
   content.innerHTML = `${renderList('Gêneros', discoveries.genres)}${renderList('Artistas', discoveries.artists)}`;
+}
+
+function renderSettingsPanel() {
+  const content = panelDefinitions.settings.content;
+  settings = loadSettings();
+  content.innerHTML = `
+    <section class="settings-group">
+      <h3>Recomendações</h3>
+      <label class="setting-row" for="exclude-explicit-toggle">
+        <span><strong>Excluir faixas explícitas</strong><small>Aplicar por padrão às próximas recomendações.</small></span>
+        <input id="exclude-explicit-toggle" class="setting-toggle" type="checkbox" ${settings.excludeExplicit ? 'checked' : ''}>
+      </label>
+    </section>
+    <section class="settings-group">
+      <h3>Aparência</h3>
+      <div class="theme-options" role="group" aria-label="Tema">
+        <button class="theme-option ${settings.theme === 'dark' ? 'is-selected' : ''}" data-theme-choice="dark" type="button">Escuro</button>
+        <button class="theme-option ${settings.theme === 'light' ? 'is-selected' : ''}" data-theme-choice="light" type="button">Claro</button>
+      </div>
+    </section>
+  `;
+  content.querySelector('#exclude-explicit-toggle')?.addEventListener('change', (event) => {
+    settings = { ...loadSettings(), excludeExplicit: event.target.checked };
+    saveSettings(settings);
+  });
+  content.querySelectorAll('[data-theme-choice]').forEach((button) => button.addEventListener('click', () => {
+    settings = { ...loadSettings(), theme: button.dataset.themeChoice };
+    applyTheme(settings.theme);
+    renderSettingsPanel();
+  }));
+}
+
+function renderAboutPanel() {
+  panelDefinitions.about.content.innerHTML = `
+    <section class="info-section">
+      <h3>Como ranqueamos</h3>
+      <p>As recomendações combinam os sinais da sua consulta com características musicais e diversidade da sessão. Popularidade pode ser um sinal, mas não decide sozinha o resultado.</p>
+    </section>
+    <section class="info-section">
+      <h3>Seus dados</h3>
+      <p>O ResIA usa sua mensagem e o contexto da sessão para responder. O histórico e as preferências desta interface ficam associados à sessão; preferências e playlists ResIA são guardadas localmente neste navegador.</p>
+    </section>
+    <section class="info-section">
+      <h3>Spotify</h3>
+      <p>Quando você conecta sua conta, o acesso segue a autorização exibida pelo Spotify. O ResIA não grava tokens no navegador e só registra uma playlist localmente depois de confirmar sua criação.</p>
+    </section>
+  `;
+}
+
+function renderPlaylistsPanel() {
+  const content = panelDefinitions.playlists.content;
+  const playlists = loadCreatedPlaylists();
+  if (!playlists.length) {
+    renderPanelMessage(content, 'As playlists criadas pelo ResIA aparecerão aqui.', 'panel-state-empty');
+    return;
+  }
+  content.innerHTML = `${playlists.map((playlist) => `
+    <article class="playlist-item">
+      <div><span class="panel-kicker">Playlist ResIA</span><h3>${escapeHtml(playlist.nome)}</h3><small>ID: ${escapeHtml(playlist.id)}</small></div>
+      <a href="${escapeHtml(playlist.link)}" target="_blank" rel="noopener noreferrer" class="playlist-link" title="Abrir playlist no Spotify">Abrir</a>
+    </article>
+  `).join('')}`;
 }
 
 function ajustarAlturaInput() {
@@ -889,6 +1031,12 @@ window.ResIA = {
   enviarMensagem,
     buscarHistorico,
     buscarPerfil,
+    criarPlaylistResIA,
+    loadSettings,
+    saveSettings,
+    applyTheme,
+    loadCreatedPlaylists,
+    saveCreatedPlaylist,
   enviarMensagemUsuario,
   renderMarkdownSafe,
   startEditLastMessage,
