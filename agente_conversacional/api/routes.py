@@ -16,6 +16,7 @@ from api.schemas import (
 from chat.contracts import PipelineUnavailableError, TurnProcessor
 from recomendacao.busca import buscar_recomendacoes
 from sessions.store import SessionNotFound, SessionStore
+from youtube import client as youtube_client
 
 logger = logging.getLogger("agente.api")
 
@@ -115,6 +116,17 @@ def build_api_router(
             cobertura_sessao=resultado["cobertura_sessao"],
             consulta_efetiva=dict(resultado["consulta_efetiva"]),
         )
+
+    @router.get("/youtube/preview")
+    def youtube_preview(nome: str, artista: str | None = None) -> dict:
+        """Ticket 13.12 (KAN-121): fallback de prévia via YouTube pra quando a
+        Spotify não devolve preview_url (comum pra apps criados após
+        nov/2024 — ver GET /explorer/track/{id} pra prévia nativa, tentada
+        primeiro pelo frontend). Nunca falha: video_id vem None sem
+        YOUTUBE_API_KEY configurada ou se a busca não achar nada. Sem
+        exigência de sessão/autenticação — só busca no YouTube, não fala
+        com a Spotify."""
+        return {"video_id": youtube_client.buscar_video_id(nome, artista)}
 
     return router
 

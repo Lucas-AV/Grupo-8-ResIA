@@ -40,9 +40,14 @@ function getGenreTheme(genero) {
 }
 
 // ==========================================
-// Preview de áudio (Ticket 13.12 / KAN-121 — porta corretamente o padrão
-// validado em spotify_explorer/frontend/src/composables/usePreviewPlayer.js
-// pra dentro do produto real, integrado ao trackCard já existente aqui).
+// Preview de áudio (Ticket 13.12 / KAN-121). Tenta a prévia nativa da
+// Spotify primeiro (GET /explorer/track/{id}, precisa de sessão autenticada
+// com Spotify). Quando preview_url vier null — o caso comum: a Spotify
+// parou de preencher esse campo pra apps criados após nov/2024, ver
+// docs/superpowers/specs/2026-09-03-spotify-preview-player-design.md — cai
+// pro YouTube (GET /youtube/preview, sem exigir login) tocado no widget
+// visível de youtubePlayer.js (nunca áudio escondido, ver política de API
+// Services do YouTube sobre player "só-áudio").
 // ==========================================
 
 const _PREVIEW_API_BASE_URL =
@@ -52,84 +57,128 @@ const _PREVIEW_API_BASE_URL =
 
 const _previewAudio = new Audio();
 let _previewTrackId = null;
+let _previewSource = null; // 'spotify' | 'youtube' | null
 let _previewButtonEl = null;
-const _previewUrlCache = new Map();
+const _previewCache = new Map(); // track_id -> { source: 'spotify', url } | { source: 'youtube', videoId } | { source: null }
 
 function _setPreviewButtonState(state) {
   if (!_previewButtonEl) return;
   _previewButtonEl.classList.toggle('playing', state === 'playing');
   _previewButtonEl.classList.toggle('loading', state === 'loading');
-  _previewButtonEl.setAttribute('aria-label', state === 'playing' ? 'Pausar prévia' : 'Tocar prévia de 30s');
+  _previewButtonEl.setAttribute('aria-label', state === 'playing' ? 'Pausar prévia' : 'Tocar prévia');
+}
+
+function _pararPreviewAtual() {
+  _previewAudio.pause();
+  if (window.ResIAYoutubeWidget) window.ResIAYoutubeWidget.pause();
+  if (_previewButtonEl) _setPreviewButtonState('idle');
+  _previewTrackId = null;
+  _previewSource = null;
+  _previewButtonEl = null;
 }
 
 _previewAudio.addEventListener('ended', () => {
-  _setPreviewButtonState('idle');
-  _previewTrackId = null;
-  _previewButtonEl = null;
+  if (_previewSource === 'spotify') _pararPreviewAtual();
 });
 
-async function _resolvePreviewUrl(trackId) {
-  if (_previewUrlCache.has(trackId)) return _previewUrlCache.get(trackId);
-
-  const sessionId = window.ResIA && typeof window.ResIA.getSessionId === 'function' ? window.ResIA.getSessionId() : null;
-  if (!sessionId) return null;
-
-  const response = await fetch(
-    `${_PREVIEW_API_BASE_URL}/explorer/track/${encodeURIComponent(trackId)}?session_id=${encodeURIComponent(sessionId)}`
-  );
-  if (response.status === 401) {
-    const err = new Error('nao_autenticado');
-    err.codigo = 'spotify_nao_autenticado';
-    throw err;
-  }
-  if (!response.ok) return null;
-
-  const track = await response.json();
-  const previewUrl = track.preview_url || null;
-  _previewUrlCache.set(trackId, previewUrl);
-  return previewUrl;
+if (window.ResIAYoutubeWidget) {
+  // Cobre pause/fim disparado pelos controles nativos do widget do YouTube,
+  // não só pelo botão do card.
+  window.ResIAYoutubeWidget.onExternalPause(() => {
+    if (_previewSource === 'youtube') _pararPreviewAtual();
+  });
 }
 
-async function togglePreview(trackId, buttonEl) {
+/**
+ * Resolve de onde tocar a prévia de uma faixa: preview_url nativo da
+ * Spotify primeiro, YouTube como fallback. Resultado cacheado por faixa —
+ * nunca refaz as duas chamadas pra mesma faixa na mesma sessão de página.
+ */
+async function _resolvePreview(trackId, nome, artista) {
+  if (_previewCache.has(trackId)) return _previewCache.get(trackId);
+
+  let resultado = { source: null };
+
+  const sessionId = window.ResIA && typeof window.ResIA.getSessionId === 'function' ? window.ResIA.getSessionId() : null;
+  if (sessionId) {
+    try {
+      const response = await fetch(
+        `${_PREVIEW_API_BASE_URL}/explorer/track/${encodeURIComponent(trackId)}?session_id=${encodeURIComponent(sessionId)}`
+      );
+      if (response.ok) {
+        const track = await response.json();
+        if (track.preview_url) {
+          resultado = { source: 'spotify', url: track.preview_url };
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao consultar prévia da Spotify:', err);
+    }
+  }
+
+  if (resultado.source === null) {
+    try {
+      const params = new URLSearchParams({ nome: nome || '' });
+      if (artista) params.set('artista', artista);
+      const response = await fetch(`${_PREVIEW_API_BASE_URL}/youtube/preview?${params.toString()}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.video_id) {
+          resultado = { source: 'youtube', videoId: data.video_id };
+        }
+      }
+    } catch (err) {
+      console.warn('Falha ao buscar prévia no YouTube:', err);
+    }
+  }
+
+  _previewCache.set(trackId, resultado);
+  return resultado;
+}
+
+async function togglePreview(trackId, nome, artista, buttonEl) {
   if (!trackId) return;
 
-  // Já é a faixa carregada: só alterna play/pause, sem re-buscar.
+  // Já é a faixa carregada: alterna play/pause (Spotify) ou para (YouTube —
+  // o widget tem controles próprios visíveis pra retomar).
   if (_previewTrackId === trackId && _previewButtonEl === buttonEl) {
-    if (_previewAudio.paused) {
-      _previewAudio.play().catch(() => {});
-      _setPreviewButtonState('playing');
+    if (_previewSource === 'spotify') {
+      if (_previewAudio.paused) {
+        _previewAudio.play().catch(() => {});
+        _setPreviewButtonState('playing');
+      } else {
+        _previewAudio.pause();
+        _setPreviewButtonState('idle');
+      }
     } else {
-      _previewAudio.pause();
-      _setPreviewButtonState('idle');
+      _pararPreviewAtual();
     }
     return;
   }
 
   // Troca de faixa: para a anterior e mostra loading na nova.
-  _previewAudio.pause();
-  if (_previewButtonEl) _setPreviewButtonState('idle');
+  _pararPreviewAtual();
   _previewButtonEl = buttonEl;
   _setPreviewButtonState('loading');
 
-  try {
-    const previewUrl = await _resolvePreviewUrl(trackId);
-    if (!previewUrl) {
-      _setPreviewButtonState('idle');
-      if (typeof window.showToast === 'function') {
-        window.showToast('Prévia de 30s indisponível para essa faixa.');
-      }
-      _previewTrackId = null;
-      return;
-    }
-    _previewAudio.src = previewUrl;
-    _previewTrackId = trackId;
+  const preview = await _resolvePreview(trackId, nome, artista);
+
+  if (preview.source === 'spotify') {
+    _previewAudio.src = preview.url;
     _previewAudio.play().catch(() => {});
+    _previewTrackId = trackId;
+    _previewSource = 'spotify';
     _setPreviewButtonState('playing');
-  } catch (err) {
+  } else if (preview.source === 'youtube' && window.ResIAYoutubeWidget) {
+    await window.ResIAYoutubeWidget.play(preview.videoId);
+    _previewTrackId = trackId;
+    _previewSource = 'youtube';
+    _setPreviewButtonState('playing');
+  } else {
     _setPreviewButtonState('idle');
-    _previewTrackId = null;
-    if (err && err.codigo === 'spotify_nao_autenticado' && typeof window.showToast === 'function') {
-      window.showToast('Conecte com o Spotify para ouvir a prévia das faixas.');
+    _previewButtonEl = null;
+    if (typeof window.showToast === 'function') {
+      window.showToast(`Prévia de "${nome}" não encontrada.`);
     }
   }
 }
@@ -228,7 +277,7 @@ function createTrackCardElement(faixa, index = 0) {
   if (previewBtn && trackId) {
     previewBtn.addEventListener('click', (e) => {
       e.stopPropagation();
-      togglePreview(trackId, previewBtn);
+      togglePreview(trackId, nome, artista, previewBtn);
     });
   }
 

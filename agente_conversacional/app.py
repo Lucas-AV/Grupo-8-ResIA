@@ -1,8 +1,10 @@
 import logging
 import os
+import sys
 from contextlib import asynccontextmanager
 from typing import cast
 
+from dotenv import load_dotenv
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,6 +17,16 @@ from sessions.store import SessionStore
 from llm.health import check_llm_health
 from spotify_auth.explorer_routes import router as spotify_explorer_router
 from spotify_auth.routes import router as spotify_auth_router
+
+# python-dotenv ja estava no requirements.txt mas nunca era carregado —
+# .env so funcionava se a variavel ja tivesse sido exportada manualmente no
+# shell. Nao sobrescreve vars ja definidas no ambiente (comportamento
+# padrao do dotenv, override=False). Pulado sob pytest: os testes contam
+# com um ambiente limpo (mockam LLM/Spotify/etc explicitamente) e carregar
+# valores reais do .env (LLM_BACKEND/OLLAMA_BASE_URL apontando pra um
+# Ollama de verdade, por exemplo) quebra esse isolamento.
+if "pytest" not in sys.modules:
+    load_dotenv()
 
 logger = logging.getLogger("agente")
 
