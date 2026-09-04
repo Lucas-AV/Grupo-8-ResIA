@@ -9,6 +9,8 @@
 // ==========================================
 const SESSION_STORAGE_KEY = 'resia_chat_session_id';
 const HISTORY_STORAGE_PREFIX = 'resia_chat_history_';
+const SETTINGS_STORAGE_KEY = 'resia_settings';
+const PLAYLISTS_STORAGE_KEY = 'resia_created_playlists';
 
 function generateUUID() {
   if (typeof crypto !== 'undefined' && crypto.randomUUID) {
@@ -148,6 +150,8 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
       body: JSON.stringify({
         session_id: sessionId,
         mensagem: mensagem,
+        // Ticket 16: preferência local de excluir faixas explícitas por padrão.
+        excluir_explicit: loadSettings().excludeExplicit,
         ...extras,
       }),
       signal: controller.signal,
@@ -246,6 +250,82 @@ async function buscarHistoricoRemoto(sessionId) {
   } catch (err) {
     console.warn('Histórico remoto indisponível, utilizando cache local como fallback:', err);
     return null;
+  }
+}
+
+async function buscarJson(path) {
+  const response = await fetch(`${API_BASE_URL}${path}`, { credentials: 'include' });
+  if (!response.ok) throw new Error(`Erro na resposta do backend: HTTP ${response.status}`);
+  return response.json();
+}
+
+async function buscarHistorico(sessionId) {
+  return buscarJson(`/chat/historico?session_id=${encodeURIComponent(sessionId)}`);
+}
+
+async function buscarPerfil(sessionId) {
+  return buscarJson(`/perfil?session_id=${encodeURIComponent(sessionId)}`);
+}
+
+async function criarPlaylistResIA(trackIds, nome, descricao = '') {
+  if (!Array.isArray(trackIds) || trackIds.length === 0) {
+    throw new Error('Selecione ao menos uma faixa para criar a playlist.');
+  }
+  const response = await fetch(`${API_BASE_URL}/playlist/criar`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ track_ids: trackIds, nome, descricao }),
+  });
+  if (!response.ok) throw new Error(`Não foi possível criar a playlist: HTTP ${response.status}`);
+  const playlist = await response.json();
+  if (!saveCreatedPlaylist(playlist)) throw new Error('A API retornou uma playlist incompleta.');
+  if (activePanel === 'playlists') renderPlaylistsPanel();
+  return playlist;
+}
+
+function loadSettings() {
+  try {
+    const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
+    return {
+      excludeExplicit: stored.excludeExplicit !== false,
+    };
+  } catch (error) {
+    return { excludeExplicit: true };
+  }
+}
+
+function saveSettings(settings) {
+  try {
+    localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(settings));
+  } catch (error) {
+    console.warn('Falha ao salvar preferências:', error);
+  }
+}
+
+// Tema (claro/escuro) tem uma única fonte de verdade: getStoredTheme/
+// applyTheme/saveStoredTheme (Ticket 12.5 / KAN-108, mais abaixo) — não
+// duplicar aqui. `resia_settings` guarda só preferências que não são tema.
+
+function loadCreatedPlaylists() {
+  try {
+    const playlists = JSON.parse(localStorage.getItem(PLAYLISTS_STORAGE_KEY) || '[]');
+    return Array.isArray(playlists) ? playlists.filter((playlist) => playlist && playlist.id && playlist.nome && playlist.link) : [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveCreatedPlaylist(playlist) {
+  if (!playlist?.id || !playlist?.nome || !playlist?.link) return false;
+  const playlists = loadCreatedPlaylists().filter((item) => item.id !== playlist.id);
+  playlists.unshift({ id: playlist.id, nome: playlist.nome, link: playlist.link, created_at: playlist.created_at || new Date().toISOString() });
+  try {
+    localStorage.setItem(PLAYLISTS_STORAGE_KEY, JSON.stringify(playlists));
+    return true;
+  } catch (error) {
+    console.warn('Falha ao salvar playlist ResIA:', error);
+    return false;
   }
 }
 
@@ -489,6 +569,11 @@ function removerAcoesSpotifyGated() {
 let currentSessionId = null;
 let messages = [];
 let isProcessing = false;
+let isEditingMessage = false; // Estado de edição (Ticket 16.2)
+let activePanel = null;
+let lastPanelTrigger = null;
+let discoveries = { genres: new Map(), artists: new Map(), turns: [] };
+let settings = loadSettings();
 // Ticket 12.2 (KAN-105): reflete se a sessão atual tem login Spotify ativo
 // no backend (GET /auth/status) — controla se o botão "Salvar no Spotify"
 // aparece nos cards de resposta. Começa false (fail-closed): enquanto não
@@ -533,6 +618,17 @@ const chatInput = document.getElementById('chat-input');
 const btnSend = document.getElementById('btn-send');
 const btnMic = document.getElementById('btn-mic');
 const toastContainer = document.getElementById('toast-container');
+const editMessageBanner = document.getElementById('edit-message-banner');
+const btnCancelEdit = document.getElementById('btn-cancel-edit');
+const panelBackdrop = document.getElementById('panel-backdrop');
+const panelDefinitions = {
+  profile: { panel: document.getElementById('profile-panel'), content: document.getElementById('profile-panel-content') },
+  history: { panel: document.getElementById('history-panel'), content: document.getElementById('history-panel-content') },
+  discoveries: { panel: document.getElementById('discoveries-panel'), content: document.getElementById('discoveries-panel-content') },
+  settings: { panel: document.getElementById('settings-panel'), content: document.getElementById('settings-panel-content') },
+  about: { panel: document.getElementById('about-panel'), content: document.getElementById('about-panel-content') },
+  playlists: { panel: document.getElementById('playlists-panel'), content: document.getElementById('playlists-panel-content') },
+};
 const btnThemeToggle = document.getElementById('btn-theme-toggle');
 const iconThemeDark = document.getElementById('icon-theme-dark');
 const iconThemeLight = document.getElementById('icon-theme-light');
@@ -750,6 +846,9 @@ async function carregarHistoricoInicial(resultado) {
     messages.forEach((msg) => renderMessageBubble(msg, false));
     scrollToBottom();
   }
+
+  // Ticket 17: reconstrói o índice de descobertas a partir do histórico restaurado.
+  rebuildDiscoveries();
 }
 
 function updateSessionDisplay() {
@@ -824,6 +923,15 @@ function showErrorBanner(message, onRetry) {
 window.showErrorBanner = showErrorBanner;
 
 function setupEventListeners() {
+  document.getElementById('btn-profile-panel')?.addEventListener('click', (event) => openPanel('profile', event.currentTarget));
+  document.getElementById('btn-history-panel')?.addEventListener('click', (event) => openPanel('history', event.currentTarget));
+  document.getElementById('btn-discoveries-panel')?.addEventListener('click', (event) => openPanel('discoveries', event.currentTarget));
+  document.getElementById('btn-settings-panel')?.addEventListener('click', (event) => openPanel('settings', event.currentTarget));
+  document.getElementById('btn-about-panel')?.addEventListener('click', (event) => openPanel('about', event.currentTarget));
+  document.getElementById('btn-playlists-panel')?.addEventListener('click', (event) => openPanel('playlists', event.currentTarget));
+  panelBackdrop?.addEventListener('click', closePanel);
+  document.querySelectorAll('[data-close-panel]').forEach((button) => button.addEventListener('click', closePanel));
+
   btnCopySession?.addEventListener('click', async () => {
     try {
       await navigator.clipboard.writeText(currentSessionId);
@@ -835,6 +943,7 @@ function setupEventListeners() {
 
   btnNewChat?.addEventListener('click', async () => {
     if (isProcessing) return;
+    cancelEditMessage();
     currentSessionId = await resetSession();
     messages = [];
     faixasMostradasSessao.clear();
@@ -897,10 +1006,17 @@ function setupEventListeners() {
     showToast('Entrada de voz Convora: gravação ativada (modo demo).');
   });
 
+  // Botão de cancelar edição no banner (Ticket 16.2)
+  btnCancelEdit?.addEventListener('click', () => {
+    cancelEditMessage();
+    chatInput?.focus();
+  });
+
   document.querySelectorAll('.prompt-pill').forEach((pill) => {
     pill.addEventListener('click', () => {
       const prompt = pill.getAttribute('data-prompt');
       if (prompt && !isProcessing) {
+        cancelEditMessage();
         chatInput.value = prompt;
         ajustarAlturaInput();
         btnSend.disabled = false;
@@ -915,15 +1031,34 @@ function setupEventListeners() {
     btnSend.disabled = !temTexto || isProcessing;
   });
 
+  // Atalhos de teclado no input (Ticket 16.4)
   chatInput?.addEventListener('keydown', (e) => {
+    // Enter envia mensagem; Shift+Enter insere quebra de linha
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       if (!btnSend.disabled && !isProcessing) {
         const texto = chatInput.value.trim();
         if (texto) {
+          // Limpar modo de edição antes de enviar
+          if (isEditingMessage) {
+            isEditingMessage = false;
+            if (editMessageBanner) editMessageBanner.classList.remove('active');
+          }
           enviarMensagemUsuario(texto);
         }
       }
+    }
+
+    // Escape cancela modo de edição (Ticket 16.4)
+    if (e.key === 'Escape' && isEditingMessage) {
+      e.preventDefault();
+      cancelEditMessage();
+    }
+
+    // Seta pra cima com input vazio recupera última mensagem (Ticket 16.4)
+    if (e.key === 'ArrowUp' && chatInput.value.trim() === '' && !isProcessing) {
+      e.preventDefault();
+      startEditLastMessage();
     }
   });
 
@@ -932,10 +1067,239 @@ function setupEventListeners() {
     if (!btnSend.disabled && !isProcessing) {
       const texto = chatInput.value.trim();
       if (texto) {
+        if (isEditingMessage) {
+          isEditingMessage = false;
+          if (editMessageBanner) editMessageBanner.classList.remove('active');
+        }
         enviarMensagemUsuario(texto);
       }
     }
   });
+
+  // Atalho global "/" para focar no input (Ticket 16.4)
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && activePanel) {
+      closePanel();
+      return;
+    }
+    // Ignorar se já estiver em um campo de texto ou textarea
+    const tag = document.activeElement?.tagName?.toLowerCase();
+    if (tag === 'input' || tag === 'textarea' || document.activeElement?.isContentEditable) {
+      return;
+    }
+
+    if (e.key === '/') {
+      e.preventDefault();
+      chatInput?.focus();
+    }
+  });
+}
+
+function openPanel(name, trigger) {
+  const definition = panelDefinitions[name];
+  if (!definition) return;
+
+  if (activePanel) closePanel();
+  activePanel = name;
+  lastPanelTrigger = trigger || null;
+  definition.panel.hidden = false;
+  definition.panel.classList.add('is-open');
+  definition.panel.setAttribute('aria-hidden', 'false');
+  panelBackdrop.hidden = false;
+  panelBackdrop.classList.add('is-visible');
+
+  if (name === 'profile') renderProfilePanel();
+  if (name === 'history') renderHistoryPanel();
+  if (name === 'discoveries') renderDiscoveriesPanel();
+  if (name === 'settings') renderSettingsPanel();
+  if (name === 'about') renderAboutPanel();
+  if (name === 'playlists') renderPlaylistsPanel();
+  definition.panel.querySelector('[data-close-panel]')?.focus();
+}
+
+function closePanel() {
+  if (!activePanel) return;
+  const definition = panelDefinitions[activePanel];
+  definition.panel.classList.remove('is-open');
+  definition.panel.setAttribute('aria-hidden', 'true');
+  definition.panel.hidden = true;
+  panelBackdrop.classList.remove('is-visible');
+  panelBackdrop.hidden = true;
+  const trigger = lastPanelTrigger;
+  activePanel = null;
+  lastPanelTrigger = null;
+  trigger?.focus();
+}
+
+function rebuildDiscoveries() {
+  discoveries = { genres: new Map(), artists: new Map(), turns: [] };
+  messages.filter((message) => message.role === 'agent' && Array.isArray(message.faixas)).forEach((message) => recordDiscoveries(message));
+}
+
+function recordDiscoveries(response) {
+  const tracks = Array.isArray(response.faixas) ? response.faixas : [];
+  const genres = new Set();
+  const artists = new Set();
+  tracks.forEach((track) => {
+    if (track.genero) genres.add(track.genero);
+    if (track.artista) artists.add(track.artista);
+  });
+  genres.forEach((genre) => discoveries.genres.set(genre, (discoveries.genres.get(genre) || 0) + 1));
+  artists.forEach((artist) => discoveries.artists.set(artist, (discoveries.artists.get(artist) || 0) + 1));
+  if (tracks.length) discoveries.turns.push({
+    timestamp: response.timestamp || new Date().toISOString(),
+    genres: [...genres],
+    artists: [...artists],
+    diversidade_generos: response.diversidade_generos,
+    cobertura_sessao: response.cobertura_sessao,
+  });
+}
+
+function renderPanelMessage(content, message, type = '') {
+  content.innerHTML = `<div class="panel-state ${type}">${escapeHtml(message)}</div>`;
+}
+
+function renderProfilePanel() {
+  const content = panelDefinitions.profile.content;
+  renderPanelMessage(content, 'Carregando seu perfil...', 'panel-state-loading');
+  buscarPerfil(currentSessionId).then((profile) => {
+    const vector = profile?.vetor_features_normalizado || profile?.perfil_usuario || profile?.vetor || null;
+    if (!vector) {
+      renderPanelMessage(content, 'Ainda não há histórico suficiente para montar um perfil personalizado.', 'panel-state-empty');
+      return;
+    }
+    const entries = Object.entries(vector).filter(([, value]) => typeof value === 'number' && Number.isFinite(value));
+    content.innerHTML = `
+      <section class="profile-summary">
+        <span class="panel-kicker">Seu gosto musical</span>
+        <p>Características normalizadas a partir do seu histórico casado.</p>
+      </section>
+      <section class="feature-list" aria-label="Características do perfil">
+        ${entries.map(([label, value]) => `
+          <div class="feature-row">
+            <div><span>${escapeHtml(label.replaceAll('_', ' '))}</span><strong>${value.toFixed(2)}</strong></div>
+            <div class="feature-meter"><span style="width: ${Math.max(0, Math.min(100, value * 100))}%"></span></div>
+          </div>
+        `).join('')}
+      </section>
+      ${renderMetricHistory()}
+    `;
+  }).catch((error) => {
+    console.warn('Falha ao carregar perfil:', error);
+    renderPanelMessage(content, 'Não foi possível carregar o perfil agora.', 'panel-state-error');
+  });
+}
+
+function renderMetricHistory() {
+  const metricTurns = discoveries.turns.filter((turn) => turn.diversidade_generos !== undefined);
+  if (!metricTurns.length) return '';
+  return `<section class="metric-history"><h3>Histórico da sessão</h3>${metricTurns.map((turn) => `
+    <div class="metric-row"><time>${escapeHtml(formatarHora(turn.timestamp))}</time><span>${turn.diversidade_generos} gêneros</span><strong>${Math.round(turn.cobertura_sessao * 100)}% novas</strong></div>
+  `).join('')}</section>`;
+}
+
+function renderHistoryPanel() {
+  const content = panelDefinitions.history.content;
+  renderPanelMessage(content, 'Carregando histórico...', 'panel-state-loading');
+  buscarHistorico(currentSessionId).then((data) => {
+    const history = Array.isArray(data) ? data : (data?.historico || data?.mensagens || []);
+    const panelMessages = history.length ? history : messages;
+    if (!panelMessages.length) {
+      renderPanelMessage(content, 'Nenhuma conversa nesta sessão.', 'panel-state-empty');
+      return;
+    }
+    content.innerHTML = panelMessages.map((message) => `
+    <article class="history-item ${message.role}">
+      <span class="history-role">${message.role === 'user' ? 'Você' : 'ResIA'}</span>
+      <p>${escapeHtml(message.conteudo)}</p>
+      <time>${escapeHtml(formatarHora(message.timestamp))}</time>
+    </article>
+    `).join('');
+  }).catch((error) => {
+    console.warn('Falha ao carregar histórico:', error);
+    if (messages.length) {
+      content.innerHTML = `<div class="panel-state panel-state-info">API indisponível. Exibindo o histórico local desta sessão.</div>${messages.map((message) => `
+        <article class="history-item ${message.role}"><span class="history-role">${message.role === 'user' ? 'Você' : 'ResIA'}</span><p>${escapeHtml(message.conteudo)}</p><time>${escapeHtml(formatarHora(message.timestamp))}</time></article>
+      `).join('')}`;
+    } else {
+      renderPanelMessage(content, 'Não foi possível carregar o histórico.', 'panel-state-error');
+    }
+  });
+}
+
+function renderDiscoveriesPanel() {
+  const content = panelDefinitions.discoveries.content;
+  if (!discoveries.turns.length) {
+    renderPanelMessage(content, 'As novas descobertas da sua sessão aparecerão aqui.', 'panel-state-empty');
+    return;
+  }
+  const renderList = (title, values) => `<section class="discovery-group"><h3>${title}</h3><ul>${[...values.entries()].map(([label, count]) => `<li><span>${escapeHtml(label)}</span><strong>${count}</strong></li>`).join('')}</ul></section>`;
+  content.innerHTML = `${renderList('Gêneros', discoveries.genres)}${renderList('Artistas', discoveries.artists)}`;
+}
+
+function renderSettingsPanel() {
+  const content = panelDefinitions.settings.content;
+  settings = loadSettings();
+  // Tema lido da fonte única de verdade (data-theme na raiz, ver
+  // getStoredTheme/applyTheme — Ticket 12.5 / KAN-108), não de `settings`.
+  const temaAtual = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
+  content.innerHTML = `
+    <section class="settings-group">
+      <h3>Recomendações</h3>
+      <label class="setting-row" for="exclude-explicit-toggle">
+        <span><strong>Excluir faixas explícitas</strong><small>Aplicar por padrão às próximas recomendações.</small></span>
+        <input id="exclude-explicit-toggle" class="setting-toggle" type="checkbox" ${settings.excludeExplicit ? 'checked' : ''}>
+      </label>
+    </section>
+    <section class="settings-group">
+      <h3>Aparência</h3>
+      <div class="theme-options" role="group" aria-label="Tema">
+        <button class="theme-option ${temaAtual === 'dark' ? 'is-selected' : ''}" data-theme-choice="dark" type="button">Escuro</button>
+        <button class="theme-option ${temaAtual === 'light' ? 'is-selected' : ''}" data-theme-choice="light" type="button">Claro</button>
+      </div>
+    </section>
+  `;
+  content.querySelector('#exclude-explicit-toggle')?.addEventListener('change', (event) => {
+    settings = { ...loadSettings(), excludeExplicit: event.target.checked };
+    saveSettings(settings);
+  });
+  content.querySelectorAll('[data-theme-choice]').forEach((button) => button.addEventListener('click', () => {
+    applyTheme(button.dataset.themeChoice);
+    saveStoredTheme(button.dataset.themeChoice);
+    renderSettingsPanel();
+  }));
+}
+
+function renderAboutPanel() {
+  panelDefinitions.about.content.innerHTML = `
+    <section class="info-section">
+      <h3>Como ranqueamos</h3>
+      <p>As recomendações combinam os sinais da sua consulta com características musicais e diversidade da sessão. Popularidade pode ser um sinal, mas não decide sozinha o resultado.</p>
+    </section>
+    <section class="info-section">
+      <h3>Seus dados</h3>
+      <p>O ResIA usa sua mensagem e o contexto da sessão para responder. O histórico e as preferências desta interface ficam associados à sessão; preferências e playlists ResIA são guardadas localmente neste navegador.</p>
+    </section>
+    <section class="info-section">
+      <h3>Spotify</h3>
+      <p>Quando você conecta sua conta, o acesso segue a autorização exibida pelo Spotify. O ResIA não grava tokens no navegador e só registra uma playlist localmente depois de confirmar sua criação.</p>
+    </section>
+  `;
+}
+
+function renderPlaylistsPanel() {
+  const content = panelDefinitions.playlists.content;
+  const playlists = loadCreatedPlaylists();
+  if (!playlists.length) {
+    renderPanelMessage(content, 'As playlists criadas pelo ResIA aparecerão aqui.', 'panel-state-empty');
+    return;
+  }
+  content.innerHTML = `${playlists.map((playlist) => `
+    <article class="playlist-item">
+      <div><span class="panel-kicker">Playlist ResIA</span><h3>${escapeHtml(playlist.nome)}</h3><small>ID: ${escapeHtml(playlist.id)}</small></div>
+      <a href="${escapeHtml(playlist.link)}" target="_blank" rel="noopener noreferrer" class="playlist-link" title="Abrir playlist no Spotify">Abrir</a>
+    </article>
+  `).join('')}`;
 }
 
 function ajustarAlturaInput() {
@@ -978,6 +1342,130 @@ function escapeHtml(text) {
   return div.innerHTML;
 }
 
+/**
+ * Renderiza markdown básico com sanitização XSS integrada (Ticket 16.1).
+ * Suporta: negrito, itálico, código inline, links (http/https apenas),
+ * listas não-ordenadas, listas ordenadas e parágrafos.
+ * @param {string} text Texto bruto com possível markdown
+ * @returns {string} HTML seguro para inserção via innerHTML
+ */
+function renderMarkdownSafe(text) {
+  if (!text) return '';
+
+  // 1. Sanitização XSS: escape de caracteres perigosos antes de qualquer transformação
+  let safe = text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+
+  // 2. Código inline: `codigo`
+  safe = safe.replace(/`([^`]+)`/g, '<code>$1</code>');
+
+  // 3. Negrito: **texto** ou __texto__
+  safe = safe.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>');
+  safe = safe.replace(/__(.+?)__/g, '<strong>$1</strong>');
+
+  // 4. Itálico: *texto* ou _texto_ (sem conflito com negrito pois ** já foi processado)
+  safe = safe.replace(/\*(.+?)\*/g, '<em>$1</em>');
+  safe = safe.replace(/(?<!\w)_(.+?)_(?!\w)/g, '<em>$1</em>');
+
+  // 5. Links markdown: [rótulo](url) — apenas http:// e https://
+  safe = safe.replace(/\[([^\]]+)\]\((https?:\/\/[^)]+)\)/g,
+    '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // 6. URLs soltas (não já envolvidas em <a>): transformar em links clicáveis
+  safe = safe.replace(/(?<!href=")(https?:\/\/[^\s<]+)/g,
+    '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+  // 7. Listas: processamento por linhas
+  const lines = safe.split('\n');
+  let result = [];
+  let inUl = false;
+  let inOl = false;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const ulMatch = line.match(/^\s*[-*]\s+(.+)/);
+    const olMatch = line.match(/^\s*\d+\.\s+(.+)/);
+
+    if (ulMatch) {
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      if (!inUl) { result.push('<ul>'); inUl = true; }
+      result.push(`<li>${ulMatch[1]}</li>`);
+    } else if (olMatch) {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (!inOl) { result.push('<ol>'); inOl = true; }
+      result.push(`<li>${olMatch[1]}</li>`);
+    } else {
+      if (inUl) { result.push('</ul>'); inUl = false; }
+      if (inOl) { result.push('</ol>'); inOl = false; }
+      // Linhas vazias como separador de parágrafos
+      if (line.trim() === '') {
+        result.push('<br>');
+      } else {
+        result.push(`<p>${line}</p>`);
+      }
+    }
+  }
+  if (inUl) result.push('</ul>');
+  if (inOl) result.push('</ol>');
+
+  return result.join('');
+}
+
+// ==========================================
+// 5. Edição de Mensagem (Ticket 16.2)
+// ==========================================
+
+/**
+ * Ativa o modo de edição: popula o input com a última mensagem do usuário
+ * e exibe o banner informativo.
+ */
+function startEditLastMessage() {
+  if (isProcessing) return;
+
+  // Encontrar a última mensagem do usuário
+  let lastUserMsg = null;
+  for (let i = messages.length - 1; i >= 0; i--) {
+    if (messages[i].role === 'user') {
+      lastUserMsg = messages[i];
+      break;
+    }
+  }
+
+  if (!lastUserMsg) return;
+
+  isEditingMessage = true;
+  chatInput.value = lastUserMsg.conteudo;
+  ajustarAlturaInput();
+  btnSend.disabled = false;
+
+  // Exibir banner de edição
+  if (editMessageBanner) {
+    editMessageBanner.classList.add('active');
+  }
+
+  // Focar e posicionar cursor no final
+  chatInput.focus();
+  chatInput.setSelectionRange(chatInput.value.length, chatInput.value.length);
+}
+
+/**
+ * Cancela o modo de edição e limpa o input.
+ */
+function cancelEditMessage() {
+  isEditingMessage = false;
+  chatInput.value = '';
+  ajustarAlturaInput();
+  btnSend.disabled = true;
+
+  if (editMessageBanner) {
+    editMessageBanner.classList.remove('active');
+  }
+}
+
 function renderMessageBubble(msg, animar = true) {
   if (!messagesContainer) return;
 
@@ -1018,7 +1506,13 @@ function renderMessageBubble(msg, animar = true) {
 
   const textElem = document.createElement('div');
   textElem.className = 'message-text';
-  textElem.textContent = msg.conteudo;
+
+  // Ticket 16.1: Renderizar markdown sanitizado nas mensagens do agente
+  if (msg.role === 'agent') {
+    textElem.innerHTML = renderMarkdownSafe(msg.conteudo);
+  } else {
+    textElem.textContent = msg.conteudo;
+  }
   bubble.appendChild(textElem);
 
   // CRITÉRIO DE ACEITE TICKET 4.2:
@@ -1077,6 +1571,23 @@ function renderMessageBubble(msg, animar = true) {
   timeElem.textContent = formatarHora(msg.timestamp);
   bubble.appendChild(timeElem);
 
+  // Ticket 16.2: Botão de edição nas mensagens do usuário
+  if (msg.role === 'user') {
+    const editBtn = document.createElement('button');
+    editBtn.className = 'btn-edit-message';
+    editBtn.title = 'Editar e reenviar';
+    editBtn.innerHTML = `
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+      </svg>
+    `;
+    editBtn.addEventListener('click', () => {
+      startEditLastMessage();
+    });
+    bubble.appendChild(editBtn);
+  }
+
   row.appendChild(avatar);
   row.appendChild(bubble);
   messagesContainer.appendChild(row);
@@ -1115,6 +1626,28 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
     scrollToBottom();
   }
 
+  // Ticket 16.6: Skeleton loading de cards de faixa
+  let skeletonBubble = null;
+  if (window.ResIATrackCard && typeof window.ResIATrackCard.renderSkeletonTrackCards === 'function') {
+    skeletonBubble = document.createElement('div');
+    skeletonBubble.className = 'message-row agent';
+    skeletonBubble.id = 'skeleton-loading-row';
+    const skeletonAvatar = document.createElement('div');
+    skeletonAvatar.className = 'message-avatar';
+    skeletonAvatar.innerHTML = `
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+      </svg>
+    `;
+    const skeletonContent = document.createElement('div');
+    skeletonContent.className = 'message-bubble';
+    skeletonContent.appendChild(window.ResIATrackCard.renderSkeletonTrackCards(3));
+    skeletonBubble.appendChild(skeletonAvatar);
+    skeletonBubble.appendChild(skeletonContent);
+    messagesContainer.appendChild(skeletonBubble);
+    scrollToBottom();
+  }
+
   try {
     const resposta = await enviarMensagem(currentSessionId, texto, extras);
 
@@ -1123,18 +1656,29 @@ async function enviarMensagemUsuario(texto, { isRetry = false, extras = {} } = {
       role: 'agent',
       conteudo: resposta.mensagem || 'Recomendações prontas!',
       faixas: resposta.faixas || [],
+      diversidade_generos: resposta.diversidade_generos,
+      cobertura_sessao: resposta.cobertura_sessao,
       metricas: resposta,
       timestamp: new Date().toISOString(),
     };
     messages.push(agentMsg);
+    recordDiscoveries({ ...resposta, timestamp: agentMsg.timestamp });
     atualizarFaixasMostradas(agentMsg.faixas);
     saveChatHistory(currentSessionId, messages);
 
+    // Remover skeleton antes de renderizar resposta real
+    if (skeletonBubble && skeletonBubble.parentNode) {
+      skeletonBubble.remove();
+    }
     if (typingIndicator) typingIndicator.style.display = 'none';
     renderMessageBubble(agentMsg, true);
     scrollToBottom();
   } catch (error) {
     console.error('Erro ao processar turno:', error);
+    // Remover skeleton em caso de erro
+    if (skeletonBubble && skeletonBubble.parentNode) {
+      skeletonBubble.remove();
+    }
     if (typingIndicator) typingIndicator.style.display = 'none';
 
     if (error && error.isRateLimit) {
@@ -1181,7 +1725,18 @@ window.ResIA = {
   getSessionId,
   saveSessionId,
   enviarMensagem,
+  buscarHistorico,
+  buscarPerfil,
+  criarPlaylistResIA,
+  loadSettings,
+  saveSettings,
+  applyTheme,
+  loadCreatedPlaylists,
+  saveCreatedPlaylist,
   enviarMensagemUsuario,
+  renderMarkdownSafe,
+  startEditLastMessage,
+  cancelEditMessage,
   buscarHistoricoRemoto,
   criarSessaoRemota,
   ErroBackend,
@@ -1191,7 +1746,6 @@ window.ResIA = {
   criarPlaylistSpotify,
   logoutSpotify,
   atualizarFaixasMostradas,
-  applyTheme,
   toggleTheme,
   // Ticket 13.12 (KAN-121): trackCard.js consulta isto antes de tentar
   // GET /explorer/track/{id} pra prévia — evita um 401 garantido (e
