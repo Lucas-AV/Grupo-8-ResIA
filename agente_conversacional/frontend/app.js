@@ -316,6 +316,38 @@ async function buscarPerfilSpotify(sessionId) {
 }
 
 /**
+ * Ticket 20.10 (KAN-169): monta o avatar de uma mensagem do usuário —
+ * reaproveita `spotifyAvatarUrl` (já buscado em 20.8/20.9 no login, sem
+ * chamada nova por mensagem) quando há sessão Spotify conectada com foto de
+ * perfil pública; ícone neutro genérico caso contrário — o chat funciona
+ * sem login, então o avatar nunca pode depender de estar conectado.
+ */
+function renderizarAvatarUsuario(avatarEl) {
+  if (spotifyAvatarUrl) {
+    avatarEl.innerHTML = `<img src="${escapeHtml(spotifyAvatarUrl)}" alt="" class="message-avatar-img">`;
+    avatarEl.title = spotifyDisplayName || 'Você';
+  } else {
+    avatarEl.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
+      </svg>
+    `;
+    avatarEl.title = 'Você';
+  }
+}
+
+/**
+ * Corrige os avatares de usuário já renderizados quando o perfil Spotify
+ * termina de carregar depois do histórico inicial (init() só resolve
+ * verificarStatusSpotify/buscarPerfilSpotify após carregarHistoricoInicial
+ * — sem isso, bolhas restauradas de uma sessão já conectada nasceriam com
+ * o placeholder genérico e nunca ganhariam a foto real).
+ */
+function atualizarAvataresUsuario() {
+  document.querySelectorAll('.message-row.user .message-avatar').forEach(renderizarAvatarUsuario);
+}
+
+/**
  * Ticket 4.5 (KAN-40): chama POST /auth/logout (ticket 5.8,
  * spotify_auth/routes.py) pra descartar os tokens Spotify da sessão atual.
  * Não recebe `session_id` no corpo — a rota espera query param, como
@@ -473,6 +505,10 @@ let spotifyAvatarUrl = null;
 // usado pelo botão "Gerar outra recomendação" pra pedir uma busca nova sem
 // repetir o que já apareceu.
 const faixasMostradasSessao = new Set();
+// Ticket 20.10 (KAN-169): role da última mensagem renderizada (histórico ou
+// nova), pra agrupar visualmente avatares consecutivos do mesmo autor sem
+// repeti-los a cada bolha.
+let ultimoAutorRenderizado = null;
 
 function atualizarFaixasMostradas(faixas) {
   if (!Array.isArray(faixas)) return;
@@ -603,6 +639,10 @@ async function init() {
     spotifyAvatarUrl = null;
   }
   atualizarBotaoSpotifyAuth();
+  // Ticket 20.10 (KAN-169): o histórico já renderizou com placeholder
+  // (carregarHistoricoInicial roda antes do perfil resolver, ver acima) —
+  // corrige agora que `spotifyAvatarUrl` está definitivo.
+  atualizarAvataresUsuario();
 
   isProcessing = false;
   if (btnSend) btnSend.disabled = !chatInput || chatInput.value.trim().length === 0;
@@ -798,6 +838,7 @@ function setupEventListeners() {
     currentSessionId = await resetSession();
     messages = [];
     faixasMostradasSessao.clear();
+    ultimoAutorRenderizado = null;
     messagesContainer.innerHTML = '';
     // Ticket 4.12 (KAN-79): nova conversa volta a ficar sem histórico -> onboarding reaparece.
     if (heroEmptyState) heroEmptyState.style.display = 'flex';
@@ -938,23 +979,28 @@ function renderMessageBubble(msg, animar = true) {
   const row = document.createElement('div');
   row.className = `message-row ${msg.role}`;
   if (!animar) row.style.animation = 'none';
+  // Ticket 20.10 (KAN-169): agrupa visualmente mensagens consecutivas do
+  // mesmo autor — some só o avatar (mantém o espaço reservado pra bolha
+  // não perder o alinhamento), o texto/timestamp de cada bolha continua
+  // completo.
+  if (msg.role === ultimoAutorRenderizado) {
+    row.classList.add('message-row--grouped');
+  }
+  ultimoAutorRenderizado = msg.role;
 
   const avatar = document.createElement('div');
   avatar.className = 'message-avatar';
   if (msg.role === 'agent') {
+    // Mesmo ícone/gradiente do mascote ResIA usado em .brand-icon-wrapper
+    // no header (ticket 20.10 pede reaproveitar esse ícone, não um novo).
     avatar.innerHTML = `
       <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9v-2h2v2zm0-4H9V7h2v5zm4 4h-2v-2h2v2zm0-4h-2V7h2v5z"/>
+        <path d="M12 0C5.373 0 0 5.373 0 12s5.373 12 12 12 12-5.373 12-12S18.627 0 12 0zm5.485 17.307c-.215.353-.675.466-1.027.25-2.813-1.718-6.353-2.107-10.523-1.155-.403.092-.806-.16-.898-.564-.092-.403.16-.806.564-.898 4.566-1.042 8.487-.6 11.634 1.34.352.216.465.675.25 1.027zm1.464-3.26c-.27.44-.847.58-1.288.31-3.22-1.98-8.127-2.55-11.936-1.393-.497.15-1.028-.135-1.18-.63-.15-.497.135-1.028.63-1.18 4.354-1.32 9.774-.688 13.464 1.584.44.27.58.847.31 1.288zm.126-3.41c-3.86-2.29-10.224-2.5-13.882-1.39-.59.18-1.22-.16-1.4-.75-.18-.59.16-1.22.75-1.4 4.21-1.28 11.23-1.04 15.68 1.6.53.31.7.99.39 1.52-.31.53-.99.7-1.52.39z"/>
       </svg>
     `;
     avatar.title = 'Agente ResIA';
   } else {
-    avatar.innerHTML = `
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor">
-        <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-      </svg>
-    `;
-    avatar.title = 'Você';
+    renderizarAvatarUsuario(avatar);
   }
 
   const bubble = document.createElement('div');
