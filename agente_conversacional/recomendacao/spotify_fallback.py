@@ -10,7 +10,7 @@ ORIGEM_SPOTIFY_FALLBACK = "spotify_fallback"
 
 def buscar_faixas_spotify(genero, artista_referencia, n_resultados, excluir_explicit, timeout=None):
     """Complementa a busca local com a Spotify Search API quando o dataset
-    local (~31.8k faixas) nao tem cobertura suficiente pro genero/artista
+    local nao tem cobertura suficiente pro genero/artista
     pedido (ticket KAN-95). Usa so a ordenacao de relevancia da propria
     Spotify — as faixas devolvidas por /search nao tem audio features
     normalizadas (endpoint restrito pra apps criados apos nov/2024, mesma

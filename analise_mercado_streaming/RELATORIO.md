@@ -146,11 +146,13 @@ uma faixa que existe de verdade no catálogo (nunca uma faixa inventada), e a
 experiência precisa continuar funcionando mesmo se algum serviço externo
 falhar no meio de uma demonstração.
 
-**Por que o risco técnico é controlável.** Qualquer que seja o desenho
-final, o motor de recomendação vai trabalhar em cima do que já existe nas
-114 mil faixas do catálogo (metadado e características de áudio) — não
-depende de um histórico de escuta de milhões de usuários que hoje não
-temos.
+**Por que o risco técnico é controlável.** O motor de recomendação trabalha
+com o conjunto processado atual: **128.830 registros**, correspondentes a
+**97.534 faixas únicas** em **118 gêneros**, com metadados e características
+de áudio. Ele não depende de um histórico de escuta de milhões de usuários
+que hoje não temos. Esses números vêm de
+`data/analytics/dataset_profile.json`, gerado em setembro de 2026; os dados
+de mercado deste relatório permanecem na fotografia de agosto de 2026.
 
 **Vantagem ética como diferencial.** Compromisso de medir diversidade/
 cobertura sempre que popularidade for sinal de recomendação — resposta direta
@@ -168,8 +170,9 @@ ao mesmo problema de "filter bubble" que já pesa contra incumbentes.
 
 **Riscos assumidos, não escondidos.**
 
-- ~24.259 `track_id` duplicados no dataset (mesma faixa em vários gêneros) —
-  tratamento documentado, não ignorado.
+- **31.296 registros repetem um `track_id`** porque a mesma faixa pode aparecer
+  em vários gêneros. O motor remove essa repetição no resultado final; a
+  análise mantém os registros para preservar a classificação de gênero.
 - Dados de mercado deste relatório são curadoria manual de agosto/2026, não
   um feed automático: servem para validar direção estratégica, não como
   cotação de preço.

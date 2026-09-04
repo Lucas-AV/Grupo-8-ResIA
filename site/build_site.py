@@ -59,85 +59,76 @@ TEAM = [
     {"name": "Rebeca Vitoria Salazar", "github": "rebecavitoriasalazar-cpu"},
 ]
 
-PITCH_CARDS = [
-    {
-        "label": "Problema",
-        "body": (
-            "Catalogos com centenas de milhares de faixas, mas a experiencia "
-            "de descoberta continua sendo ranking e playlist generica — sem "
-            "dialogo, sem explicacao do porque da recomendacao."
-        ),
-    },
-    {
-        "label": "Timing de mercado",
-        "body": (
-            "Mercado global de streaming ainda em expansao (+6,4% a/a) — e o "
-            "Brasil subiu 3 posicoes no ranking IFPI em 2 anos, crescendo "
-            "14,1% em 2025: momentum superior a media global, no mercado de "
-            "origem do time."
-        ),
-    },
-    {
-        "label": "Concorrencia",
-        "body": (
-            "HHI ≈ 2377 e concentracao moderada, nao monopolio: Spotify "
-            "lidera com 31,4%, mas quase 70% do mercado esta dividido ou em "
-            "plataformas que nao abrem seu motor de recomendacao a auditoria."
-        ),
-    },
-    {
-        "label": "A solucao — arquitetura definida",
-        "body": (
-            "Arquitetura do agente conversacional definida (Proposta B): LLM "
-            "interage com um motor de busca em Python via pipeline em "
-            "etapas, nunca por tool-calling nativo — a recomendacao sempre "
-            "parte de uma faixa que existe de verdade no catalogo (nunca uma "
-            "faixa inventada). Infraestrutura de LLM (Epico 0) ja "
-            "implementada e testada nesta maquina."
-        ),
-    },
-    {
-        "label": "Por que o risco tecnico e controlavel",
-        "body": (
-            "Qualquer que seja o desenho final, o motor de recomendacao vai "
-            "trabalhar em cima do catalogo local ampliado de "
-            "catalogo (metadado e caracteristicas de audio) — nao depende de "
-            "um historico de escuta de milhoes de usuarios que hoje nao "
-            "temos."
-        ),
-    },
-    {
-        "label": "Vantagem etica como diferencial",
-        "body": (
-            "Compromisso de medir diversidade/cobertura sempre que "
-            "popularidade for sinal de recomendacao — resposta direta ao "
-            "mesmo problema de “filter bubble” que ja pesa contra "
-            "incumbentes."
-        ),
-    },
-    {
-        "label": "O que o investimento habilita",
-        "body": (
-            "Dados reais de interacao de usuario, para fechar o gap de "
-            "collaborative filtering (o dataset atual nao tem matriz "
-            "usuario-item). Login via Spotify OAuth, casando historico real "
-            "do usuario com as features ja presentes no dataset local — a "
-            "API de audio-features do Spotify foi descontinuada para apps "
-            "novos desde nov/2024. Evolucao para um modelo hibrido "
-            "(conteudo + colaborativo)."
-        ),
-    },
-    {
-        "label": "Riscos assumidos, nao escondidos",
-        "body": (
-            "~24.259 track_id duplicados no dataset (mesma faixa em varios "
-            "generos) — tratamento documentado, nao ignorado. Dados de "
-            "mercado deste relatorio sao curadoria manual de agosto/2026, "
-            "nao um feed automatico: servem para validar direcao "
-            "estrategica, nao como cotacao de preco."
-        ),
-    },
-]
+def build_pitch_cards(profile: dict) -> list[dict]:
+    """Monta o pitch com as contagens do perfil gerado pelo pipeline."""
+    registros = f"{profile['total_tracks']:,}".replace(",", ".")
+    faixas_unicas = f"{profile['unique_track_ids']:,}".replace(",", ".")
+    repeticoes = f"{profile['duplicate_rows']:,}".replace(",", ".")
+    generos = profile["unique_genres"]
+    return [
+        {
+            "label": "Problema",
+            "body": (
+                "Catalogos com milhares de faixas ainda oferecem descoberta "
+                "baseada em ranking e playlist generica, sem dialogo nem uma "
+                "explicacao simples para cada recomendacao."
+            ),
+        },
+        {
+            "label": "Timing de mercado",
+            "body": (
+                "O mercado global de streaming cresceu 6,4% em 2025. O Brasil "
+                "cresceu 14,1% no mesmo ano e avancou do 10o para o 8o lugar "
+                "no ranking mundial entre 2023 e 2025."
+            ),
+        },
+        {
+            "label": "Concorrencia",
+            "body": (
+                "O Spotify lidera com 31,4% da participacao estimada, mas quase "
+                "70% do mercado esta distribuido entre outras plataformas."
+            ),
+        },
+        {
+            "label": "A solucao — arquitetura definida",
+            "body": (
+                "O MelodIA entende o pedido com regras e LLM, mas escolhe as "
+                "faixas por uma busca controlada em Python. A resposta so pode "
+                "citar musicas realmente devolvidas pelo catalogo."
+            ),
+        },
+        {
+            "label": "Por que o risco tecnico e controlavel",
+            "body": (
+                f"O conjunto processado tem {registros} registros, "
+                f"{faixas_unicas} faixas unicas e {generos} generos. O motor "
+                "usa metadados e caracteristicas de audio que ja estao locais."
+            ),
+        },
+        {
+            "label": "Vantagem etica como diferencial",
+            "body": (
+                "O produto mede diversidade e cobertura das respostas e audita "
+                "as faixas citadas pelo texto gerado."
+            ),
+        },
+        {
+            "label": "O que o investimento habilita",
+            "body": (
+                "Dados reais de interacao ajudam a combinar similaridade de "
+                "conteudo com preferencias observadas, mantendo o login Spotify "
+                "como recurso opcional."
+            ),
+        },
+        {
+            "label": "Riscos assumidos, nao escondidos",
+            "body": (
+                f"{repeticoes} registros repetem um track_id porque uma faixa "
+                "pode aparecer em varios generos. A busca remove a repeticao "
+                "do resultado sem apagar essa informacao da analise."
+            ),
+        },
+    ]
 
 ANALYSES = [
     {
@@ -404,7 +395,7 @@ def load_home_tiles(profile_path: Path) -> list[dict]:
     """Headline stats for the landing page: dataset size + curated market numbers."""
     profile = load_dataset_profile(profile_path)
     return [
-        {"label": "Faixas analisadas", "value": f"{profile['total_tracks']:,}".replace(",", "."), "icon": "music"},
+        {"label": "Registros analisados", "value": f"{profile['total_tracks']:,}".replace(",", "."), "icon": "music"},
         {"label": "Generos", "value": str(profile["unique_genres"]), "icon": "layers"},
         {"label": "Crescimento Brasil (2025)", "value": "+14,1%", "sub": "vs +6,4% global", "icon": "trending-up"},
         {"label": "Mercado global 2025", "value": "US$ 31,7bi", "sub": "IFPI 2026", "icon": "globe"},
@@ -416,7 +407,7 @@ def load_profile_tiles(profile_path: Path) -> list[dict]:
     profile = load_dataset_profile(profile_path)
     total_nulls = sum(profile["null_counts"].values())
     return [
-        {"label": "Faixas na base", "value": f"{profile['total_tracks']:,}".replace(",", "."), "icon": "music"},
+        {"label": "Registros na base", "value": f"{profile['total_tracks']:,}".replace(",", "."), "icon": "music"},
         {
             "label": "Faixas unicas",
             "value": f"{profile['unique_track_ids']:,}".replace(",", "."),
@@ -460,6 +451,10 @@ def build() -> None:
 
     env = Environment(loader=FileSystemLoader(TEMPLATES_DIR), autoescape=True)
     env.globals["nav_items"] = ANALYSES
+    profile = load_dataset_profile(PROFILE_JSON)
+    pitch_cards = build_pitch_cards(profile)
+    total_tracks = f"{profile['total_tracks']:,}".replace(",", ".")
+    unique_tracks = f"{profile['unique_track_ids']:,}".replace(",", ".")
 
     index_html = env.get_template("index.html").render(
         title="Analises",
@@ -467,22 +462,25 @@ def build() -> None:
         analyses=ANALYSES,
         team=TEAM,
         tiles=load_home_tiles(PROFILE_JSON),
-        pitch=PITCH_CARDS,
-        hero_tracks=f"{load_dataset_profile(PROFILE_JSON)['total_tracks']:,}".replace(",", "."),
-        hero_genres=load_dataset_profile(PROFILE_JSON)["unique_genres"],
+        pitch=pitch_cards,
+        hero_records=total_tracks,
+        hero_unique=unique_tracks,
+        hero_genres=profile["unique_genres"],
     )
     (DIST_DIR / "index.html").write_text(index_html, encoding="utf-8")
 
-    pitch_by_label = {card["label"]: card for card in PITCH_CARDS}
+    pitch_by_label = {card["label"]: card for card in pitch_cards}
     landing_html = env.get_template("landing.html").render(
         title="Landing",
         current_page="landing.html",
-        pitch=PITCH_CARDS,
+        pitch=pitch_cards,
         problema=pitch_by_label["Problema"],
         solucao=pitch_by_label["A solucao — arquitetura definida"],
         tiles=load_home_tiles(PROFILE_JSON),
         repo_url=REPO_URL,
         agente_url=AGENTE_DEMO_URL,
+        unique_tracks=unique_tracks,
+        hero_genres=profile["unique_genres"],
     )
     (DIST_DIR / "landing.html").write_text(landing_html, encoding="utf-8")
 
@@ -514,7 +512,7 @@ def build() -> None:
         )
         (DIST_DIR / analysis["href"]).write_text(html, encoding="utf-8")
 
-    total_tracks_display = f"{load_dataset_profile(PROFILE_JSON)['total_tracks']:,}".replace(",", ".")
+    total_tracks_display = total_tracks
 
     visao_geral_html = env.get_template("analise.html").render(
         title="Visao Geral do Dataset",
@@ -629,7 +627,7 @@ def build() -> None:
             "RELATORIO.md (proveniencia detalhada em data/FONTES.md)."
         ),
         download={"href": MARKET_REPORT_PDF.name, "label": "Baixar relatorio em PDF"},
-        pitch=PITCH_CARDS,
+        pitch=pitch_cards,
         tiles=[
             {"label": "MAU Spotify (7 trimestres)", "value": "+15,1%", "sub": "675M -> 777M, oficial", "icon": "users"},
             {"label": "Premium Spotify (7 trimestres)", "value": "+14,1%", "sub": "263M -> 300M, oficial", "icon": "star"},
