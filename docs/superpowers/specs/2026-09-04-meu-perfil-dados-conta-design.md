@@ -17,7 +17,7 @@ Campos usados: `display_name`, `images[0].url`, `followers.total`, `country`, `p
 ## Fluxo
 
 1. `renderProfilePanel()` chama `verificarStatusSpotify(currentSessionId)` (já existe, `app.js:359-374`).
-2. Não conectado → estado vazio com CTA "Conectar com Spotify" (mesmo link `/auth/login?session_id=...` usado em `renderWelcomePanel`, `app.js:1341`).
+2. Não conectado → estado vazio em texto, apontando pro botão "Conectar Spotify" já existente no header (decisão de implementação: evita duplicar um CTA clicável dentro do painel — ver plano).
 3. Conectado → `fetch('${API_BASE_URL}/explorer/me?session_id=...')`.
    - `401` (`spotify_nao_autenticado`) → mesmo estado do passo 2 (fail-safe, sessão pode ter expirado entre o check e o fetch).
    - Erro de rede/outro status → `renderPanelMessage(..., 'panel-state-error')`, mesmo padrão dos outros painéis.
