@@ -1,0 +1,25 @@
+name: Validar demonstracao do notebook
+
+on:
+  pull_request:
+    paths:
+      - 'analise_exploratoria.ipynb'
+      - 'scripts/**'
+      - 'tests/**'
+      - 'requirements.txt'
+      - '.github/workflows/notebook-demo.yml'
+  push:
+    branches: [main]
+
+jobs:
+  notebook:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements.txt
+      - run: python scripts/validate_notebook_demo.py
+      - run: python -m pytest -q tests
+      - run: python scripts/run_notebook_demo.py
