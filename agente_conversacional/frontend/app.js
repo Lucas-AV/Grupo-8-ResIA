@@ -574,6 +574,12 @@ async function init() {
 /**
  * Reflete `isSpotifyAuthenticated` no botão do header (ticket 12.2) — feedback
  * visível de que a sessão já está conectada, sem precisar clicar de novo.
+ *
+ * Também dispara `resia:spotify-auth-changed` (Ticket 20.7 / KAN-166): é o
+ * único ponto do app que muda `isSpotifyAuthenticated` (init/logout), então
+ * é o lugar certo pra avisar quem precisa nascer/sumir com o estado de auth
+ * — ex. o widget "Tocando agora" (components/nowPlaying.js), que nunca pode
+ * aparecer pra usuário anônimo.
  */
 function atualizarBotaoSpotifyAuth() {
   if (!btnSpotifyAuth) return;
@@ -588,6 +594,7 @@ function atualizarBotaoSpotifyAuth() {
     btnSpotifyAuth.title = 'Conectar com o Spotify para recomendações personalizadas';
     if (label) label.textContent = 'Conectar Spotify';
   }
+  window.dispatchEvent(new CustomEvent('resia:spotify-auth-changed', { detail: { authenticated: isSpotifyAuthenticated } }));
 }
 
 /**

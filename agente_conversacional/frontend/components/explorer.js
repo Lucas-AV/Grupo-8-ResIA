@@ -110,7 +110,10 @@
     });
   }
 
-  async function openPanel() {
+  // `tab` opcional (ex.: 'player', usado pelo widget "Tocando agora" —
+  // Ticket 20.7 / KAN-166) abre o painel direto na aba pedida em vez da
+  // última aba ativa.
+  async function openPanel(tab) {
     ensurePanel();
     const autenticado = window.ResIA && typeof window.ResIA.verificarStatusSpotify === 'function'
       ? await window.ResIA.verificarStatusSpotify(sessionId())
@@ -121,7 +124,7 @@
     }
     panelEl.hidden = false;
     document.body.classList.add('explorer-open');
-    selectTab(activeTab);
+    selectTab(tab || activeTab);
   }
 
   function closePanel() {

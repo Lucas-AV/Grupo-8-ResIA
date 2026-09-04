@@ -199,6 +199,11 @@
       </div>
     </main>
 
+    <!-- Widget "Tocando agora" (Ticket 20.7 / KAN-166): components/nowPlaying.js
+         monta o botão aqui só depois de confirmar sessão Spotify conectada
+         (nunca existe no DOM pra usuário anônimo) e só quando há faixa tocando. -->
+    <div id="now-playing-widget-root"></div>
+
     <!-- Dock Inferior Flutuante (Input Box estilo Knotes / Spotify) -->
     <div class="input-dock-wrapper">
       <form id="chat-form" class="input-pill-container" onsubmit="return false;">
@@ -240,6 +245,7 @@
   <script src="components/player.js"></script>
   <script src="components/explorer.js"></script>
   <script src="components/qrLogin.js"></script>
+  <script src="components/nowPlaying.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
