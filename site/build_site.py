@@ -6,12 +6,16 @@ from pathlib import Path
 
 import pandas as pd
 from jinja2 import Environment, FileSystemLoader
+from nbconvert import HTMLExporter
+from pygments.formatters import HtmlFormatter
 
 ROOT = Path(__file__).resolve().parent.parent
 SITE_DIR = Path(__file__).resolve().parent
 TEMPLATES_DIR = SITE_DIR / "templates"
 STATIC_DIR = SITE_DIR / "static"
 DIST_DIR = SITE_DIR / "dist"
+
+NOTEBOOK_PATH = ROOT / "analise_exploratoria.ipynb"
 
 GENRE_CSV = ROOT / "data" / "analytics" / "occurrences_by_genre.csv"
 GENRE_PNGS = [ROOT / "images" / "genre_popularity.png", ROOT / "images" / "genre_energy_dance.png"]
@@ -179,6 +183,13 @@ ANALYSES = [
         "nav": "Personas",
         "description": "Quatro perfis de usuario que ilustram os principais caminhos do pipeline conversacional (Proposta B).",
         "href": "personas.html",
+    },
+    {
+        "id": "notebook",
+        "title": "Notebook de Analise Exploratoria",
+        "nav": "Notebook",
+        "description": "Celulas e graficos do analise_exploratoria.ipynb, renderizados direto do repositorio.",
+        "href": "notebook.html",
     },
 ]
 
@@ -442,6 +453,14 @@ def load_market_share_rows(csv_path: Path) -> list[list]:
             ]
         )
     return rows
+
+
+def render_notebook_html(notebook_path: Path) -> tuple[str, str]:
+    """Convert the notebook to an embeddable HTML fragment + its pygments CSS."""
+    exporter = HTMLExporter(template_name="basic")
+    body, _resources = exporter.from_filename(str(notebook_path))
+    pygments_css = HtmlFormatter().get_style_defs(".notebook-embed .highlight")
+    return body, pygments_css
 
 
 def build() -> None:
@@ -841,6 +860,22 @@ def build() -> None:
         personas=PERSONAS,
     )
     (DIST_DIR / "personas.html").write_text(personas_html, encoding="utf-8")
+
+    notebook_body, pygments_css = render_notebook_html(NOTEBOOK_PATH)
+    notebook_html = env.get_template("notebook.html").render(
+        title="Notebook de Analise Exploratoria",
+        current_page="notebook.html",
+        eyebrow="Dataset Spotify · analise_exploratoria.ipynb",
+        heading="Notebook de Analise Exploratoria",
+        description=(
+            "Celulas de codigo e graficos do notebook guiado que fundamenta as "
+            "analises deste site, renderizados diretamente do repositorio."
+        ),
+        repo_href=f"{REPO_URL}/blob/main/{NOTEBOOK_PATH.name}",
+        notebook_body=notebook_body,
+        pygments_css=pygments_css,
+    )
+    (DIST_DIR / "notebook.html").write_text(notebook_html, encoding="utf-8")
 
     shutil.copytree(STATIC_DIR, DIST_DIR / "static")
     all_pngs = (

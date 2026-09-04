@@ -953,3 +953,95 @@ tbody tr:hover td { background: var(--row-hover); }
 }
 
 .landing-cta .hero-actions { margin-top: 20px; }
+
+/* Notebook embed (analise_exploratoria.ipynb via nbconvert) */
+.notebook-embed {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+.notebook-embed .cell {
+  margin: 0 0 20px;
+  padding: 16px 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.notebook-embed .text_cell {
+  padding: 4px 4px 4px 0;
+  border: none;
+  background: none;
+}
+
+.notebook-embed .text_cell_render {
+  color: var(--ink);
+  line-height: 1.6;
+}
+
+.notebook-embed .text_cell_render h1,
+.notebook-embed .text_cell_render h2,
+.notebook-embed .text_cell_render h3 {
+  font-family: "Manrope", sans-serif;
+  color: var(--ink);
+}
+
+.notebook-embed .text_cell_render a.anchor-link { display: none; }
+
+.notebook-embed .prompt {
+  display: none;
+}
+
+.notebook-embed .input_area pre,
+.notebook-embed .highlight pre {
+  margin: 0;
+  padding: 12px 14px;
+  overflow-x: auto;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.notebook-embed .output_area {
+  margin-top: 10px;
+}
+
+.notebook-embed .output_area pre {
+  margin: 0;
+  padding: 10px 14px;
+  overflow-x: auto;
+  background: var(--surface-2);
+  border-radius: 8px;
+  font-family: "IBM Plex Mono", ui-monospace, monospace;
+  font-size: 12.5px;
+  color: var(--ink-2);
+}
+
+.notebook-embed .output_area img,
+.notebook-embed .output_area svg {
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+
+.notebook-embed table.dataframe {
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 8px 0;
+  display: block;
+  overflow-x: auto;
+}
+
+.notebook-embed table.dataframe th,
+.notebook-embed table.dataframe td {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  text-align: right;
+}
+
+.notebook-embed table.dataframe th {
+  background: var(--surface-2);
+  color: var(--ink);
+}

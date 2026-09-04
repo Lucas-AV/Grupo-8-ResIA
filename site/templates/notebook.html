@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="page">
+  <header>
+    <p class="eyebrow">{{ eyebrow }}</p>
+    <h1>{{ heading }}</h1>
+    <p>{{ description }}</p>
+    <a class="btn btn-secondary" href="{{ repo_href }}">Ver notebook no repositorio</a>
+  </header>
+
+  <section>
+    <style>{{ pygments_css | safe }}</style>
+    <div class="notebook-embed">{{ notebook_body | safe }}</div>
+  </section>
+</div>
+{% endblock %}

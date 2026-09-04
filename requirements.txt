@@ -6,3 +6,4 @@ pytest>=7.4,<8
 jupyterlab>=4.0,<5
 nbclient>=0.10,<1
 nbformat>=5.10,<6
+nbconvert>=7.16,<8
