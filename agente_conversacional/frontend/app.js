@@ -471,6 +471,8 @@ const toastContainer = document.getElementById('toast-container');
 const btnThemeToggle = document.getElementById('btn-theme-toggle');
 const iconThemeDark = document.getElementById('icon-theme-dark');
 const iconThemeLight = document.getElementById('icon-theme-light');
+const btnHeaderMenu = document.getElementById('btn-header-menu');
+const headerMenuPanel = document.querySelector('.header-menu-panel');
 
 // ==========================================
 // 2.1 Módulo de Tema Claro/Escuro (Ticket 12.5 / KAN-108)
@@ -518,6 +520,23 @@ function toggleTheme() {
   const novoTema = temaAtual === 'light' ? 'dark' : 'light';
   applyTheme(novoTema);
   saveStoredTheme(novoTema);
+}
+
+// ==========================================
+// 2.2 Menu "···" de ações secundárias do header (Ticket 20.6 / KAN-165)
+// ==========================================
+function closeHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  headerMenuPanel.classList.remove('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', 'false');
+}
+
+function toggleHeaderMenu() {
+  if (!btnHeaderMenu || !headerMenuPanel) return;
+  const isOpen = headerMenuPanel.classList.toggle('is-open');
+  headerMenuPanel.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+  btnHeaderMenu.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
 }
 
 async function init() {
@@ -737,6 +756,27 @@ function setupEventListeners() {
   });
 
   btnThemeToggle?.addEventListener('click', toggleTheme);
+
+  // Ticket 20.6 (KAN-165): abre/fecha o menu "···" e fecha em clique fora,
+  // Esc ou seleção de qualquer item (tema, QR login, Explorar Spotify).
+  btnHeaderMenu?.addEventListener('click', (e) => {
+    e.stopPropagation();
+    toggleHeaderMenu();
+  });
+
+  headerMenuPanel?.addEventListener('click', (e) => {
+    if (e.target.closest('.header-menu-item')) closeHeaderMenu();
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!headerMenuPanel || !headerMenuPanel.classList.contains('is-open')) return;
+    if (headerMenuPanel.contains(e.target) || btnHeaderMenu?.contains(e.target)) return;
+    closeHeaderMenu();
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') closeHeaderMenu();
+  });
 
   btnMic?.addEventListener('click', () => {
     showToast('Entrada de voz Convora: gravação ativada (modo demo).');

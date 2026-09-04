@@ -610,19 +610,25 @@
     const btn = document.createElement('button');
     btn.type = 'button';
     btn.id = 'btn-open-explorer';
-    btn.className = 'btn-icon-secondary';
+    btn.className = 'header-menu-item';
+    btn.setAttribute('role', 'menuitem');
     btn.title = 'Explorar Spotify (busca, playlists, player e mais)';
     btn.setAttribute('aria-label', 'Explorar Spotify');
     btn.innerHTML = `
-      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-        <circle cx="11" cy="11" r="8"></circle>
-        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-      </svg>
+      <span class="header-menu-item-icon">
+        <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="11" cy="11" r="8"></circle>
+          <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+        </svg>
+      </span>
+      <span>Explorar Spotify</span>
     `;
     btn.addEventListener('click', openPanel);
     return btn;
   }
 
+  // Ticket 20.6 (KAN-165): botão passa a viver dentro do menu "···" de
+  // ações secundárias do header em vez de solto ao lado do tema.
   function init() {
     const anchor = document.getElementById('btn-theme-toggle');
     if (anchor && anchor.parentElement && !document.getElementById('btn-open-explorer')) {
