@@ -1478,6 +1478,14 @@ body {
   min-height: 24px;
   line-height: 1.4;
   padding: 4px 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.chat-input-field::-webkit-scrollbar {
+  width: 0;
+  height: 0;
 }
 
 .chat-input-field::placeholder {
