@@ -15,18 +15,18 @@ class PendingAuth:
     def __init__(self):
         self._pending = {}
 
-    def start(self, session_id):
+    def start(self, session_id, pair_code=None):
         state = pkce.generate_state()
         code_verifier = pkce.generate_code_verifier()
-        self._pending[state] = {"session_id": session_id, "code_verifier": code_verifier}
+        self._pending[state] = {"session_id": session_id, "code_verifier": code_verifier, "pair_code": pair_code}
         return state, code_verifier
 
     def consume(self, state):
         return self._pending.pop(state, None)
 
 
-def build_authorize_url(session_id, pending_auth):
-    state, code_verifier = pending_auth.start(session_id)
+def build_authorize_url(session_id, pending_auth, pair_code=None):
+    state, code_verifier = pending_auth.start(session_id, pair_code=pair_code)
     params = {
         "client_id": config.client_id(),
         "response_type": "code",

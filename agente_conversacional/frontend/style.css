@@ -1146,3 +1146,506 @@ body {
     padding: 5px 10px;
   }
 }
+
+/* ==========================================
+   Épico 13 (KAN-123) — integração das funcionalidades do spotify_explorer:
+   botão + painel "Explorar Spotify", controles de player, prévia de áudio
+   e login por QR code. Reaproveita os tokens de tema já definidos em :root.
+   ========================================== */
+
+/* Prévia de 30s no trackCard (13.12 / KAN-121) */
+.btn-track-preview .icon-preview-pause {
+  display: none;
+}
+.btn-track-preview.playing .icon-preview-play {
+  display: none;
+}
+.btn-track-preview.playing .icon-preview-pause {
+  display: inline;
+}
+.btn-track-preview.playing {
+  color: var(--spotify-green);
+  background: var(--spotify-green-subtle);
+}
+.btn-track-preview.loading {
+  opacity: 0.5;
+  cursor: wait;
+}
+
+/* Overlay compartilhado pelo painel Explorar e pelo modal de QR login */
+.explorer-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 200;
+  padding: 20px;
+}
+.explorer-overlay[hidden] {
+  display: none;
+}
+
+.explorer-panel,
+.qr-login-panel {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  width: min(720px, 100%);
+  max-height: min(88vh, 820px);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.4);
+}
+
+.explorer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.explorer-header h2 {
+  font-size: 16px;
+  margin: 0;
+  color: var(--text-primary);
+}
+.explorer-close {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  font-size: 16px;
+  cursor: pointer;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+}
+.explorer-close:hover {
+  color: var(--text-primary);
+  background: var(--overlay-weak);
+}
+
+.explorer-tabs {
+  display: flex;
+  gap: 4px;
+  padding: 10px 16px;
+  overflow-x: auto;
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--border-subtle);
+}
+.explorer-tab-btn {
+  white-space: nowrap;
+  padding: 7px 12px;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.explorer-tab-btn:hover {
+  color: var(--text-primary);
+  background: var(--overlay-weak);
+}
+.explorer-tab-btn.active {
+  color: var(--spotify-green);
+  background: var(--spotify-green-subtle);
+  border-color: var(--border-focus);
+}
+
+.explorer-breadcrumb {
+  padding: 8px 16px;
+  font-size: 12px;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+.explorer-breadcrumb button {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 0;
+  font-size: 12px;
+}
+.explorer-breadcrumb button:last-child {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.explorer-breadcrumb .crumb-sep {
+  margin: 0 4px;
+  color: var(--text-subtle);
+}
+
+.explorer-content {
+  padding: 16px 20px 24px;
+  overflow-y: auto;
+  flex: 1;
+}
+
+.explorer-loading,
+.explorer-empty,
+.explorer-hint {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 12px 0;
+}
+.explorer-error {
+  color: #f87171;
+  font-size: 13px;
+  padding: 12px 0;
+}
+
+.explorer-search-form {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.explorer-search-form input[type='search'],
+.explorer-search-form input[type='text'] {
+  flex: 1;
+  padding: 9px 12px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.explorer-search-form select {
+  padding: 9px 10px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-surface-elevated);
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.explorer-search-form button {
+  padding: 9px 16px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: var(--spotify-green);
+  color: #04120a;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+.explorer-search-form button:hover {
+  background: var(--spotify-green-hover);
+}
+
+.explorer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 10px;
+}
+.explorer-grid-compact {
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+}
+
+.explorer-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  background: var(--bg-surface-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 8px;
+  cursor: pointer;
+  text-align: left;
+  transition: var(--transition-fast);
+}
+.explorer-item-card:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-focus);
+}
+.explorer-item-cover,
+.explorer-item-cover-placeholder {
+  width: 100%;
+  aspect-ratio: 1;
+  border-radius: var(--radius-xs);
+  overflow: hidden;
+  background: var(--bg-surface);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 22px;
+}
+.explorer-item-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.explorer-item-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.explorer-item-text strong {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.explorer-item-text span {
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.explorer-me-profile {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+.explorer-me-avatar {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+.explorer-me-profile strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+.explorer-me-profile span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.explorer-me-section {
+  margin-bottom: 20px;
+}
+.explorer-me-section h3 {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin: 0 0 8px;
+}
+
+.explorer-detail-header {
+  display: flex;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+.explorer-detail-header img {
+  width: 96px;
+  height: 96px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.explorer-detail-header img.explorer-detail-cover-round {
+  border-radius: 50%;
+}
+.explorer-detail-header h3 {
+  margin: 0 0 4px;
+  color: var(--text-primary);
+  font-size: 16px;
+}
+.explorer-detail-header p {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+.explorer-detail-header a {
+  color: var(--spotify-green);
+  font-size: 12px;
+  text-decoration: none;
+}
+
+.explorer-tracklist {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.explorer-tracklist-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 8px;
+  border-radius: var(--radius-xs);
+}
+.explorer-tracklist-row:hover {
+  background: var(--overlay-weak);
+}
+.explorer-tracklist-index {
+  color: var(--text-subtle);
+  font-size: 12px;
+  width: 20px;
+  text-align: right;
+  flex-shrink: 0;
+}
+.explorer-tracklist-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.explorer-tracklist-text strong {
+  font-size: 12.5px;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.explorer-tracklist-text span {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.explorer-tracklist-row a {
+  color: var(--text-muted);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+.explorer-tracklist-row a:hover {
+  color: var(--spotify-green);
+}
+
+.explorer-features-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+  gap: 8px;
+}
+.explorer-feature-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 8px 10px;
+  background: var(--bg-surface-elevated);
+  border-radius: var(--radius-xs);
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+.explorer-feature-row strong {
+  color: var(--spotify-green);
+}
+
+/* Player (13.11 / KAN-120) */
+.explorer-player {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  align-items: center;
+  padding: 8px 0 4px;
+}
+.explorer-player-now {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+}
+.explorer-player-now img {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+}
+.explorer-player-now strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+.explorer-player-now span {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.explorer-player-controls {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+}
+.explorer-player-controls button {
+  background: transparent;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.explorer-player-controls button[data-action='toggle-play'] {
+  font-size: 22px;
+  color: var(--text-primary);
+  background: var(--spotify-green-subtle);
+}
+.explorer-player-controls button:hover {
+  background: var(--overlay-weak);
+}
+.explorer-player-controls button.active {
+  color: var(--spotify-green);
+}
+.explorer-player-seek,
+.explorer-player-volume {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+}
+.explorer-player-seek span {
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 34px;
+  flex-shrink: 0;
+}
+.explorer-player-seek input[type='range'],
+.explorer-player-volume input[type='range'] {
+  flex: 1;
+  accent-color: var(--spotify-green);
+}
+
+/* Login por QR code (13.13 / KAN-122) */
+.qr-login-panel {
+  width: min(360px, 100%);
+}
+.qr-login-body {
+  padding: 18px 20px 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  text-align: center;
+}
+.qr-login-body p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 12.5px;
+}
+.qr-login-image {
+  width: 220px;
+  height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #fff;
+  border-radius: var(--radius-sm);
+}
+.qr-login-image img {
+  width: 100%;
+  height: 100%;
+}
+.qr-login-status {
+  color: var(--text-muted) !important;
+  font-size: 12px !important;
+}
+
+@media (max-width: 640px) {
+  .explorer-panel,
+  .qr-login-panel {
+    max-height: 92vh;
+  }
+  .explorer-tabs {
+    gap: 2px;
+  }
+}
