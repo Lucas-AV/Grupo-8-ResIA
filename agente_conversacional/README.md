@@ -155,8 +155,8 @@ resposta = chamar_llm([{"role": "user", "content": "quero pagode"}])
 
 | Ticket | O que cobre | Status |
 |---|---|---|
-| 0.1 — Instalar/configurar modelo local | Ollama já instalado nesta máquina (v0.18.3); serviço estava parado, subiu ao rodar `ollama list`. Modelo alvo `qwen2.5:7b-instruct-q4_K_M` **ainda não foi baixado** — só há `glm-4.7-flash:latest` (19GB) local, usado pra validar o backend de ponta a ponta. Ver achado de RAM/GPU em [`docs/logistica_rede.md`](docs/logistica_rede.md). | Parcial — falta `ollama pull qwen2.5:7b-instruct-q4_K_M` e reteste com o modelo alvo |
-| 0.2 — `chamar_llm(...)` | Implementado (`llm/client.py`), backend Ollama real (`llm/backends/ollama_backend.py`), testado com mocks e uma vez contra o Ollama real rodando localmente. | Feito |
+| 0.1 — Instalar/configurar modelo local | Ollama instalado (v0.18.3) e com o modelo alvo `qwen2.5:7b-instruct-q4_K_M` (4.7GB) baixado e confirmado via `ollama list`/`ollama ps`. Validado servindo em `http://localhost:11434` (ver Épico 15). Ver achado de RAM/GPU em [`docs/logistica_rede.md`](docs/logistica_rede.md). | Feito |
+| 0.2 — `chamar_llm(...)` | Implementado (`llm/client.py`), backend Ollama real (`llm/backends/ollama_backend.py`), testado com mocks (`test_ollama_backend.py`) e validado repetidamente contra o Ollama real, incluindo `formato_json=True` (ver Épico 15). | Feito |
 | 0.3 — Backend hospedado alternativo | Implementado (`llm/backends/claude_backend.py`), troca via `LLM_BACKEND=claude`, chave lida de `ANTHROPIC_API_KEY`. Não testado contra a API real (precisa de chave válida). | Feito (não testado contra API real) |
 | 0.4 — Health-check no boot | `app.py` usa `lifespan` do FastAPI pra logar disponibilidade no boot sem bloquear a subida; endpoint `GET /health` exposto. | Feito |
 | 0.5 — Logística de rede da demo | Ver [`docs/logistica_rede.md`](docs/logistica_rede.md) — opção recomendada documentada, falta ensaiar no hardware real de quem apresenta. | Parcial — decisão proposta, falta validar/ensaiar |
@@ -354,4 +354,105 @@ Módulo `api/` + `sessions/` — sessões de conversa em memória, endpoints
 
 Épico 12 completo.
 
-Testes: `pytest` — 190 testes no total, todos com rede/LLM mockados.
+## Épico 13 — Integração das funcionalidades do spotify_explorer (status por ticket)
+
+Porta pro produto real (aqui, não em `spotify_explorer/frontend/` — aquilo é
+a ferramenta de dev) as funcionalidades de navegação e controle que só
+existiam no `spotify_explorer`. Todas as rotas ficam em
+`spotify_auth/explorer.py` (chamadas à Spotify Web API) +
+`spotify_auth/explorer_routes.py` (rotas HTTP, prefixo `/explorer`), usando
+o mesmo access_token PKCE por sessão de `spotify_auth/client.py` — nenhum
+escopo OAuth novo foi necessário, os endpoints de catálogo/dados do usuário
+aceitam qualquer Bearer token válido.
+
+| Ticket | O que cobre | Status |
+|---|---|---|
+| 13.1 — Busca | `GET /explorer/search` (`q`, `type`, `limit`). | Feito |
+| 13.2 — Detalhes de faixa | `GET /explorer/track/{id}`, `/audio-features`, `/audio-analysis`. | Feito |
+| 13.3 — Detalhes de artista | `GET /explorer/artist/{id}`, `/top-tracks`, `/albums`, `/related-artists`. | Feito |
+| 13.4 — Detalhes de álbum | `GET /explorer/album/{id}`. | Feito |
+| 13.5 — Detalhes de playlist | `GET /explorer/playlist/{id}`. | Feito |
+| 13.6 — Minhas playlists | `GET /explorer/me/playlists`. | Feito |
+| 13.7 — Lançamentos recentes | `GET /explorer/new-releases`. | Feito |
+| 13.8 — Recomendações via API nativa do Spotify | `GET /explorer/recommendations` (seed_tracks/seed_artists/seed_genres). | Feito |
+| 13.9 — Seguindo | `GET /explorer/me/following`. | Feito |
+| 13.10 — Meus dados | `GET /explorer/me`, `/me/top/tracks`, `/me/top/artists`, `/me/tracks`, `/me/player/recently-played`. | Feito |
+| 13.11 — Controles de reprodução | `GET/POST /explorer/me/player*` (play/pause/next/previous/seek/volume/shuffle/repeat/queue). | Feito |
+| 13.12 — Preview de áudio (corrige KAN-77) | Reimplementado em `frontend/components/trackCard.js` (antes só existia em `spotify_explorer/frontend/`) — botão de prévia de 30s por faixa, busca `preview_url` via `/explorer/track/{id}`. | Feito |
+| 13.13 — Login via QR code | `GET /auth/qr` (gera código + QR em SVG data URI) e `GET /auth/pair/{code}/status` (polling). Endurecido em relação ao spotify_explorer: o kiosk nunca aprende o `access_token` do celular diretamente — o relay (`spotify_auth/pairing_store.py`) só guarda os tokens até o kiosk consumir uma vez, e o código de pareamento é de uso único e TTL de 5 min. | Feito |
+
+Frontend: painel único "Explorar Spotify" (`frontend/components/explorer.js`,
+botão de lupa no cabeçalho, ao lado do alternador de tema) reúne busca,
+lançamentos, minhas playlists, seguindo, meus dados, recomendações e player
+— clicar em qualquer resultado abre o detalhe (faixa/artista/álbum/playlist)
+empilhado com breadcrumb pra voltar. Login por QR fica num botão dedicado ao
+lado de "Conectar Spotify" (`frontend/components/qrLogin.js`).
+
+Testes: `test_spotify_explorer.py` (camada HTTP contra a Spotify Web API,
+mockada), `test_spotify_explorer_routes.py` (rotas FastAPI) e os testes de
+`/auth/qr`/`/auth/pair` acrescentados a `test_spotify_routes.py`.
+
+## Épico 15 — Modelo de IA local via Ollama (status por ticket)
+
+Diferente dos demais épicos, aqui a maior parte do trabalho já existia como
+código testado com mocks (`llm/backends/ollama_backend.py`,
+`test_ollama_backend.py`) — faltava validar contra um Ollama **de verdade**
+rodando. As tasks 15.1–15.3, 15.5 e 15.6 foram executadas e validadas nesta
+máquina; 15.4 e 15.7 têm sua parte automatizável coberta, mas dependem de
+login numa conta Spotify real (não automatizável nesta sessão) pra
+fechar por completo.
+
+| Ticket | O que foi validado | Status |
+|---|---|---|
+| 15.1 — Instalar/configurar Ollama local | `qwen2.5:7b-instruct-q4_K_M` (4.7GB) já instalado e servindo em `http://localhost:11434` (v0.18.3). Confirmado via `ollama list` e `GET /api/version`. | Feito |
+| 15.2 — Validar chamada real ao backend e ao health-check | `ollama_backend.call(...)` chamado de verdade (texto coerente, inclusive `formato_json=True`); `check_llm_health()` retornou `disponivel: True` com o servidor no ar. | Feito |
+| 15.3 — Calibrar timeouts pra latência real | Medido nesta máquina: ~3s (chamada simples), ~4.8s (`formato_json=True`), ~10s um turno completo de `/chat` que passa pela extração via LLM. O timeout de 8s usado nos testes/mocks é realista pra chamada individual — **não** cobre um turno completo com extração+geração em série; ver nota abaixo. | Feito |
+| 15.4 — Validar pipeline ponta a ponta com modelo real | `POST /chat` executado de ponta a ponta contra o Ollama real (sem mock) com sucesso (HTTP 200). **Achado real:** um pedido livre por humor ("triste, queria algo instrumental pra relaxar") não foi extraído em parâmetros estruturados pelo roteador/extração e caiu na resposta de esclarecimento — candidato a ajuste de prompt/roteador, não corrigido nesta entrega. Falta a parte que depende de conta Spotify real (dados de histórico/perfil do usuário) — ver checklist manual abaixo. | Parcial |
+| 15.5 — Validar fallback real quando o Ollama está indisponível | Com `OLLAMA_BASE_URL` apontando pra uma porta inexistente: `check_llm_health()` voltou `disponivel: False` sem lançar exceção, e `POST /chat` continuou respondendo **HTTP 200** com recomendação coerente (nunca 500). | Feito |
+| 15.6 — Documentar o setup | Este README (seção abaixo). | Feito |
+| 15.7 — Rodar o projeto inteiro sem mocks, ponta a ponta | Ollama real + backend real + frontend real cobertos (15.1–15.5). Falta autenticar com uma conta Spotify real no navegador — não automatizável nesta sessão (sem credenciais). Ver checklist manual abaixo. | Parcial |
+
+### Setup do Ollama local
+
+```bash
+# 1. Instalar o Ollama (https://ollama.com/download) e confirmar que subiu:
+ollama list                 # deve listar o(s) modelo(s) já baixado(s)
+curl http://localhost:11434/api/version
+
+# 2. Baixar o modelo padrão do projeto (se ainda não tiver):
+ollama pull qwen2.5:7b-instruct-q4_K_M
+
+# 3. Variáveis de ambiente (defaults já assumidos pelo código se omitidas):
+LLM_BACKEND=ollama                              # ou "claude" pra usar o backend hospedado
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=qwen2.5:7b-instruct-q4_K_M
+
+# 4. Rodar o backend normalmente (ver "Rodar o backend" acima) — o boot já
+#    loga se o LLM configurado está disponível (health-check no lifespan).
+```
+
+Sem GPU dedicada, a primeira chamada depois do processo do Ollama subir
+tende a ser mais lenta (carrega o modelo em memória) — as chamadas
+seguintes ficam consistentemente mais rápidas (~3s medidos aqui). Se o
+Ollama local não estiver disponível na sua máquina, defina
+`LLM_BACKEND=claude` com uma `ANTHROPIC_API_KEY` válida pra usar o backend
+hospedado alternativo sem mexer em nenhum outro código.
+
+### Checklist manual — partes que dependem de login Spotify real (15.4, 15.7)
+
+Não automatizável nesta sessão (exige e-mail/senha e consentimento numa
+conta Spotify real). Pra fechar 15.4/15.7, com o backend e o frontend de pé:
+
+- [ ] Fazer login com o Spotify pelo frontend real (botão "Conectar Spotify"
+      ou pelo QR code — 13.13).
+- [ ] Pedir uma recomendação no chat e confirmar que "Salvar no Spotify"
+      (12.1/12.2) cria a playlist de verdade.
+- [ ] Abrir o painel "Explorar Spotify" (13.1–13.11) e navegar por busca,
+      minhas playlists, meus dados e o player — com um dispositivo Spotify
+      ativo, testar play/pause/skip.
+- [ ] Tocar a prévia de 30s de uma faixa recomendada no chat (13.12).
+
+Testes automatizados: `pytest` — 303 testes no total (era 190 antes do
+Épico 13), rede/LLM mockados nos testes; as validações reais contra Ollama
+e a chamada `/chat` sem mock (Épico 15) foram feitas manualmente e estão
+documentadas acima, não fazem parte da suíte automatizada.

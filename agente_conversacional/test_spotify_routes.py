@@ -7,6 +7,7 @@ from fastapi.testclient import TestClient
 import spotify_auth.routes as routes
 from spotify_auth.client import PendingAuth
 from spotify_auth.errors import SpotifyNotAuthenticatedError, SpotifyPlaylistError, SpotifyTokenExchangeError
+from spotify_auth.pairing_store import PairingStore
 
 
 class _FakeTokenStore:
@@ -40,6 +41,7 @@ def client(monkeypatch):
     monkeypatch.setenv("SPOTIFY_CLIENT_ID", "client-123")
     monkeypatch.setenv("SPOTIFY_CLIENT_SECRET", "secret-456")
     monkeypatch.setattr(routes, "_pending_auth", PendingAuth())
+    monkeypatch.setattr(routes, "_pairing_store", PairingStore())
     fake_store = _FakeTokenStore()
     monkeypatch.setattr(routes, "_get_token_store", lambda: fake_store)
 
@@ -216,3 +218,118 @@ def test_criar_playlist_rejects_empty_faixas(client):
     response = client.post("/playlist/criar", json={"session_id": "sess-1", "faixas": []})
 
     assert response.status_code == 422
+
+
+# --- 13.13 — Login via QR code (pareamento) ---
+
+
+def test_auth_qr_returns_code_and_svg_data_uri(client):
+    response = client.get("/auth/qr?session_id=kiosk-1")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["code"]
+    assert body["qr_svg_data_uri"].startswith("data:image/svg+xml")
+    assert "pair=" + body["code"] in body["pair_login_url"]
+    assert "/auth/login/start" in body["pair_login_url"]
+
+
+def test_pair_status_not_found_for_unknown_code(client):
+    response = client.get("/auth/pair/codigo-que-nao-existe/status?session_id=kiosk-1")
+
+    assert response.status_code == 200
+    assert response.json() == {"status": "not_found"}
+
+
+def test_pair_status_pending_before_phone_completes_oauth(client):
+    qr = client.get("/auth/qr?session_id=kiosk-1").json()
+
+    response = client.get(f"/auth/pair/{qr['code']}/status?session_id=kiosk-1")
+
+    assert response.json() == {"status": "pending"}
+
+
+def test_callback_with_pair_code_relays_tokens_and_does_not_touch_kiosk_session_yet(client, monkeypatch):
+    qr = client.get("/auth/qr?session_id=kiosk-1").json()
+    login_response = client.get(
+        f"/auth/login/start?session_id=qr-pair-phone&pair={qr['code']}", follow_redirects=False
+    )
+    state = _extract_state(login_response)
+
+    monkeypatch.setattr(
+        routes,
+        "exchange_code_for_tokens",
+        lambda code, code_verifier: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
+    )
+
+    response = client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
+
+    assert response.status_code == 200
+    assert "Spotify conectado" in response.text
+    # tokens ainda nao foram salvos em nenhuma sessao — so no relay, ate o kiosk consumir
+    assert client.fake_store.saved is None
+
+
+def test_pair_status_completed_saves_tokens_into_kiosk_session(client, monkeypatch):
+    qr = client.get("/auth/qr?session_id=kiosk-1").json()
+    login_response = client.get(
+        f"/auth/login/start?session_id=qr-pair-phone&pair={qr['code']}", follow_redirects=False
+    )
+    state = _extract_state(login_response)
+    monkeypatch.setattr(
+        routes,
+        "exchange_code_for_tokens",
+        lambda code, code_verifier: {"access_token": "at-phone", "refresh_token": "rt-phone", "expires_in": 3600},
+    )
+    client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
+
+    response = client.get(f"/auth/pair/{qr['code']}/status?session_id=kiosk-1")
+
+    assert response.json() == {"status": "completed"}
+    session_id, access_token, refresh_token, _ = client.fake_store.saved
+    assert (session_id, access_token, refresh_token) == ("kiosk-1", "at-phone", "rt-phone")
+    assert client.fake_session_store.authenticated_sessions == ["kiosk-1"]
+
+
+def test_pair_status_is_one_shot_second_poll_after_completed_returns_not_found(client, monkeypatch):
+    qr = client.get("/auth/qr?session_id=kiosk-1").json()
+    login_response = client.get(
+        f"/auth/login/start?session_id=qr-pair-phone&pair={qr['code']}", follow_redirects=False
+    )
+    state = _extract_state(login_response)
+    monkeypatch.setattr(
+        routes,
+        "exchange_code_for_tokens",
+        lambda code, code_verifier: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
+    )
+    client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
+    client.get(f"/auth/pair/{qr['code']}/status?session_id=kiosk-1")
+
+    response = client.get(f"/auth/pair/{qr['code']}/status?session_id=kiosk-1")
+
+    assert response.json() == {"status": "not_found"}
+
+
+def test_callback_with_expired_pair_code_returns_410(client, monkeypatch):
+    login_response = client.get(
+        "/auth/login/start?session_id=qr-pair-phone&pair=codigo-que-ja-expirou", follow_redirects=False
+    )
+    state = _extract_state(login_response)
+    monkeypatch.setattr(
+        routes,
+        "exchange_code_for_tokens",
+        lambda code, code_verifier: {"access_token": "at", "refresh_token": "rt", "expires_in": 3600},
+    )
+
+    response = client.get(f"/auth/callback?code=auth-code&state={state}", follow_redirects=False)
+
+    assert response.status_code == 410
+    assert "expirou" in response.text.lower()
+
+
+def test_normal_login_start_without_pair_still_works(client):
+    """Garante que o parametro `pair` opcional nao quebrou o fluxo de login normal (4.4/5.x)."""
+    response = client.get("/auth/login/start?session_id=sess-1", follow_redirects=False)
+
+    assert response.status_code in (302, 307)
+    assert "pair=" not in response.headers["location"]

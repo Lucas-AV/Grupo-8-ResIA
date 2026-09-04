@@ -39,6 +39,101 @@ function getGenreTheme(genero) {
   return GENRE_THEMES[key] || GENRE_THEMES.default;
 }
 
+// ==========================================
+// Preview de áudio (Ticket 13.12 / KAN-121 — porta corretamente o padrão
+// validado em spotify_explorer/frontend/src/composables/usePreviewPlayer.js
+// pra dentro do produto real, integrado ao trackCard já existente aqui).
+// ==========================================
+
+const _PREVIEW_API_BASE_URL =
+  window.location.protocol.startsWith('http') && window.location.port !== '5500' && window.location.port !== '3000'
+    ? ''
+    : 'http://127.0.0.1:8000';
+
+const _previewAudio = new Audio();
+let _previewTrackId = null;
+let _previewButtonEl = null;
+const _previewUrlCache = new Map();
+
+function _setPreviewButtonState(state) {
+  if (!_previewButtonEl) return;
+  _previewButtonEl.classList.toggle('playing', state === 'playing');
+  _previewButtonEl.classList.toggle('loading', state === 'loading');
+  _previewButtonEl.setAttribute('aria-label', state === 'playing' ? 'Pausar prévia' : 'Tocar prévia de 30s');
+}
+
+_previewAudio.addEventListener('ended', () => {
+  _setPreviewButtonState('idle');
+  _previewTrackId = null;
+  _previewButtonEl = null;
+});
+
+async function _resolvePreviewUrl(trackId) {
+  if (_previewUrlCache.has(trackId)) return _previewUrlCache.get(trackId);
+
+  const sessionId = window.ResIA && typeof window.ResIA.getSessionId === 'function' ? window.ResIA.getSessionId() : null;
+  if (!sessionId) return null;
+
+  const response = await fetch(
+    `${_PREVIEW_API_BASE_URL}/explorer/track/${encodeURIComponent(trackId)}?session_id=${encodeURIComponent(sessionId)}`
+  );
+  if (response.status === 401) {
+    const err = new Error('nao_autenticado');
+    err.codigo = 'spotify_nao_autenticado';
+    throw err;
+  }
+  if (!response.ok) return null;
+
+  const track = await response.json();
+  const previewUrl = track.preview_url || null;
+  _previewUrlCache.set(trackId, previewUrl);
+  return previewUrl;
+}
+
+async function togglePreview(trackId, buttonEl) {
+  if (!trackId) return;
+
+  // Já é a faixa carregada: só alterna play/pause, sem re-buscar.
+  if (_previewTrackId === trackId && _previewButtonEl === buttonEl) {
+    if (_previewAudio.paused) {
+      _previewAudio.play().catch(() => {});
+      _setPreviewButtonState('playing');
+    } else {
+      _previewAudio.pause();
+      _setPreviewButtonState('idle');
+    }
+    return;
+  }
+
+  // Troca de faixa: para a anterior e mostra loading na nova.
+  _previewAudio.pause();
+  if (_previewButtonEl) _setPreviewButtonState('idle');
+  _previewButtonEl = buttonEl;
+  _setPreviewButtonState('loading');
+
+  try {
+    const previewUrl = await _resolvePreviewUrl(trackId);
+    if (!previewUrl) {
+      _setPreviewButtonState('idle');
+      if (typeof window.showToast === 'function') {
+        window.showToast('Prévia de 30s indisponível para essa faixa.');
+      }
+      _previewTrackId = null;
+      return;
+    }
+    _previewAudio.src = previewUrl;
+    _previewTrackId = trackId;
+    _previewAudio.play().catch(() => {});
+    _setPreviewButtonState('playing');
+  } catch (err) {
+    _setPreviewButtonState('idle');
+    _previewTrackId = null;
+    if (err && err.codigo === 'spotify_nao_autenticado' && typeof window.showToast === 'function') {
+      window.showToast('Conecte com o Spotify para ouvir a prévia das faixas.');
+    }
+  }
+}
+
 /**
  * Escapa strings contra injeção de HTML.
  */
@@ -102,8 +197,16 @@ function createTrackCardElement(faixa, index = 0) {
       </div>
     </div>
 
-    <!-- Ações Rápidas: Abrir e Copiar Link -->
+    <!-- Ações Rápidas: Prévia, Abrir e Copiar Link -->
     <div class="track-actions-group">
+      <button type="button" class="btn-track-action btn-track-preview" title="Tocar prévia de 30s" aria-label="Tocar prévia de 30s">
+        <svg class="icon-preview-play" width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <polygon points="6 3 20 12 6 21 6 3"/>
+        </svg>
+        <svg class="icon-preview-pause" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" style="display:none;">
+          <rect x="5" y="3" width="5" height="18"/><rect x="14" y="3" width="5" height="18"/>
+        </svg>
+      </button>
       <button type="button" class="btn-track-action btn-copy-track-link" title="Copiar link do Spotify" data-url="${spotifyUrl}">
         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
           <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
@@ -119,6 +222,15 @@ function createTrackCardElement(faixa, index = 0) {
       </a>
     </div>
   `;
+
+  // Ouvinte para o botão de prévia de 30s (ticket 13.12)
+  const previewBtn = card.querySelector('.btn-track-preview');
+  if (previewBtn && trackId) {
+    previewBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      togglePreview(trackId, previewBtn);
+    });
+  }
 
   // Ouvinte para cópia do link do Spotify
   const copyBtn = card.querySelector('.btn-copy-track-link');

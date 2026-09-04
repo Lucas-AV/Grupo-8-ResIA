@@ -16,3 +16,7 @@ class SpotifyNotAuthenticatedError(SpotifyAuthError):
 
 class SpotifyPlaylistError(SpotifyAuthError):
     """Levantado quando criar a playlist ou adicionar faixas falha na Spotify Web API (ticket 12.1)."""
+
+
+class SpotifyExplorerError(SpotifyAuthError):
+    """Levantado quando uma chamada de leitura/controle da Spotify Web API falha (Épico 13)."""
