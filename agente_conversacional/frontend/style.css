@@ -1869,9 +1869,9 @@ body {
 .profile-summary { padding-bottom: 22px; border-bottom: 1px solid var(--border-subtle); }
 .profile-summary p { color: var(--text-secondary); font-size: 0.86rem; line-height: 1.5; margin-top: 8px; }
 .feature-list { display: grid; gap: 16px; padding: 22px 0; }
-.feature-row > div:first-child, .metric-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.feature-row > div:first-child, .metric-row, .profile-account-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .feature-row span, .metric-row, .history-item time { color: var(--text-secondary); font-size: 0.8rem; text-transform: capitalize; }
-.feature-row strong, .metric-row strong { color: var(--text-primary); font-size: 0.8rem; }
+.feature-row strong, .metric-row strong, .profile-account-row strong { color: var(--text-primary); font-size: 0.8rem; }
 .feature-meter { height: 5px; background: var(--bg-surface-elevated); border-radius: var(--radius-pill); margin-top: 8px; overflow: hidden; }
 .feature-meter span { display: block; height: 100%; background: var(--spotify-green); border-radius: inherit; }
 .history-item { padding: 15px 0; border-bottom: 1px solid var(--border-subtle); }
@@ -1927,18 +1927,8 @@ body {
   border-bottom: 1px solid var(--border-subtle);
   margin-bottom: 16px;
 }
-.profile-account-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-}
 .profile-account-row span {
   color: var(--text-secondary);
-  font-size: 0.8rem;
-}
-.profile-account-row strong {
-  color: var(--text-primary);
   font-size: 0.8rem;
 }
 
