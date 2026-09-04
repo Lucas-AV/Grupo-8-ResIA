@@ -225,7 +225,9 @@ async function enviarMensagem(sessionId, mensagem, extras = {}) {
     clearTimeout(timeoutId);
     console.warn('Backend inacessível ou offline. Utilizando resolução resiliente:', err);
     await new Promise((r) => setTimeout(r, 650));
-    return resolverMockLocal(sessionId, mensagem);
+    // Não apresenta um catálogo local como se fosse uma recomendação
+    // confirmada. A interface trata esta falha com uma mensagem clara.
+    throw err;
   }
   clearTimeout(timeoutId);
 
