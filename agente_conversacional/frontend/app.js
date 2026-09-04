@@ -289,10 +289,9 @@ function loadSettings() {
     const stored = JSON.parse(localStorage.getItem(SETTINGS_STORAGE_KEY) || '{}');
     return {
       excludeExplicit: stored.excludeExplicit !== false,
-      theme: stored.theme === 'light' ? 'light' : 'dark',
     };
   } catch (error) {
-    return { excludeExplicit: true, theme: 'dark' };
+    return { excludeExplicit: true };
   }
 }
 
@@ -304,12 +303,9 @@ function saveSettings(settings) {
   }
 }
 
-function applyTheme(theme) {
-  const nextTheme = theme === 'light' ? 'light' : 'dark';
-  document.documentElement.dataset.theme = nextTheme;
-  const settings = loadSettings();
-  saveSettings({ ...settings, theme: nextTheme });
-}
+// Tema (claro/escuro) tem uma única fonte de verdade: getStoredTheme/
+// applyTheme/saveStoredTheme (Ticket 12.5 / KAN-108, mais abaixo) — não
+// duplicar aqui. `resia_settings` guarda só preferências que não são tema.
 
 function loadCreatedPlaylists() {
   try {
@@ -853,7 +849,6 @@ async function carregarHistoricoInicial(resultado) {
 
   // Ticket 17: reconstrói o índice de descobertas a partir do histórico restaurado.
   rebuildDiscoveries();
-  applyTheme(settings.theme);
 }
 
 function updateSessionDisplay() {
@@ -1245,6 +1240,9 @@ function renderDiscoveriesPanel() {
 function renderSettingsPanel() {
   const content = panelDefinitions.settings.content;
   settings = loadSettings();
+  // Tema lido da fonte única de verdade (data-theme na raiz, ver
+  // getStoredTheme/applyTheme — Ticket 12.5 / KAN-108), não de `settings`.
+  const temaAtual = document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
   content.innerHTML = `
     <section class="settings-group">
       <h3>Recomendações</h3>
@@ -1256,8 +1254,8 @@ function renderSettingsPanel() {
     <section class="settings-group">
       <h3>Aparência</h3>
       <div class="theme-options" role="group" aria-label="Tema">
-        <button class="theme-option ${settings.theme === 'dark' ? 'is-selected' : ''}" data-theme-choice="dark" type="button">Escuro</button>
-        <button class="theme-option ${settings.theme === 'light' ? 'is-selected' : ''}" data-theme-choice="light" type="button">Claro</button>
+        <button class="theme-option ${temaAtual === 'dark' ? 'is-selected' : ''}" data-theme-choice="dark" type="button">Escuro</button>
+        <button class="theme-option ${temaAtual === 'light' ? 'is-selected' : ''}" data-theme-choice="light" type="button">Claro</button>
       </div>
     </section>
   `;
@@ -1266,8 +1264,8 @@ function renderSettingsPanel() {
     saveSettings(settings);
   });
   content.querySelectorAll('[data-theme-choice]').forEach((button) => button.addEventListener('click', () => {
-    settings = { ...loadSettings(), theme: button.dataset.themeChoice };
-    applyTheme(settings.theme);
+    applyTheme(button.dataset.themeChoice);
+    saveStoredTheme(button.dataset.themeChoice);
     renderSettingsPanel();
   }));
 }
